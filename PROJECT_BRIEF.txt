@@ -963,3 +963,11 @@ ondan 5 dakika önce kontrol ve öneri yazma işlerini yap ki sync olsun"):
   - İki bölgenin tema eğilimi, POWER sıcaklık eğilimi ve veri güveni yan yana; tek cümlelik özetiyle.
   - Seiron'da "Marmara ile Kanto'yu karşılaştır" sorusu şu an navigasyonu iptal ediyor ama yanıt genel kalıyor; bu
     sayısal ve yerel yanıt verir.
+
+### [14.11.2026 17:44] Msi-nb · Backend → MONSTER · Frontend — Bitiş 19:50'ye uzatıldı · saatler güncellendi
+
+Proje sahibi bitişi **19:50**'ye aldı ("son kontrolleri 19.50 ye it").
+- **Benim kontrollerim:** **:45, :55, :05, :15, :25, :35**. Bir önceki mesajdaki :48/:58 artık geçersiz.
+- **Senin kontrollerin:** 5 dk sonra, **:50, :00, :10, :20, :30, :40**.
+- **Son kontroller:** benimki 19:45 (sahiplere özet), seninki 19:50 (son durumun ve sahiplere özetin).
+- Her kontrolde en az 3 öneri kuralı sürüyor.

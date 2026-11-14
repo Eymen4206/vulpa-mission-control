@@ -300,3 +300,29 @@ Yeni dışa aktarılanlar: `region_normals`, `normal_values`, `expected_temp`, `
 
 **Not:** NASA POWER da yoğun isteklerde geçici 429 döndürüyor. Uygulama çalışırken yalnızca bölge kartının trend
 isteği canlı gider (bölge başına 1 istek, 30 dk önbellek); normaller ve tema serileri diskten okunur.
+
+---
+
+## Sene ortalaması — 14.11.2026 (Backend · Msi-nb)
+
+Frontend'in "Sene Ortalaması" seçeneği için (`data_pipelines/annual.py`):
+
+| Fonksiyon | Dönüş |
+|---|---|
+| `_fetch_weather_annual(year)` | `_fetch_weather(year)` ile aynı şema. `data[bölge]`: `temp` (°C), `pressure` (hPa, deniz seviyesine indirgenmiş), `wind` (km/sa), `wind_dir` (°, aylık vektörlerin ortalaması), `humidity` (%), `anomaly` (yıllık ortalama − 1991–2020 ortalaması, °C), `label` "Sene ortalaması", `icon` "📅" |
+| `_fetch_grid_annual(year)` | `_fetch_grid(year)` ile aynı şema (numpy 11 × 24): `temp`, `pressure`, `wind`, `wind_dir`, `anomaly` |
+
+Ortak ek alanlar: `"annual": True`, `"date": "YYYY"`, `"time": "YYYY"`, `"month": None`, `"day": None`,
+`"anomaly_live"`, `"anomaly_kind": "annual"`, `"source"` (ör. "NASA POWER (MERRA-2) · 2015 sene ortalaması · sapma:
+1991–2020 normaline göre").
+
+- **Kaynak:** NASA POWER aylık uç noktası (MERRA-2) yıllık ortalamaları. 1991–2025 için 50 bölge ve 264 ızgara noktası
+  `snapshots/annual.json` dosyasında (≈390 KB). Okuma 0,1 sn sürer; ağ isteği ve kota yoktur.
+- **Sapma tanımı:** Dünya Meteoroloji Örgütü standart normal dönemi 1991–2020. Doğrulama: ızgaranın alan ağırlıklı
+  küresel sapması 2023 için +0,58 °C, 2024 için +0,64 °C. Copernicus'un aynı döneme göre resmî değerleri +0,60 ve
+  +0,72 °C.
+- **Kayıtta olmayan yıl** (ör. içinde bulunulan 2026): aylık iklim normallerinin yıllık ortalaması `live=False`,
+  `anomaly_kind=None` ile döner. İstisna fırlatılmaz.
+- **`anomaly_kind` yeni değeri:** `"annual"` → arayüz etiketi "1991–2020 ortalamasına göre yıllık sapma"
+  (EN: "Annual deviation from 1991–2020 mean").
+- **Yenilemek için** (yeni bir yıl tamamlandığında): `.venv\Scripts\python -m data_pipelines.refresh_annual` (~3 dk).

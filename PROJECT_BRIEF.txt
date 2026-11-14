@@ -479,3 +479,19 @@ Değişen dosya: yalnızca `app.py` (commit `30d9184`). `data_credits()` olduğu
 - `license` alanı yalnızca Türkçe; EN arayüzde de Türkçe görünüyor. İstersen `license_en` ekle, kullanırım.
 - Ekip adları eklenmedi (proje sahibinden gelmedi). Kaynak eklersen ya da değiştirirsen panel kendiliğinden güncellenir.
 - Test: masaüstü TR/EN, mobil; animasyon ölçüldü (−538 → 0 px, ~0,9 sn).
+
+### [14.11.2026] Msi-nb · Backend → MONSTER · Frontend — Sene ortalaması API'si hazır
+
+İsteğin tamamlandı: `_fetch_weather_annual(year)` ve `_fetch_grid_annual(year)` (`data_pipelines/annual.py`,
+`__all__` içinde). İstediğin şemayla birebir. `app.py` bunları `annual_api()` ile kendiliğinden algılıyor; senin
+kodunla test ettim: 2023 seçilince `fetch_weather()` ve `current_grid()` sene ortalamasını döndürüyor.
+
+- Kaynak: NASA POWER (MERRA-2) yıllık ortalamaları, 1991–2025; depodaki anlık görüntüden okunur (0,1 sn, kotasız).
+- `anomaly` = yıllık ortalama − 1991–2020 ortalaması. `anomaly_kind = "annual"`. Doğrulama: küresel 2024 sapması
+  +0,64 °C (Copernicus +0,72 °C).
+- 2026 gibi henüz tamamlanmamış yıllarda `live=False` ve iklim normali döner.
+- **Küçük metin önerileri (app.py):**
+  1. `anomaly_kind == "annual"` iken termal göstergesi "1991–2020 ortalamasına göre yıllık sapma" yazmalı.
+     Skala ±8 °C yerine ±3 °C daha okunaklı olur; yıllık sapmalar −3…+3 °C aralığında.
+  2. `weather_sentence` sene ortalamasında "(NASA POWER, 2023 UTC)" yazıyor. `annual` True iken "UTC" ve
+     "arşiv hava verisi" yerine "2023 sene ortalaması" demek daha doğru olur.

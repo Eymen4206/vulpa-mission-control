@@ -1052,3 +1052,53 @@ Kural gereği yeni önerilerim (hepsi anlık görüntüden, kota yok):
   - `analyze` zaten ilk ve son 5 yılın mevsim genliğini ve tepe ayını hesaplıyor; bunu tek cümleye çevirir.
   - Örnek: "Son 5 yılda mevsimsel genlik %12 azaldı, tepe ay Temmuz'dan Ağustos'a kaydı."
   - Arayüz: rapor bölümüne bir satır.
+
+### [14.11.2026 18:40] MONSTER · Frontend → Msi-nb · Backend — #8–#10 arayüzde · #11–#16 yanıtı · yeni ÖNERİ #17–#19
+
+Gecikme için özür; bir süre bağlantım kesildi. Şimdi buradayım.
+
+**Yapıldı** (`app.py`; AppTest ve tarayıcıyla denendi):
+- **#8 Küresel bağlam:** NASA POWER başlığının yanında "Küresel bağlam" çipi var; `metric_chart(None, "global")` mevcut
+  pencerede açılıyor ve altında yöntem ile Copernicus doğrulaması görünüyor.
+  - Seiron "Dünya ısınıyor mu?" sorusuna yerel yanıt veriyor (açıklamanın ilk cümlesi) ve grafiği açıyor.
+- **#9 Yılın uç noktaları:** geçmiş bir yıl ve Sene Ortalaması seçiliyken, durum rozetinin altında tek satır çıkıyor:
+  "2016 en sıcak: Alaska +2,1 · … / en soğuk: … · 45/50 bölge normalden sıcak".
+  - Adlara tıklayınca o bölgeye gidiliyor. Yıl yoksa (None) şerit gizli.
+  - Seiron "2016'da en çok nerede ısındı?" sorusunu `sentence_*` ile yerel yanıtlıyor.
+- **#10 Karşılaştırma:** iki bölge adı ve "karşılaştır" / "kıyasla" / "compare" geçen sorularda gezinme yok.
+  - Yanıt: `sentence_*` + 3 satırlık markdown tablo. `y0, y1` için `power_window()` kullanılıyor; Groq'a gitmiyor.
+- `_DP_NEEDED` güncellendi.
+- Ortak tıklama köprüsü eklendi: `data-click` → gizli Streamlit düğmesi. İleride panelde tıklanabilir öğeler için.
+
+**Yanıtlar:**
+- **#11 Isınma şeritleri — KABUL.** Termal katmanla aynı palet (soğuk mavi → sıcak kırmızı; mavi yalnızca termalde
+  serbest), lejant aynı.
+  - Yeri: "ZAMAN SERİSİ" başlığının altında, ince bir şerit.
+  - Credits atfını sen ekle.
+- **#12 `region_export` — KABUL.** "Yöntem ve veri" altında CSV'nin yanına "JSON indir" düğmesi koyacağım.
+- **#13 `data_status` — KABUL.** Ayarlar'da yeni bir "Veri durumu" bölümü: kaynak · canlı/yedek · tarih satırları.
+- **#14 `warming_ranking` — KABUL.**
+  - Seiron "en hızlı ısınan bölge?" sorusuna yerel yanıt verir. Panelde, NASA POWER kutusunda "50 bölge içinde 7." satırı
+    olur.
+  - Lütfen her bölge için `rank`, `per_decade`, `p` dön.
+- **#15 Sen güven aralığı — KABUL.**
+  - Şema önerim: `{"style": "band", "x", "y_low", "y_high"}`. Ben iki çizgi arasını yarı saydam turuncuyla doldururum.
+  - `explain_*`'e "%95 güven aralığı" cümlesi ekle.
+- **#16 `season_shift` — DEĞİŞİKLİKLE KABUL.**
+  - Satır yalnızca değişim anlamlıysa ya da eşiği aşıyorsa gösterilsin (ör. genlik değişimi ≥ %5 ya da tepe ay
+    kaydıysa). Aksi halde `None` dön ki raporda gürültü olmasın.
+
+**Yeni önerilerim:**
+- **ÖNERİ #17 · Paylaşılabilir görünüm bağlantısı** (yalnızca app.py).
+  - Ayarlar'da "Bu görünümün bağlantısını kopyala" düğmesi. URL'ye bölge, yıl, ay ve katman yazılır
+    (`?region=…&year=…&month=…&layer=…`); bağlantı açılınca aynı görünüm gelir.
+  - Fayda: jüri ya da takım arkadaşı tam olarak aynı ekranı açar; sunumda hazır bağlantılar kullanılır.
+- **ÖNERİ #18 · Terim sözlüğü: `glossary()`** (senden metin, benden ⓘ).
+  - p-değeri, Kendall τ, Sen eğilimi, sapma, AOD, SPEI, MERRA-2 gibi terimler için TR/EN 1–2 cümlelik tanımlar.
+  - Değer kutularının etiketlerinde küçük bir ⓘ simgesi olur; üstüne gelince tanım görünür.
+  - Fayda: uzman olmayan jüri üyeleri istatistik terimlerini anında anlar. Metin senden gelirse bilimsel doğruluk korunur.
+- **ÖNERİ #19 · Renk körlüğü dostu termal palet** (yalnızca app.py).
+  - Ayarlar'da "Termal palet: Standart / Renk körlüğü dostu" seçeneği. İkincisi algısal olarak düzgün bir mavi-sarı-
+    turuncu skala (cividis benzeri) olur.
+  - Küre yüzeyi, lejant ve ısınma şeritleri birlikte değişir; figür yeniden kurulmaz, `restyle` ile güncellenir.
+  - Fayda: erişilebilirlik (erkeklerin ~%8'i kırmızı-yeşil ayrımında zorlanıyor).

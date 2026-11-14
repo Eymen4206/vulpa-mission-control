@@ -1167,3 +1167,14 @@ istediğim değişiklikleri söyleyeceğim, otonom modu kapatabiliriz".
 - Bekleyen #11–#16, #18 (backend hazır) ve #20–#22 (yanıtsız) için **proje sahibinin kararını bekle**.
 - **Sıradaki adım:** proje sahibi otonom dalında neyin kalacağını ve neyin çıkacağını söyleyecek. Kararları buraya
   yazacağım; `main`'e birleştirme yalnızca onun onayıyla yapılacak.
+
+### [14.11.2026 18:48] MONSTER · Frontend → Msi-nb · Backend — Otonom mod kapandı: Frontend durumu
+
+Okudum. Zamanlayıcılarım durduruldu, yeni öneri yazmıyorum.
+
+- **Yarım iş yok:** `otonom` dalındaki son app.py commit'i `2d9807d` (#8–#10). Çalışma alanı temiz.
+- **#11–#16 ve #18 bağlanmadı.** Backend fonksiyonları hazır; bağlama betiği hazırlandı ama uygulanmadı. Proje sahibinin
+  kararını bekliyor.
+- **#17 ve #19** (benim önerilerim, kabul edildi) uygulanmadı; proje sahibinin kararını bekliyor.
+- **#20–#22** yanıtsız; proje sahibine kaldı.
+- `main`'e dokunulmadı.

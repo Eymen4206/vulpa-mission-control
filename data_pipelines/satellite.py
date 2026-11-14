@@ -154,6 +154,26 @@ DATASETS: dict[str, dict] = {
         "why_en": "Falls with drought and desertification; warming and CO₂ cause \"greening\" in some regions.",
         "regions": "all", "bad_dir": "down",
     },
+    "GRACE_TWS": {
+        "name_tr": "Toplam su depolaması (GRACE/GRACE-FO)", "name_en": "Total water storage (GRACE/GRACE-FO)",
+        "unit": "cm su", "unit_en": "cm water", "category": "water",
+        "instrument": "NASA/DLR GRACE ve GRACE-FO uyduları (JPL mascon RL06.3)",
+        "source": "NASA PO.DAAC · JPL GRACE/GRACE-FO mascon RL06.3 CRI",
+        "source_en": "NASA PO.DAAC · JPL GRACE/GRACE-FO mascon RL06.3 CRI",
+        "definition_tr": "İkiz uyduların aralarındaki mesafe değişiminden ölçülen yerçekimi farkı: bölgedeki toplam su "
+                         "kütlesinin (yeraltı suyu, toprak suyu, kar ve buz) 2004–2009 ortalamasına göre değişimi, cm su "
+                         "eşdeğeri. Bölgeler ~300 km çözünürlüktedir. Eksik aylar (pil yönetimi, 2017–2018 GRACE→GRACE-FO "
+                         "geçişi) zaman içinde doğrusal ara değerle doldurulur.",
+        "definition_en": "Gravity change measured from the distance between twin satellites: the change in total water "
+                         "mass (groundwater, soil water, snow and ice) relative to 2004–2009, in cm of water. Resolution "
+                         "is about 300 km. Missing months (battery management, the 2017–2018 GRACE→GRACE-FO gap) "
+                         "are filled by linear interpolation in time.",
+        "why_tr": "Yeraltı suyu tükenmesini ve buz tabakası kaybını doğrudan ölçen tek küresel yöntem (ör. İran, Hindistan "
+                  "kuzeyi, Grönland).",
+        "why_en": "The only global method that directly measures groundwater depletion and ice-sheet loss (e.g. Iran, "
+                  "northern India, Greenland).",
+        "regions": "all", "bad_dir": "down", "max_missing": 0.15, "interp": True,
+    },
 }
 
 
@@ -196,7 +216,7 @@ def extra_catalog(region: str, lang: str = "tr") -> list[dict]:
     out = []
     for key, m in DATASETS.items():
         vals, _ = _rec(key, region)
-        if vals is None or sum(v is None for v in vals) > len(vals) * 0.1:
+        if vals is None or sum(v is None for v in vals) > len(vals) * m.get("max_missing", 0.1):
             continue
         out.append({"key": key, "name": m["name_en" if en else "name_tr"], "unit": m["unit_en" if en else "unit"],
                     "category": m["category"], "instrument": m["instrument"],
@@ -215,11 +235,32 @@ def extra_grid_annual(key: str) -> tuple[list | None, list[int] | None]:
     out = []
     for vals in s["grid"]:
         ann = []
+        need = 8 if DATASETS.get(key, {}).get("interp") else 10
         for k in range(len(years)):
             chunk = [v for v in vals[k * 12:(k + 1) * 12] if v is not None]
-            ann.append(round(sum(chunk) / len(chunk), 4) if len(chunk) >= 10 else None)
+            ann.append(round(sum(chunk) / len(chunk), 4) if len(chunk) >= need else None)
         out.append(ann)
     return out, years
+
+
+def _interp(vals: list) -> list:
+    """Eksik ayları zaman içinde doğrusal ara değerle doldurur (uçlarda en yakın değer)."""
+    idx = [i for i, v in enumerate(vals) if v is not None]
+    if not idx:
+        return vals
+    out = list(vals)
+    for i, v in enumerate(vals):
+        if v is not None:
+            continue
+        lo = max((k for k in idx if k < i), default=None)
+        hi = min((k for k in idx if k > i), default=None)
+        if lo is None:
+            out[i] = vals[hi]
+        elif hi is None:
+            out[i] = vals[lo]
+        else:
+            out[i] = round(vals[lo] + (vals[hi] - vals[lo]) * (i - lo) / (hi - lo), 3)
+    return out
 
 
 def extra_analysis(region: str, key: str) -> dict | None:
@@ -241,9 +282,13 @@ def extra_analysis(region: str, key: str) -> dict | None:
             "source": m["source"], "source_en": m["source_en"], "instrument": m["instrument"], "giovanni_url": None,
             "extra": True}
     missing = sum(v is None for v in vals)
-    if missing > len(vals) * 0.1:
+    limit = m.get("max_missing", 0.1)
+    if missing > len(vals) * limit:
         return {**head, "available": False, "reason": "Bu veri setinde dönemin %10'undan fazlası eksik.",
                 "reason_en": "More than 10% of this dataset's period is missing."}
+    if m.get("interp") and missing:
+        vals = _interp(vals)
+        head["filled_months"] = missing
     s = {"dates": dates, "values": vals, "y0": y0, "y1": y1, "unit": m["unit"], "lat": spec.lat, "lon": spec.lon}
     smeta = ((load_extra().get("series") or {}).get(key) or {}).get("meta") or {}
     st_ = smeta.get(region)

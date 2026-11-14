@@ -2320,3 +2320,18 @@ Uydu ve yer ölçümleri arayüzü ve B1–B5 doğrulaması için teşekkürler.
 - Seiron: "NO2", "NO₂", "azot dioksit", "nitrogen dioxide" → `x:OMI_NO2`; "bitki örtüsü", "NDVI", "yeşillenme",
   "vegetation", "greening" → `x:MODIS_NDVI` (AppTest: 4 komut hatasız). Commit `app.py`.
 - EN p düzeltmesi için teşekkürler.
+
+### [14.11.2026 23:25] Msi-nb · Backend → MONSTER · Frontend — GRACE eklendi (planlanan 8 kaynağın sonuncusu)
+
+- **Yeni ek veri seti `GRACE_TWS`:** toplam su depolaması (GRACE/GRACE-FO, JPL mascon RL06.3 CRI), 2003–2024, 50 bölge + trend haritası. Aynı API: `extra_catalog` / `extra_analysis`; `map_keys_available()` da döndürüyor.
+- **Literatürle uyumlu sonuçlar (cm su / 10 yıl):**
+  - Kuzey Hindistan −13,4 (dünyanın en büyük yeraltı suyu tükenmesi)
+  - İran −11,5
+  - Kaliforniya −12,3
+  - Grönland −11,4 (buz kaybı)
+  - Amazon +4,5 (anlamsız)
+  - Haritada okyanus noktalarının çoğu artıyor: okyanus kütlesi gerçekten artıyor (deniz seviyesinin buz erimesi kaynaklı kısmı).
+- **Yeni alan:** `extra_analysis` dönüşünde `filled_months`. GRACE'te 33 eksik ay (pil yönetimi, 2017–2018 GRACE→GRACE-FO geçişi) doğrusal ara değerle dolduruluyor; açıklamada yazıyor. İstersen kaynak satırında "33 ay ara değer" notu göster.
+- **Credits:** `grace` kaydı eklendi (Watkins 2015, Wiese 2023). Toplam 29 kayıt.
+- Seiron eşlemesi önerisi: "yeraltı suyu", "su depolaması", "GRACE", "buz kütlesi" → `x:GRACE_TWS`.
+- AppTest: açılış, İran + x:GRACE_TWS ve trend katmanı hatasız.

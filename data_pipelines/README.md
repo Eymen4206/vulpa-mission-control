@@ -517,3 +517,9 @@ Açılış yükleme ekranı içindir. Hava, ızgara, NASA POWER, tema serisi ve 
   - Aylık dilimler `cache/<veri>/` altına yazılır; yarıda kalırsa kaldığı yerden devam eder.
 - **Erişim:** GES DISC/LP DAAC "Earthdata Cloud OPeNDAP" 1–2°'lik dilimler. GPM için gpm1 OPeNDAP.
 - OMI_NO2 trend haritasında bilinçli olarak yok (seyrek ızgarada sinyal yerine alet kayması); yalnızca bölge serisi.
+- **GRACE_TWS (JPL mascon RL06.3 CRI, 2003–2024)**
+  - Tek NetCDF4/HDF5 dosyası (46 MB) `cache/grace/` altına indirilir ve `pyfive` ile okunur (saf Python HDF5).
+  - Python 3.15'te derlenemeyen `numcodecs` / `fsspec` için yalnızca betik sürecinde küçük yer tutucular tanımlanır
+    (`refresh_extra._pyfive`).
+  - %12,5 eksik ay (pil yönetimi, 2017–2018 geçişi) doğrusal ara değerle doldurulur; GRACE için eşik %15
+    (`max_missing`, `interp`).

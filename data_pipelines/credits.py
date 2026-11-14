@@ -275,6 +275,14 @@ CREDITS += [
          "https://lpdaac.usgs.gov/products/mod13c2v061/",
          "Didan, K. (2021). MODIS/Terra Vegetation Indices Monthly L3 Global 0.05Deg CMG V061, NASA LP DAAC, "
          "doi:10.5067/MODIS/MOD13C2.061."),
+    _sat("grace", "GRACE / GRACE-FO JPL mascon RL06.3 CRI", "NASA JPL · PO.DAAC (NASA/DLR · NASA/GFZ)",
+         "Toplam su depolaması (yeraltı suyu, toprak suyu, kar, buz): 50 bölge ve trend haritası (2003–2024).",
+         "Total water storage (groundwater, soil water, snow, ice): 50 regions and the trend map (2003–2024).",
+         "https://grace.jpl.nasa.gov",
+         "Watkins, M. M. et al. (2015). Improved methods for observing Earth's time variable mass distribution with "
+         "GRACE using spherical cap mascons. J. Geophys. Res. Solid Earth, 120, 2648–2671. · Wiese, D. N. et al. "
+         "(2023). JPL GRACE and GRACE-FO Mascon Ocean, Ice, and Hydrology Equivalent Water Height CRI Filtered RL06.3 "
+         "V4, PO.DAAC."),
     {"id": "psmsl", "category": "satellite", "name": "PSMSL — Permanent Service for Mean Sea Level (RLR aylık)",
      "provider": "National Oceanography Centre, Liverpool",
      "used_for_tr": "Gelgit ölçerlerden göreli deniz seviyesi: ABD Doğu Kıyısı (Lewisetta), Florida (Virginia Key), "
@@ -311,7 +319,7 @@ LICENSE_EN = {
     "warming-stripes": "CC BY 4.0",
     "gpm-imerg": "Open data (NASA)", "gldas": "Open data (NASA)", "airs": "Open data (NASA)",
     "omi-no2": "Open data (NASA)", "modis-ndvi": "Open data (NASA)", "earthdata": "Open data (NASA)",
-    "psmsl": "Open data (attribution required)",
+    "psmsl": "Open data (attribution required)", "grace": "Open data (NASA)",
     "nasa-power-monthly": "Open data (NASA)",
     "giovanni": "Open data (NASA)",
     "ref-mann-kendall": "Scientific reference", "ref-gilbert": "Scientific reference",

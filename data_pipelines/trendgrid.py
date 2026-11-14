@@ -62,7 +62,7 @@ def annual_from_raw(params: dict, y0: int, y1: int) -> dict:
 # kirliliksiz bölgelere düşer ve orada değer sıfıra yakın olduğu için alet kaymasını sinyal gibi gösterir.
 # Bölge serileri (şehirler) satellite.extra_analysis ile kullanılabilir.
 EXTRA_MAP_KEYS = ("GPM", "GLDAS_RUNOFF", "GLDAS_SOILDEEP", "GLDAS_SWE", "AIRS_T850", "AIRS_T300", "AIRS_T70",
-                  "AIRS_O3", "MODIS_NDVI")
+                  "AIRS_O3", "MODIS_NDVI", "GRACE_TWS")
 
 
 def _meta(key: str) -> tuple[str, str, str] | None:

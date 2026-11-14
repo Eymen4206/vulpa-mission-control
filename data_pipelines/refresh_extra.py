@@ -437,8 +437,82 @@ def modis_ndvi(y0: int, y1: int) -> dict:
     return {"multi": res}
 
 
+GRACE_PERIOD = (2003, 2024)   # GRACE Nisan 2002'de başladı; 2017-07 – 2018-05 GRACE→GRACE-FO boşluğu (%4)
+GRACE_URL = ("https://archive.podaac.earthdata.nasa.gov/podaac-ops-cumulus-protected/TELLUS_GRAC-GRFO_MASCON_CRI_GRID_"
+             "RL06.3_V4/GRCTellus.JPL.200204_202609.GLO.RL06.3M.MSCNv04CRI.nc")
+
+
+def _pyfive():
+    """pyfive (saf Python HDF5 okuyucu). Python 3.15'te numcodecs/fsspec derlenemediği için, yalnızca bu betik
+    sürecinde, kullanılmayan iki yardımcıyı en küçük yer tutucularla tanımlar (Fletcher32 doğrulaması ve uzak dosya
+    toplu okuması; yerel ve filtresiz GRACE dosyasında ikisi de çağrılmaz)."""
+    import struct
+    import types
+    import importlib.util
+    if importlib.util.find_spec("numcodecs") is None:
+        nc = types.ModuleType("numcodecs")
+
+        class Fletcher32:
+            def encode(self, buf):
+                data = bytes(buf) + (b"\x00" if len(buf) % 2 else b"")
+                s1 = s2 = 0
+                for (w,) in struct.iter_unpack("<H", data):
+                    s1 = (s1 + w) % 65535
+                    s2 = (s2 + s1) % 65535
+                return bytes(buf) + struct.pack(">HH", s2, s1)
+        nc.Fletcher32 = Fletcher32
+        sys.modules["numcodecs"] = nc
+    if importlib.util.find_spec("fsspec") is None:
+        fs, fu = types.ModuleType("fsspec"), types.ModuleType("fsspec.utils")
+
+        def merge_offset_ranges(*a, **k):
+            raise RuntimeError("fsspec toplu okuma bu betikte yok")
+        fu.merge_offset_ranges = merge_offset_ranges
+        fs.utils = fu
+        sys.modules["fsspec"], sys.modules["fsspec.utils"] = fs, fu
+    import pyfive
+    return pyfive
+
+
+def grace(y0: int, y1: int) -> dict:
+    """JPL GRACE/GRACE-FO mascon RL06.3 CRI (0,5° ızgara, ~3° mascon): toplam su depolaması anomalisi (cm su eşdeğeri,
+    2004–2009 ortalamasına göre). Tek dosya (46 MB) bir kez indirilir; bölge ve ızgara noktalarının sütunları okunur."""
+    import datetime as _dt
+    from pathlib import Path
+    from .regions import REGION_LIST
+
+    y0, y1 = GRACE_PERIOD
+    f = Path(__file__).with_name("cache") / "grace" / GRACE_URL.rsplit("/", 1)[1]
+    f.parent.mkdir(parents=True, exist_ok=True)
+    if not f.exists():
+        r = _earthdata_session().get(GRACE_URL, stream=True, timeout=300)
+        r.raise_for_status()
+        with open(f, "wb") as out:
+            for ch in r.iter_content(1 << 20):
+                out.write(ch)
+    h = _pyfive().File(str(f))
+    days = [float(x) for x in h["time"][:]]
+    ym = [(d.year, d.month) for d in (_dt.datetime(2002, 1, 1) + _dt.timedelta(days=x) for x in days)]
+    lwe = h["lwe_thickness"]
+    months = [(y, m) for y in range(y0, y1 + 1) for m in range(1, 13)]
+
+    def column(lat, lon):
+        j = min(max(int(round((lat + 89.75) / 0.5)), 0), 359)
+        i = int(round(((lon % 360) - 0.25) / 0.5)) % 720
+        col = [float(v) for v in lwe[:, j, i]]
+        acc: dict = {}
+        for k, v in zip(ym, col):
+            if v > -9000:
+                acc.setdefault(k, []).append(v)
+        return [round(sum(acc[k]) / len(acc[k]), 2) if k in acc else None for k in months]
+
+    regions = {r.name: column(r.lat, r.lon) for r in REGION_LIST}
+    grid = [column(la, lo) for la, lo in _grid_points()]
+    return {"multi": {"GRACE_TWS": {"regions": regions, "grid": grid, "period": GRACE_PERIOD}}}
+
+
 FETCHERS = {"SEAICE_N": seaice_north, "GPM": gpm_imerg, "SEALEVEL": psmsl, "GLDAS": gldas, "AIRS": airs,
-            "OMI": omi_no2, "MODIS": modis_ndvi}
+            "OMI": omi_no2, "MODIS": modis_ndvi, "GRACE": grace}
 
 
 def main(keys: list[str]) -> int:

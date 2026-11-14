@@ -1291,3 +1291,24 @@ Değişen: `app.py`. AppTest ve tarayıcıyla denendi; soğuk önbellekle sunucu
 - `_DP_NEEDED` içine `warm_up` eklendi.
 - **Not:** sıcak önbellekte ayrıca kontrol ettim; perdeyi ilk denemede kürenin uçuşu bitene kadar bekleyecek şekilde
   yazmıştım (7,5 sn). Hedef uygulanınca kalkacak biçimde düzeltildi.
+
+### [14.11.2026 19:10] Msi-nb · Backend → MONSTER · Frontend — PROJE SAHİBİ KARARLARI 5–6 (ekran görüntüsüyle)
+
+**5) Veri güveni açılır kutusu ekrana sığmıyor.** Proje sahibi ekran görüntüsü gönderdi: kutu sağ kenardan taşıyor,
+satırlar kesik ("Tema serisi sentetik prototip verisi (", "Hava verisi ölçüm/arşivden" yarım).
+- **Senin tarafın:**
+  - Kutuyu çipin sağ kenarına hizala ya da yer yoksa sola aç.
+  - `max-width: min(320px, calc(100vw - 32px))`, `white-space: normal`, `overflow-wrap: anywhere` kullan.
+  - Sağ panel `overflow: hidden` ise kutuyu `position: fixed` ile panel dışına taşı.
+- **Benim tarafım (hazır):** her `checks` öğesinde artık kısa etiketler var: `short_tr` / `short_en` (en fazla 22
+  karakter; ör. "Sentetik prototip seri", "Otokorelasyon yüksek", "Eğilim tutarlı").
+  - Kutuda kısa etiketleri göster, uzun `text_*`'i `title` (hover) olarak bırak. Böylece kutu dar kalır.
+  - Geriye uyumlu: `text_*` aynen duruyor.
+
+**6) Mini VULPA QR kodu Ayarlar'a taşınsın.** Proje sahibinin sözleri: "mini vulpanın qr ını ayarlara taşı böyle çok kötü
+duruyor".
+- Sol paneldeki QR modülünü (`render_qr_module`) oradan kaldır.
+- Ayarlar modalına bir "Mini VULPA (telefonda aç)" bölümü ekle: QR, bağlantı ve kısa açıklama.
+- Seiron paneli böylece daha fazla mesaj alanı kazanır. Mobil görünümde QR zaten gereksiz, orada göstermeyebilirsin.
+
+Sıra önerim: önce 4 (yükleme ekranı), sonra 5 ve 6.

@@ -12,7 +12,22 @@ from .real_series import series_meta
 from .regions import REGIONS
 from .series import analyze
 
-RHO_LIMIT = 0.5       # artık otokorelasyon bunun üstündeyse Mann-Kendall p-değeri olduğundan küçük çıkabilir
+RHO_LIMIT = 0.5
+
+SHORT = {
+    ("real", True): ("Gerçek gözlem verisi", "Observed data"),
+    ("real", False): ("Sentetik prototip seri", "Synthetic prototype series"),
+    ("autocorr", True): ("Otokorelasyon düşük", "Low autocorrelation"),
+    ("autocorr", False): ("Otokorelasyon yüksek", "High autocorrelation"),
+    ("consistency", True): ("Eğilim tutarlı", "Consistent trend"),
+    ("consistency", False): ("Eğilim döneme duyarlı", "Period-sensitive trend"),
+    ("weather", True): ("Hava verisi ölçümden", "Measured weather"),
+    ("weather", False): ("Hava verisi tahmini", "Estimated weather"),
+    ("power", True): ("NASA POWER ölçümü", "NASA POWER data"),
+    ("power", False): ("NASA POWER simülasyon", "NASA POWER simulated"),
+    ("window", True): ("Trend penceresi yeterli", "Trend window sufficient"),
+    ("window", False): ("Trend penceresi kısa", "Trend window short"),
+}       # artık otokorelasyon bunun üstündeyse Mann-Kendall p-değeri olduğundan küçük çıkabilir
 
 
 @st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
@@ -54,7 +69,7 @@ def data_quality(region: str, weather_live: bool | None = None, power_live: bool
     power_live = fetch_power(city)["live"], power_short = fetch_power(city)["short_window"]. None ise o ölçüt atlanır.
 
     Dönüş: {"level": "high"|"medium"|"low", "score": 0–100,
-            "checks": [{"key", "ok", "text_tr", "text_en"}],
+            "checks": [{"key", "ok", "text_tr", "text_en", "short_tr", "short_en"}],
             "reasons_tr": [...], "reasons_en": [...]}   # reasons_* = olumsuz ölçütler (yoksa olumlu özet)
     Kural: tema serisi sentetikse seviye her zaman "low". Gerçekse her olumsuz ölçüt bir basamak düşürür
     (0 → high, 1 → medium, 2+ → low). İstisna fırlatmaz; bilinmeyen bölgede None.
@@ -83,6 +98,8 @@ def data_quality(region: str, weather_live: bool | None = None, power_live: bool
                        "Trend penceresi kısa; Mann-Kendall güvenilirliği sınırlı",
                        "text_en": "Trend window is long enough" if not power_short else
                        "Trend window is short; Mann-Kendall reliability is limited"})
+    for c in checks:                       # dar açılır kutular için kısa etiketler (en fazla ~32 karakter)
+        c["short_tr"], c["short_en"] = SHORT.get((c["key"], c["ok"]), (c["text_tr"], c["text_en"]))
     bad = [c for c in checks if not c["ok"]]
     synthetic = any(c["key"] == "real" and not c["ok"] for c in checks)
     level = "low" if synthetic or len(bad) >= 2 else ("medium" if bad else "high")

@@ -1,4 +1,4 @@
-"""Sentetik tema serileri ve mevsimsel Mann-Kendall analizi (app.py ile birebir aynı)."""
+"""Bölge tema serileri (gerçek veri, yoksa sentetik) ve mevsimsel Mann-Kendall analizi."""
 
 from __future__ import annotations
 
@@ -8,11 +8,27 @@ import pymannkendall as mk
 import streamlit as st
 
 from .config import END, PERIOD, PROJECTION_MONTHS, START, WEATHER_TTL
+from .real_series import real_series
 from .regions import REGIONS
+
 
 @st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
 def build_series(region_name: str) -> pd.DataFrame:
-    """Bölgeye özgü, tekrarlanabilir sentetik aylık seri üretir."""
+    """Bölgenin aylık tema serisi (START–END). Dönüş yapısı değişmedi: {"Tarih", <spec.variable>}.
+
+    Önce gerçek veri (real_series: anlık görüntü → canlı istek), alınamazsa tekrarlanabilir sentetik seri.
+    Hangisinin kullanıldığını `series_meta(region_name)` söyler.
+    """
+    rec = real_series(region_name)
+    if rec is not None:
+        spec = REGIONS[region_name]
+        return pd.DataFrame({"Tarih": pd.date_range(START, END, freq="MS"),
+                             spec.variable: np.asarray(rec["values"], dtype=float)})
+    return synthetic_series(region_name)
+
+
+def synthetic_series(region_name: str) -> pd.DataFrame:
+    """Bölgeye özgü, tekrarlanabilir sentetik aylık seri (gerçek veri olmayan bölgeler ve yedek için)."""
     spec = REGIONS[region_name]
     dates = pd.date_range(START, END, freq="MS")
     n = len(dates)

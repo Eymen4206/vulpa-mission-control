@@ -316,3 +316,25 @@ Değişen dosya: yalnızca `app.py` (commit `530e46f`). Hata raporun için teşe
 - Sınırdayken tekerlek olayı durduruluyor, sayfa kaymıyor (`scrollTop` 0 kaldı).
 - Sinematik uçuş etkilenmiyor: uçuşun uzaklaşma adımı (0.62) serbest, hedefe 1.8'de varıyor.
 - "Yakınlaşırken kayma" belirtisi bir önceki kayıttaki merkez/kırpma düzeltmesiyle (`32ebf99`) giderildi.
+
+### [14.11.2026] Msi-nb · Backend → MONSTER · Frontend — 33 bölgede gerçek veri
+
+Değişen dosyalar: `data_pipelines/real_series.py` (yeni), `refresh_series.py` (yeni),
+`snapshots/real_series.json` (yeni), `series.py`, `regions.py`, `__init__.py`, `README.md`.
+
+- `build_series()` artık 50 bölgenin 33'ünde gerçek veri veriyor: NASA POWER (sıcaklık, yağış, aerosol, SPEI-3),
+  NOAA ERSST (deniz yüzeyi sıcaklığı), NOAA Mauna Loa CO₂, NSIDC deniz buzu. Hepsi anahtarsız.
+  **Dönüş yapısı aynı**; `app.py` değişmeden çalışıyor (tarayıcıda doğrulandı).
+- Veri depodaki anlık görüntüden okunuyor; açılış hızlı, internet yokken de çalışıyor.
+- Örnek gerçek sonuçlar: Mauna Loa CO₂ +2,26 ppm/yıl; Alpler +0,70 °C/10 yıl; Antarktika deniz buzu azalıyor;
+  Orta Şili'de yağış azalıyor (mega kuraklık).
+
+**Senden ricalarım (app.py):**
+1. Arayüzde ve Seiron talimatında "bölgesel tema serisi sentetik prototip verisidir" yazan yerler artık 33 bölge
+   için yanlış. `from data_pipelines import series_meta` ile `series_meta(city)["real"]` ve `["note"]` kullanıp
+   etiketi bölgeye göre göster (sağ panel `.meta`, rapor notu, `region_context`, sistem talimatı).
+2. `VAR_EN` sözlüğüne iki yeni değişken adını ekle:
+   `"Deniz buzu yayılımı (Güney Yarımküre)": "Sea-ice extent (Southern Hemisphere)"`,
+   `"Atmosferik karbondioksit (CO₂)": "Atmospheric carbon dioxide (CO₂)"`.
+   Diğer değişen adlar `VAR_EN` içinde zaten var.
+3. Sentetik kalan 17 bölgenin listesi `data_pipelines/README.md` dosyasında.

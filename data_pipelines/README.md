@@ -148,3 +148,57 @@ Mann-Kendall ve Sen eğimi (`t_dec`, `t_p`, `p_dec` …) yalnızca seçilen penc
   iklimsel değişim için `_fetch_power` sonucundaki `t_dec` (Mann-Kendall eğimi) ve `t_delta` kullanılmalı.
 - **Etiketleme:** `delta_live` False ise arayüz "tahmini" etiketi göstermeli; `source` metni bunu zaten içerir.
 - **Süre:** Bir aralık çağrısı iki arşiv sorgusu yapar (ilk çağrı ≈4–9 sn, sonra 30 dk önbellekten anında gelir).
+
+---
+
+## Gerçek tema serileri (anahtarsız kaynaklar) — 14.11.2026 (Backend · Msi-nb)
+
+`build_series(region)` artık **50 bölgenin 33'ünde gerçek veri** döndürür. Dönüş yapısı **değişmedi**:
+`DataFrame{"Tarih", <spec.variable>}`, aylık, 2000-01 – 2024-12 (300 ay). `analyze()` aynı şekilde çalışır.
+
+| Seri türü | Bölge sayısı | Kaynak | Değişken (regions.py) |
+|---|---|---|---|
+| `t2m` | 5 | NASA POWER MERRA-2 T2M | Aylık ortalama sıcaklık (°C) |
+| `t2m_anom` | 4 | NASA POWER T2M − aynı ayın 2000–2024 ortalaması | Sıcaklık anomalisi (°C) |
+| `ts_anom` | 2 | NASA POWER TS (yer yüzeyi) anomalisi | Yüzey sıcaklığı anomalisi (°C) |
+| `t2m_max` | 4 | NASA POWER T2M_MAX | Aylık en yüksek sıcaklık (°C) |
+| `precip` | 7 | NASA POWER PRECTOTCORR_SUM | Aylık yağış (mm) |
+| `spei3` | 2 | NASA POWER günlük; Hargreaves PET; 3 aylık z-skor | Kuraklık indeksi (SPEI-3) |
+| `aod` | 3 | NASA POWER AOD_55 (2001'den; 2000 aylık ortalamayla dolduruldu) | Aerosol optik derinliği |
+| `sst` | 4 | NOAA ERSST v5 (ERDDAP, 2° hücre) | Deniz yüzeyi sıcaklığı (°C) |
+| `co2` | 1 | NOAA GML Mauna Loa | Atmosferik karbondioksit (CO₂) (ppm) |
+| `seaice_s` | 1 | NSIDC Sea Ice Index v4, Güney Yarımküre | Deniz buzu yayılımı (Güney Yarımküre) (milyon km²) |
+
+**Sentetik kalan 17 bölge:** Akdeniz ve Kaliforniya (FWI), Grönland, Nil, Gobi ve Kanada (NDVI), İran (yeraltı
+suyu), Nijer, Yangtze, Chao Phraya, Cava, ABD Doğu Kıyısı ve Everglades (deniz seviyesi / zemin çökmesi),
+Kuzey Çin ve Hint-Ganj (PM2.5; Open-Meteo hava kalitesi geçmişi bu bölgelerde boş), Kıyı Dağları (kar),
+And buzulları. Bunlar için Earthdata/Copernicus hesabı gerekir.
+
+### Nasıl çalışır
+
+1. `data_pipelines/snapshots/real_series.json`: depoya işlenmiş anlık görüntü (≈70 KB). 2000–2024 dönemi
+   değişmediği için açılışta ağ isteği yapılmaz; internet yokken de gerçek veri gösterilir.
+2. Anlık görüntüde olmayan bölge için canlı istek (`@st.cache_data(ttl=1800)`).
+3. İkisi de olmazsa sentetik seri. İstisna fırlatılmaz.
+
+Anlık görüntüyü yenilemek için: `.venv\Scripts\python -m data_pipelines.refresh_series` (≈13 sn).
+
+### Yeni dışa aktarılanlar
+
+| Ad | Ne yapar |
+|---|---|
+| `series_meta(region)` | `{"real", "kind", "source", "description", "origin" ("snapshot"\|"live"\|"synthetic"), "filled_months", "note"}`. Arayüz "gerçek / sentetik" etiketini buna göre göstermeli. |
+| `real_series(region)` | Gerçek seri kaydı ya da `None` |
+| `synthetic_series(region)` | Eski sentetik seri (karşılaştırma ve yedek için) |
+| `REAL_SOURCES`, `KINDS` | Bölge → seri türü eşlemesi ve tür açıklamaları |
+
+### Değişen bölge meta verileri (regions.py)
+
+33 bölgenin `source` alanı gerçek kaynağı gösterecek şekilde güncellendi. Değişken adı değişenler:
+
+- Marmara ve Meksika: "Yüzey sıcaklığı" → "Aylık ortalama sıcaklık"
+- Büyük Göller: "Kış sıcaklığı anomalisi" → "Sıcaklık anomalisi"
+- Sahra: "Toz aerosol optik derinliği" → "Aerosol optik derinliği"
+- Antarktika: "Deniz buzu örtüsü (Weddell Denizi)" / % → **"Deniz buzu yayılımı (Güney Yarımküre)" / milyon km²** (yeni ad)
+- Mauna Loa: "Atmosferik karbondioksit (XCO₂)" → **"Atmosferik karbondioksit (CO₂)"** (yeni ad; Mauna Loa yerinde
+  ölçümdür, uydu XCO₂ değildir)

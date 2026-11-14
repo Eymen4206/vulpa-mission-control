@@ -67,7 +67,7 @@ _DP_NEEDED = ("CITY_NAMES", "END", "GRID_LATS", "GRID_LONS", "LAST_FULL_YEAR", "
               "PROJECTION_MONTHS", "REGION_LIST", "REGIONS", "START", "WEATHER_TTL", "Region", "_fetch_grid",
               "_fetch_power", "_fetch_weather", "analyze", "build_series", "REAL_SOURCES", "series_meta", "data_credits",
               "parse_ui_command", "switch_message", "time_text", "metric_chart", "ALLOWED_ACTIONS", "METRICS",
-              "sonify", "fetch_events", "EVENT_TYPES", "data_quality",
+              "fetch_events", "EVENT_TYPES", "data_quality",
               "showcase_regions", "global_annual_anomaly", "year_extremes", "compare_regions")
 if not all(hasattr(_dp, _n) for _n in _DP_NEEDED):
     for _m in [m for m in sys.modules if m == "data_pipelines" or m.startswith("data_pipelines.")]:
@@ -77,7 +77,7 @@ from data_pipelines import (  # noqa: E402
     CITY_NAMES, END, GRID_LATS, GRID_LONS, LAST_FULL_YEAR, PERIOD, POWER_SPAN, PROJECTION_MONTHS, REGION_LIST,
     REGIONS, START, WEATHER_TTL, Region, _fetch_grid, _fetch_power, _fetch_weather, analyze, build_series,
     REAL_SOURCES, series_meta, data_credits,
-    parse_ui_command, switch_message, time_text, metric_chart, sonify, fetch_events, data_quality,
+    parse_ui_command, switch_message, time_text, metric_chart, fetch_events, data_quality,
     showcase_regions, year_extremes, compare_regions,
 )
 
@@ -2343,6 +2343,13 @@ div[role="dialog"]:has(.set-sec) { background: rgba(20,17,15,.92); backdrop-filt
   linear-gradient(to top, var(--orange) 0 100%) right bottom / 2px 70% no-repeat; transition: opacity .18s; }
 .fact.clk:hover::after, .pw-main.clk:hover::after { opacity: 1; }
 .st-key-metric_btns, .st-key-yx_btns { display: none !important; }
+/* R basılı: yalnızca küre (arayüz solarak gizlenir, küre yerinde kalır) */
+.st-key-topbar, .st-key-left_panel, .st-key-right_panel, .st-key-layer_bar, .st-key-tour_bar, .narrow-hint { transition: opacity .22s ease; }
+html.vp-globe-only .st-key-topbar, html.vp-globe-only .st-key-left_panel, html.vp-globe-only .st-key-right_panel,
+html.vp-globe-only .st-key-layer_bar, html.vp-globe-only .st-key-tour_bar, html.vp-globe-only .narrow-hint,
+html.vp-globe-only .vp-readout { opacity: 0 !important; pointer-events: none !important; }
+html.vp-globe-only .st-key-globe_panel { background: transparent !important; border-color: transparent !important;
+  box-shadow: none !important; backdrop-filter: none !important; }
 .vp-gchip { display: inline-flex; align-items: center; gap: .3rem; margin-left: .5rem; padding: .1rem .5rem; border-radius: 999px;
   border: 1px solid var(--line-strong); background: rgba(249,115,22,.08); color: var(--orange); cursor: pointer;
   font: 600 .62rem 'Inter', sans-serif; letter-spacing: .03em; text-transform: none; vertical-align: middle; }
@@ -2409,13 +2416,6 @@ html.vp-keys-open body > .vp-keys { opacity: 1; pointer-events: auto; }
 .st-key-tour_bar .tour-t b { color: var(--orange); }
 .st-key-tour_bar [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
 .st-key-tour_bar button { min-height: 1.8rem !important; padding: .1rem .7rem !important; border-radius: 999px !important; }
-.vp-sonify { display: inline-flex; align-items: center; gap: .35rem; margin-left: .5rem; padding: .12rem .55rem;
-  border-radius: 999px; border: 1px solid var(--line-strong); background: rgba(249,115,22,.08); color: var(--orange);
-  font: 600 .64rem 'Inter', sans-serif; letter-spacing: .04em; cursor: pointer; vertical-align: middle;
-  text-transform: none; font-variant-numeric: tabular-nums; transition: background .18s, box-shadow .18s; }
-.vp-sonify:hover, .vp-sonify:focus-visible { background: rgba(249,115,22,.18); box-shadow: 0 0 12px rgba(249,115,22,.3); outline: none; }
-.vp-sonify.playing { background: var(--orange); color: #1c1917; }
-.vp-sonify.playing .vp-svg { animation: pulse 1s infinite; }
 .st-key-events_ctl { margin: 0 auto .25rem; padding: .1rem .7rem; border-radius: 999px; background: rgba(28,25,23,.62);
   backdrop-filter: blur(14px); border: 1px solid var(--line); }
 .st-key-events_ctl label p { font-size: .72rem !important; color: #e7e5e4; white-space: nowrap; }
@@ -2702,6 +2702,9 @@ _SVG_ICONS = {
     "globe2": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' "
               "stroke-width='2' stroke-linejoin='miter'><path d='M8.5 3h7L21 8.5v7L15.5 21h-7L3 15.5v-7Z'/>"
               "<path d='M3 12h18M12 3c-3 3-3 15 0 18M12 3c3 3 3 15 0 18'/></svg>",
+    "expand": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' "
+              "stroke-width='2.2' stroke-linejoin='miter' stroke-linecap='square'><path d='M4 9V4h5M20 9V4h-5M4 15v5h5"
+              "M20 15v5h-5'/></svg>",
     "wave": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' "
             "stroke-width='2.2' stroke-linejoin='miter' stroke-linecap='square'><path d='M2 12h3l2-6 3 12 3-9 2 6 "
             "2-3h5'/></svg>",
@@ -3037,42 +3040,6 @@ GLOBE_CONTROLLER_JS = """
         return !!src;
     };
     window.__vpCreditsOpen = openCredits;
-    // Trendi dinle (sonifikasyon): notalar düğmeden okunur, ses motoru açılış sesiyle ortaktır (__vpAudio).
-    const playTrend = function(btn) {
-      const A = window.__vpAudio, span = btn.querySelector("span");
-      if (btn.__vpStop) { btn.__vpStop(); return; }
-      if (!A) return;
-      const ctx = A.ctx(); if (!ctx) return;
-      let data; try { data = JSON.parse(btn.getAttribute("data-notes")); } catch (e) { return; }
-      const t0 = ctx.currentTime + 0.08, out = ctx.createGain(), timers = [];
-      out.gain.value = 0.22; out.connect(ctx.destination);
-      const wave = {data: "triangle", trend: "sine", pulse: "square"};
-      let end = 0;
-      data.notes.forEach(function(n) {
-        A.tone(ctx, out, n.freq, wave[n.role] || "sine", t0 + n.t, 0.012, Math.max(0.01, n.dur - 0.09), 0.08,
-               Math.max(0.001, n.gain * (n.role === "pulse" ? 0.5 : 1)));
-        end = Math.max(end, n.t + n.dur);
-        if (n.role === "data" && span) {
-          timers.push(setTimeout(function() {
-            span.textContent = n.year + " · " + (n.value != null ? n.value.toFixed(1) + " " + data.unit : "");
-          }, (n.t + 0.08) * 1000));
-        }
-      });
-      btn.classList.add("playing");
-      const yrs = data.notes.filter(function(n) { return n.role === "data"; }).map(function(n) { return n.year; });
-      if (window.__vpAnnounce && yrs.length) {
-        window.__vpAnnounce(((window.__vulpaTarget || {}).lang === "en" ? "Trend sound playing, " : "Trend sesi çalınıyor, ")
-                            + yrs[0] + "–" + yrs[yrs.length - 1]);
-      }
-      const stop = function() {
-        timers.forEach(clearTimeout);
-        try { out.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.05); setTimeout(function() { out.disconnect(); }, 300); } catch (e) {}
-        btn.classList.remove("playing"); btn.__vpStop = null;
-        if (span) span.textContent = btn.getAttribute("data-label");
-      };
-      btn.__vpStop = stop;
-      timers.push(setTimeout(stop, (end + 0.4) * 1000));
-    };
     window.__vpCreditsClose = close;
     document.addEventListener("click", function(e) {
       const t = e.target;
@@ -3083,8 +3050,6 @@ GLOBE_CONTROLLER_JS = """
         if (b) { e.preventDefault(); b.click(); }
         return;
       }
-      const son = t.closest && t.closest(".vp-sonify");
-      if (son) { e.preventDefault(); playTrend(son); return; }
       const fact = t.closest && t.closest("[data-metric]");
       if (fact) {
         const b = document.querySelector(".st-key-mc_" + fact.getAttribute("data-metric") + " button");
@@ -3382,15 +3347,20 @@ GLOBE_CONTROLLER_JS = """
       if (e.key === "Escape" && root.classList.contains("vp-keys-open")) { e.preventDefault(); e.stopPropagation(); closeKeys(); return; }
       if (typing(e.target) || root.classList.contains("vp-credits-open")) return;
       if (e.key === "?" || (e.key === "/" && e.shiftKey)) { e.preventDefault(); root.classList.contains("vp-keys-open") ? closeKeys() : window.__vpKeysOpen(); }
-      else if ((e.key === "t" || e.key === "T") && !e.repeat) {
-        const b = [...document.querySelectorAll(".vp-sonify")].find(function(x) { return x.offsetParent; });
-        if (b) { e.preventDefault(); b.click(); }
+      else if ((e.key === "r" || e.key === "R") && !e.shiftKey) {
+        // R basılı tutulunca yalnızca küre kalır (bırakınca arayüz geri gelir; tekrar olayları yok sayılır)
+        e.preventDefault();
+        if (!e.repeat) root.classList.add("vp-globe-only");
       }
       else if (e.key === "Escape") {
         const stop = document.querySelector(".st-key-tour_stop button");
         if (stop) { e.preventDefault(); stop.click(); }
       }
     }, true);
+    const showUI = function() { root.classList.remove("vp-globe-only"); };
+    document.addEventListener("keyup", function(e) { if (e.key === "r" || e.key === "R") showUI(); }, true);
+    window.addEventListener("blur", showUI);
+    document.addEventListener("visibilitychange", function() { if (document.hidden) showUI(); });
     document.addEventListener("click", function(e) {
       const t = e.target;
       if (t.closest && t.closest(".vp-keys-btn")) { e.preventDefault(); window.__vpKeysOpen(); return; }
@@ -3948,7 +3918,7 @@ def _settings_body() -> None:
         st.rerun()
 
 
-METRIC_KEYS = ("tau", "p", "slope", "power_t", "global")
+METRIC_KEYS = ("tau", "p", "slope", "power_t", "global", "series")
 
 # ── ÖNERİ #4 · Jüri turu: ≈60 sn'lik otomatik sunum ─────────────────────────────────────────────────────────
 # Duraklar data_quality "high" ve gerçek veri bölgelerinden seçilir (Backend'in isteği). Her durak 3 adım (TOUR_TICK
@@ -4109,6 +4079,9 @@ def close_metric() -> None:
 
 def metric_data(city: str, metric: str) -> dict | None:
     try:
+        if metric == "series":   # sağ paneldeki zaman serisi grafiğinin büyük görünümü (aynı figür)
+            return {"series": True, "title_tr": f"Zaman serisi · {rvar(REGIONS[city])}",
+                    "title_en": f"Time series · {rvar(REGIONS[city])}"}
         if metric == "global":   # ÖNERİ #8 · küresel yıllık sapma (bölgeden bağımsız)
             return metric_chart(None, "global")
         return metric_chart(city, metric, *power_window()) if metric == "power_t" else metric_chart(city, metric)
@@ -4166,6 +4139,15 @@ def metric_figure(d: dict) -> go.Figure:
 
 def _metric_body(city: str, metric: str) -> None:
     d = metric_data(city, metric)
+    if d and d.get("series"):
+        spec = REGIONS[city]
+        st.markdown(f"<div class='mc-sub'>{html.escape(rname(city))} · {html.escape(rtheme(spec))}</div>",
+                    unsafe_allow_html=True)
+        fig = build_chart(build_series(city), spec, analyze(city))
+        fig.update_layout(height=470, margin={"l": 52, "r": 14, "t": 36, "b": 36})
+        st.plotly_chart(fig, theme=None, width="stretch", config={"displayModeBar": False}, key="mc_fig_series")
+        st.caption(theme_source(city))
+        return
     if not d:
         st.caption(L("Bu değer için grafik verisi şu an alınamadı.", "Chart data for this value is unavailable right now."))
         return
@@ -4204,7 +4186,7 @@ def render_keys_card() -> None:
     rows = [("Space", L("Termal Analiz'e dön / bölge seçimini kaldır", "Back to Thermal Analysis / clear selection")),
             ("Esc", L("Açık pencereyi, paneli ya da jüri turunu kapat", "Close the open window, panel or jury tour")),
             ("Enter", L("Odaktaki değer kutusunun grafiğini aç", "Open the chart of the focused value box")),
-            ("T", L("Trendi dinle (sesli seri) · tekrar basınca durur", "Listen to the trend (sonified series) · press again to stop")),
+            (L("R (basılı tut)", "R (hold)"), L("Yalnızca küre: arayüz gizlenir, bırakınca geri gelir", "Globe only: the interface hides, release to bring it back")),
             ("?", L("Bu kartı aç / kapat", "Open / close this card")),
             (L("Tekerlek · sürükle", "Wheel · drag"), L("Küreyi yakınlaştır · döndür", "Zoom · rotate the globe"))]
     keys = "".join(f"<div class='r'><kbd>{html.escape(k)}</kbd><span>{html.escape(v)}</span></div>" for k, v in rows)
@@ -4755,23 +4737,6 @@ def render_yx_buttons() -> None:
                 st.button(n, key=f"yx_{i}", on_click=go_region, args=(n,))
 
 
-def sonify_button(city: str) -> str:
-    """ÖNERİ #1 · Trendi dinle: yıllık seri sese çevrilir (data_pipelines.sonify), Web Audio ile tarayıcıda çalar.
-    Notalar düğmenin data özniteliğinde taşınır; çalarken düğmede o anki yıl ve değer görünür. Tekrar basınca durur."""
-    try:
-        sn = sonify(city)
-    except Exception:
-        sn = None
-    if not sn or not sn.get("notes"):
-        return ""
-    payload = html.escape(json.dumps({"notes": sn["notes"], "unit": sn.get("unit", "")}), quote=True)
-    explain = html.escape(sn.get("explain_en" if lang() == "en" else "explain_tr", ""), quote=True)
-    label = L("Trendi dinle", "Listen to the trend")
-    return (f"<button class='vp-sonify' type='button' data-notes=\"{payload}\" data-label='{html.escape(label)}' "
-            f"title=\"{explain}\" aria-label='{html.escape(label)}'>{inline_svg('wave', 13)}"
-            f"<span>{label}</span></button>")
-
-
 def city_details(city: str) -> None:
     """Sağ panel ve Mini VULPA'nın ortak içeriği (seçili dil ve zamana göre)."""
     spec, r, rep = REGIONS[city], analyze(city), generate_report(city)
@@ -4836,7 +4801,7 @@ def city_details(city: str) -> None:
         <span>{L('Ort.', 'Mean')} <b>{pw['t_mean']:.1f} °C</b> · <b>{pw['prec_mean']:.0f} mm</b>/{yr}</span></div>
       <div class="pw-src">{html.escape(pw['source'])}</div>
     </div>
-    <div class="sec-title">{L('ZAMAN SERİSİ', 'TIME SERIES')} · {html.escape(rvar(spec))} · <span class="ts-kind {'is-real' if real else 'is-synth'}">{L('GERÇEK VERİ', 'REAL DATA') if real else L('SENTETİK', 'SYNTHETIC')}</span>{sonify_button(city)}</div>
+    <div class="sec-title">{L('ZAMAN SERİSİ', 'TIME SERIES')} · {html.escape(rvar(spec))} · <span class="ts-kind {'is-real' if real else 'is-synth'}">{L('GERÇEK VERİ', 'REAL DATA') if real else L('SENTETİK', 'SYNTHETIC')}</span><button class="vp-gchip" type="button" data-metric="series" title="{L('Grafiği büyüt', 'Enlarge chart')}" aria-label="{L('Zaman serisi grafiğini büyüt', 'Enlarge the time-series chart')}">{inline_svg('expand', 12)}<span>{L('Büyüt', 'Enlarge')}</span></button></div>
     """)
     st.plotly_chart(build_chart(build_series(city), spec, r), theme=None, width="stretch",
                     config={"displayModeBar": False})

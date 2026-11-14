@@ -32,17 +32,14 @@ import os
 import re
 import socket
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
 from typing import Iterator
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-import pymannkendall as mk
 import requests
 import streamlit as st
-from requests.auth import HTTPBasicAuth
 
 try:  # Antivirüs / kurumsal proxy sertifikaları için işletim sistemi sertifika deposunu kullan
     import truststore
@@ -57,15 +54,18 @@ try:  # Gerçek QR kod üretimi: qrcode + Pillow (PIL)
 except ImportError:  # QR modülü isteğe bağlıdır; yoksa kurulum notu gösterilir
     qrcode = None
 
+# Veri katmanı (Backend asistanının alanı): API'ler, önbellek, bölge veritabanı ve istatistik.
+# Frontend bu modülleri yalnızca içe aktarır; ayrıntılar için data_pipelines/README.md.
+from data_pipelines import (  # noqa: E402
+    CITY_NAMES, END, GRID_LATS, GRID_LONS, LAST_FULL_YEAR, PERIOD, POWER_SPAN, PROJECTION_MONTHS, REGION_LIST,
+    REGIONS, START, WEATHER_TTL, Region, _fetch_grid, _fetch_power, _fetch_weather, analyze, build_series,
+)
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Sabitler ve renk paleti
 # ─────────────────────────────────────────────────────────────────────────────
-START = "2000-01-01"
-END = "2024-12-01"
 ALPHA = 0.05
 MARGINAL = 0.15
-PERIOD = 12
-PROJECTION_MONTHS = 120
 MONTHS_TR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz",
              "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
 DIRECTION_LABELS = {"increasing": "Artan", "decreasing": "Azalan", "no trend": "Belirgin değil"}
@@ -92,10 +92,7 @@ STATUS_LABELS_EN = {"worse": "Significant adverse trend", "better": "Significant
 
 # ── Dil ve zaman seçimi ──────────────────────────────────────────────────────
 LANGS = {"tr": "TR", "en": "EN"}
-NOW = datetime.now(timezone.utc)
-LAST_FULL_YEAR = NOW.year - 1                      # NASA POWER için son tamamlanmış yıl
 YEAR_OPTIONS = [0] + list(range(LAST_FULL_YEAR, LAST_FULL_YEAR - 20, -1))   # 0 = canlı · son 20 yıl
-POWER_SPAN = 20                                    # uzun vadeli trend penceresi (yıl)
 
 
 def lang() -> str:
@@ -119,12 +116,6 @@ def sel_year() -> int:
     except Exception:
         value = 0
     return value if value in YEAR_OPTIONS else 0
-
-
-def hist_date(year: int) -> datetime:
-    """Seçilen yılda bugünün takvim gününe denk gelen an (12:00 UTC). 29 Şubat → 28 Şubat."""
-    day = 28 if (NOW.month, NOW.day) == (2, 29) else NOW.day
-    return datetime(year, NOW.month, day, 12, tzinfo=timezone.utc)
 
 
 def refusal() -> str:
@@ -349,252 +340,7 @@ ARCHETYPES: dict[str, Archetype] = {
         ("orman yangın", "yangın", "fwi", "alev"),
     ),
 }
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 50 stratejik iklim/ekoloji bölgesi (havzalar, çöller, ormanlar, buz tabakaları, deltalar, okyanus kuşakları)
-# ─────────────────────────────────────────────────────────────────────────────
-@dataclass(frozen=True)
-class Region:
-    name: str
-    country: str
-    slug: str
-    lat: float
-    lon: float
-    theme: str
-    archetype: str
-    variable: str
-    unit: str
-    source: str
-    base: float
-    season_amp: float
-    peak_month: int
-    trend_per_year: float
-    noise: float
-    ar: float
-    seed: int
-    bad_dir: str  # "up": artış olumsuzdur · "down": azalış olumsuzdur
-    decimals: int
-    floor: float | None = None
-    aliases: tuple[str, ...] = ()
-    en: tuple[str, str, str] = ("", "", "")   # İngilizce: ad, kapsadığı ülkeler, tema
-
-
-def _r(*args, **kwargs) -> Region:
-    return Region(*args, **kwargs)
-
-
-REGION_LIST: tuple[Region, ...] = (
-    # ── Avrupa ve Orta Doğu ──
-    _r("Marmara Havzası", "Türkiye", "marmara", 40.75, 28.6, "Megakent Isı Adası", "urban",
-       "Yüzey sıcaklığı", "°C", "Landsat 9 · MODIS", 16.4, 10.2, 7, 0.056, 0.6, 0.4, 4101, "up", 2,
-       None, ("marmara", "istanbul", "türkiye", "turkey"),
-       en=("Marmara Basin", "Türkiye", "Megacity Heat Island")),
-    _r("Batı Avrupa Ovası", "Fransa · Belçika · Almanya", "bati_avrupa", 48.6, 3.5, "Avrupa İklim Anomalisi",
-       "anomaly", "Sıcaklık anomalisi", "°C", "GISTEMP · MERRA-2", 0.62, 0.35, 7, 0.038, 0.48, 0.5, 4804, "up", 3,
-       None, ("paris", "fransa", "france", "belçika", "belgium", "western europe"),
-       en=("Western European Plain", "France · Belgium · Germany", "European Climate Anomaly")),
-    _r("Britanya Adaları", "Birleşik Krallık · İrlanda", "britanya", 53.8, -3.0, "Kuzey Atlantik Salınımı Etkisi",
-       "oscillation", "Sıcaklık anomalisi", "°C", "ERA5", 0.4, 0.3, 7, 0.006, 0.75, 0.55, 5111, "up", 3,
-       None, ("londra", "london", "ingiltere", "england", "britanya", "britain", "irlanda", "ireland"),
-       en=("British Isles", "United Kingdom · Ireland", "North Atlantic Oscillation Influence")),
-    _r("Sibirya Taygası", "Rusya", "sibirya", 61.0, 100.0, "Tayga Ekosistem Değişimi", "boreal",
-       "Yüzey sıcaklığı anomalisi", "°C", "MODIS · ERA5-Land", 0.9, 0.6, 1, 0.06, 0.9, 0.45, 5516, "up", 3,
-       None, ("sibirya", "siberia", "siberian taiga", "moskova", "moscow", "rusya", "russia"),
-       en=("Siberian Taiga", "Russia", "Taiga Ecosystem Change")),
-    _r("Akdeniz Maki Kuşağı", "Yunanistan · Türkiye · İtalya", "akdeniz_maki", 38.6, 22.5,
-       "Akdeniz Orman Yangını Riski", "wildfire", "Yangın hava indeksi (FWI)", "FWI", "Copernicus EFFIS · VIIRS",
-       18.0, 16.0, 7, 0.22, 4.0, 0.45, 3724, "up", 2, 0.0,
-       ("akdeniz", "mediterranean", "atina", "athens", "yunanistan", "greece", "ege", "aegean"),
-       en=("Mediterranean Maquis Belt", "Greece · Türkiye · Italy", "Mediterranean Wildfire Risk")),
-    _r("İber Platosu", "İspanya · Portekiz", "iber", 40.0, -4.0, "İber Sıcak Hava Dalgaları", "anomaly",
-       "Aylık en yüksek sıcaklık", "°C", "MODIS · Meteosat-11", 21.0, 9.5, 7, 0.052, 0.75, 0.4, 7101, "up", 2,
-       None, ("madrid", "ispanya", "spain", "iber", "iberia", "iberian", "portekiz", "portugal"),
-       en=("Iberian Meseta", "Spain · Portugal", "Iberian Heatwaves")),
-    _r("Apenin Yarımadası", "İtalya", "apenin", 42.5, 13.0, "Akdeniz Kuraklığı", "drought",
-       "Kuraklık indeksi (SPEI-3)", "SPEI", "GPM IMERG · SMAP", 0.2, 0.2, 2, -0.028, 0.55, 0.6, 7102, "down", 3,
-       None, ("roma", "rome", "italya", "italy", "apenin", "apennine", "italian peninsula"),
-       en=("Italian Peninsula", "Italy", "Mediterranean Drought")),
-    _r("Alp Kuşağı", "İsviçre · Avusturya · Fransa · İtalya", "alpler", 46.5, 10.0, "Alp Isınma Eğilimi",
-       "anomaly", "Sıcaklık anomalisi", "°C", "ERA5 · MeteoSwiss", 0.7, 0.4, 7, 0.033, 0.7, 0.5, 7103, "up", 3,
-       None, ("alpler", "alps", "alp", "alpine", "isviçre", "switzerland", "avusturya", "austria"),
-       en=("Alpine Belt", "Switzerland · Austria · France · Italy", "Alpine Warming Trend")),
-    _r("Antarktika Yarımadası", "Antarktika", "antarktika", -65.5, -62.0, "Weddell Denizi Buz Örtüsü",
-       "cryosphere", "Deniz buzu örtüsü (Weddell Denizi)", "%", "Sentinel-1 · AMSR2", 38.0, 30.0, 9, -0.55, 6.0, 0.5,
-       7104, "down", 1, 0.0, ("antarktika", "antarctica", "antarktik", "antarctic", "weddell"),
-       en=("Antarctic Peninsula", "Antarctica", "Weddell Sea Ice Cover")),
-    _r("Grönland Buz Tabakası", "Grönland (Danimarka)", "gronland", 72.0, -40.0, "Buz Tabakası Erimesi",
-       "cryosphere", "Kar ve buz örtüsü", "%", "GRACE-FO · ICESat-2", 62.0, 26.0, 2, -0.42, 4.5, 0.5, 6408, "down", 1,
-       None, ("grönland", "greenland", "izlanda", "iceland", "reykjavik"),
-       en=("Greenland Ice Sheet", "Greenland (Denmark)", "Ice Sheet Melt")),
-    _r("Nil Deltası ve Vadisi", "Mısır", "nil", 30.5, 31.0, "Çölleşme İndeksi", "desert",
-       "Bitki örtüsü indeksi (NDVI)", "NDVI", "MODIS · Landsat 8", 0.21, 0.04, 3, 0.0005, 0.016, 0.45, 3009, "down", 4,
-       None, ("nil", "nile", "kahire", "cairo", "mısır", "egypt"),
-       en=("Nile Delta & Valley", "Egypt", "Desertification Index")),
-    _r("Arap Körfezi Kıyı Çölü", "BAE · Katar", "korfez", 24.6, 54.0, "Aşırı Sıcaklık ve Kuraklık", "desert",
-       "Aylık en yüksek sıcaklık", "°C", "MODIS · Meteosat-11", 35.2, 7.5, 7, 0.048, 0.6, 0.4, 2525, "up", 2,
-       None, ("dubai", "bae", "uae", "emirates", "katar", "qatar", "abu dabi", "abu dhabi", "körfez", "persian gulf"),
-       en=("Arabian Gulf Coastal Desert", "UAE · Qatar", "Extreme Heat & Drought")),
-    _r("Necd Platosu", "Suudi Arabistan", "necd", 24.5, 45.0, "Arap Yarımadası Aşırı Sıcaklığı", "desert",
-       "Aylık en yüksek sıcaklık", "°C", "MODIS · Meteosat-11", 34.0, 9.0, 7, 0.044, 0.7, 0.4, 7105, "up", 2,
-       None, ("riyad", "riyadh", "suudi", "saudi", "arabistan", "arabia", "necd", "najd"),
-       en=("Najd Plateau", "Saudi Arabia", "Arabian Peninsula Extreme Heat")),
-    _r("İran Platosu", "İran", "iran", 33.0, 53.0, "Yeraltı Suyu Tükenmesi", "drought",
-       "Yeraltı suyu seviyesi değişimi", "m", "GRACE-FO · Sentinel-1", 0.0, 0.4, 4, -0.95, 0.35, 0.7, 7106, "down", 2,
-       None, ("tahran", "tehran", "iran"),
-       en=("Iranian Plateau", "Iran", "Groundwater Depletion")),
-    # ── Afrika ──
-    _r("Sahra Çölü", "Kuzey Afrika", "sahra", 23.4, 13.0, "Kuraklık ve Toz Fırtınası", "desert",
-       "Toz aerosol optik derinliği", "AOD", "CALIPSO · MODIS", 0.42, 0.17, 6, 0.0, 0.085, 0.45, 2301, "up", 4, 0.03,
-       ("sahra", "sahara", "libya", "çad", "chad", "nijer çölü"),
-       en=("Sahara Desert", "North Africa", "Drought & Dust Storms")),
-    _r("Doğu Afrika Savanları", "Kenya · Tanzanya", "dogu_afrika", -2.5, 35.5, "Doğu Afrika Kuraklık Hattı",
-       "drought", "Kuraklık indeksi (SPEI-3)", "SPEI", "GPM IMERG · MODIS", 0.3, 0.25, 4, -0.012, 0.55, 0.6, 3616,
-       "down", 3, None, ("nairobi", "kenya", "tanzanya", "tanzania", "serengeti", "kilimanjaro", "east africa"),
-       en=("East African Savanna", "Kenya · Tanzania", "East African Drought Belt")),
-    _r("Cape Floristik Bölgesi", "Güney Afrika", "cape", -33.8, 19.8, "Su Krizi ve Kuraklık", "drought",
-       "Aylık yağış", "mm", "GPM IMERG · GRACE-FO", 48.0, 38.0, 6, -0.65, 18.0, 0.3, 3321, "down", 1, 0.0,
-       ("cape town", "kap kenti", "güney afrika", "south africa", "fynbos", "cape"),
-       en=("Cape Floristic Region", "South Africa", "Water Crisis & Drought")),
-    _r("Nijer Deltası", "Nijerya", "nijer", 5.0, 6.2, "Kıyı Erozyonu ve Deniz Seviyesi", "coastal",
-       "Göreli deniz seviyesi anomalisi", "mm", "Jason-3 · Sentinel-6", 0.0, 30.0, 8, 4.1, 20.0, 0.6, 7107, "up", 1,
-       None, ("lagos", "nijerya", "nigeria", "nijer deltası", "niger delta"),
-       en=("Niger Delta", "Nigeria", "Coastal Erosion & Sea Level")),
-    _r("Kongo Havzası", "Kongo DC · Kongo · Kamerun", "kongo", -1.0, 21.0, "Yağmur Ormanı Yangın Mevsimi",
-       "tropical_forest", "Aerosol optik derinliği", "AOD", "MODIS MAIAC · VIIRS", 0.30, 0.14, 7, 0.0035, 0.03, 0.45,
-       7108, "up", 4, 0.03, ("kongo", "congo", "kinshasa", "kinşasa", "kinsasa", "kamerun", "cameroon"),
-       en=("Congo Basin", "DR Congo · Congo · Cameroon", "Rainforest Fire Season")),
-    _r("Etiyopya Yaylası", "Etiyopya", "etiyopya", 9.5, 38.5, "Yayla Yağış Rejimi", "hydro",
-       "Aylık yağış", "mm", "GPM IMERG · CHIRPS", 140.0, 95.0, 7, -0.7, 28.0, 0.25, 7109, "down", 1, 0.0,
-       ("addis", "addis ababa", "etiyopya", "ethiopia", "ethiopian highlands"),
-       en=("Ethiopian Highlands", "Ethiopia", "Highland Rainfall Regime")),
-    # ── Asya ve Okyanusya ──
-    _r("Kanto Ovası", "Japonya", "kanto", 35.9, 139.6, "Megakent Isınma Yükü", "urban",
-       "Aylık ortalama sıcaklık", "°C", "Himawari-9 · MODIS", 16.3, 10.6, 8, 0.041, 0.7, 0.35, 3503, "up", 2,
-       None, ("kanto", "tokyo", "japonya", "japan"),
-       en=("Kanto Plain", "Japan", "Megacity Warming Load")),
-    _r("Kuzey Çin Ovası", "Çin", "kuzey_cin", 37.0, 116.0, "Hava Kalitesi ve Partikül Yükü", "air_quality",
-       "İnce partikül madde (PM2.5)", "µg/m³", "MODIS · TROPOMI", 98.0, 32.0, 1, -2.1, 14.0, 0.5, 3910, "up", 1, 8.0,
-       ("pekin", "beijing", "çin", "china", "north china", "hebei"),
-       en=("North China Plain", "China", "Air Quality & Particulate Load")),
-    _r("Kore Yarımadası", "Güney Kore", "kore", 36.5, 127.8, "Kentsel Mikro İklim", "urban",
-       "Aylık ortalama sıcaklık", "°C", "GK-2A · MODIS", 12.7, 13.5, 8, 0.045, 0.7, 0.35, 3719, "up", 2,
-       None, ("seul", "seoul", "kore", "korea"),
-       en=("Korean Peninsula", "South Korea", "Urban Microclimate")),
-    _r("Yangtze Deltası", "Çin", "yangtze", 31.3, 121.0, "Delta Kıyı Riski", "coastal",
-       "Göreli deniz seviyesi anomalisi", "mm", "Jason-3 · SWOT", 0.0, 35.0, 8, 4.6, 18.0, 0.6, 7110, "up", 1,
-       None, ("yangtze", "shanghai", "şanghay", "sanghay"),
-       en=("Yangtze River Delta", "China", "Delta Coastal Risk")),
-    _r("Batı Ghatlar", "Hindistan", "ghatlar", 16.5, 74.0, "Muson Yağış Dengesizliği", "hydro",
-       "Aylık yağış", "mm", "GPM IMERG · INSAT-3D", 200.0, 260.0, 7, 0.9, 70.0, 0.15, 1918, "up", 1, 0.0,
-       ("mumbai", "bombay", "ghat", "ghats", "western ghats", "konkan", "kerala"),
-       en=("Western Ghats", "India", "Monsoon Rainfall Imbalance")),
-    _r("Hint-Ganj Ovası", "Hindistan · Pakistan", "ganj", 27.5, 79.5, "Kış Duman Kirliliği", "air_quality",
-       "İnce partikül madde (PM2.5)", "µg/m³", "MODIS · TROPOMI", 110.0, 60.0, 11, 0.9, 22.0, 0.5, 7111, "up", 1,
-       10.0, ("delhi", "new delhi", "yeni delhi", "hindistan", "india", "ganj", "ganges", "indo-gangetic"),
-       en=("Indo-Gangetic Plain", "India · Pakistan", "Winter Smog")),
-    _r("İndus Havzası", "Pakistan", "indus", 26.5, 68.5, "Güney Asya Sıcak Hava Dalgaları", "anomaly",
-       "Aylık en yüksek sıcaklık", "°C", "MODIS · INSAT-3D", 32.0, 5.5, 6, 0.05, 0.6, 0.4, 7112, "up", 2,
-       None, ("karachi", "karaçi", "karaci", "pakistan", "indus", "sind", "sindh"),
-       en=("Indus Basin", "Pakistan", "South Asian Heatwaves")),
-    _r("Ganj-Brahmaputra Deltası", "Bangladeş · Hindistan", "bengal_delta", 23.0, 90.0, "Delta Taşkınları ve Muson",
-       "hydro", "Aylık yağış", "mm", "GPM IMERG", 180.0, 190.0, 7, 1.6, 60.0, 0.2, 7113, "up", 1, 0.0,
-       ("dhaka", "dakka", "bangladeş", "bangladesh", "brahmaputra", "sundarban", "sundarbans", "bengal"),
-       en=("Ganges–Brahmaputra Delta", "Bangladesh · India", "Delta Floods & Monsoon")),
-    _r("Chao Phraya Deltası", "Tayland", "chao_phraya", 14.0, 100.4, "Zemin Çökmesi ve Taşkın", "coastal",
-       "Zemin yüksekliği değişimi", "mm", "Sentinel-1 · GNSS", 0.0, 3.0, 9, -18.0, 4.0, 0.7, 7114, "down", 1,
-       None, ("bangkok", "tayland", "thailand", "chao phraya"),
-       en=("Chao Phraya Delta", "Thailand", "Land Subsidence & Flooding")),
-    _r("Malakka Boğazı", "Malezya · Singapur · Endonezya", "malakka", 2.5, 101.5, "Ekvatoral Deniz Isınması",
-       "marine", "Deniz yüzeyi sıcaklığı", "°C", "Himawari-9 · GHRSST", 28.6, 0.8, 5, 0.019, 0.25, 0.6, 1315, "up", 2,
-       None, ("singapur", "singapore", "malezya", "malaysia", "malakka", "malacca"),
-       en=("Strait of Malacca", "Malaysia · Singapore · Indonesia", "Equatorial Ocean Warming")),
-    _r("Cava Kuzey Kıyısı", "Endonezya", "cava", -6.4, 108.0, "Deniz Seviyesi ve Zemin Çökmesi", "coastal",
-       "Zemin yüksekliği değişimi", "mm", "Sentinel-1 · GNSS", 0.0, 4.0, 3, -48.0, 6.0, 0.7, 623, "down", 1,
-       None, ("jakarta", "cava", "java", "endonezya", "indonesia"),
-       en=("North Java Coast", "Indonesia", "Sea Level & Land Subsidence")),
-    _r("Filipin Denizi", "Filipinler", "filipin", 14.5, 125.5, "Tayfun Kuşağı ve Deniz Isınması", "marine",
-       "Deniz yüzeyi sıcaklığı", "°C", "Himawari-9 · GHRSST", 28.4, 1.2, 5, 0.017, 0.3, 0.6, 7115, "up", 2,
-       None, ("manila", "filipin", "filipinler", "philippines", "philippine sea"),
-       en=("Philippine Sea", "Philippines", "Typhoon Belt & Ocean Warming")),
-    _r("Moğol Bozkırı ve Gobi", "Moğolistan · Çin", "gobi", 45.5, 105.0, "Bozkır Çölleşmesi", "desert",
-       "Bitki örtüsü indeksi (NDVI)", "NDVI", "MODIS · Landsat 8", 0.26, 0.15, 7, -0.0016, 0.03, 0.45, 7116, "down", 4,
-       0.02, ("gobi", "moğolistan", "mongolia", "ulaanbaatar", "ulan bator", "ulan batur"),
-       en=("Mongolian Steppe & Gobi", "Mongolia · China", "Steppe Desertification")),
-    _r("Büyük Set Resifi", "Avustralya", "set_resifi", -18.0, 147.5, "Mercan Ağarması ve Okyanus Isınması", "marine",
-       "Deniz yüzeyi sıcaklığı", "°C", "GHRSST · Coral Reef Watch", 26.0, 2.6, 2, 0.022, 0.35, 0.6, 6107, "up", 2,
-       None, ("büyük set resifi", "great barrier reef", "avustralya", "australia", "queensland", "sydney"),
-       en=("Great Barrier Reef", "Australia", "Coral Bleaching & Ocean Warming")),
-    # ── Kuzey Amerika ──
-    _r("Mauna Loa (Kuzey Pasifik)", "ABD · Hawaii", "mauna_loa", 19.54, -155.58, "Atmosferik Karbon", "carbon",
-       "Atmosferik karbondioksit (XCO₂)", "ppm", "OCO-2 · OCO-3 · NOAA", 370.5, 3.4, 5, 2.25, 0.45, 0.55, 3802, "up", 2,
-       None, ("mauna loa", "hawaii", "washington", "vaşington"),
-       en=("Mauna Loa (North Pacific)", "USA · Hawaii", "Atmospheric Carbon")),
-    _r("ABD Doğu Kıyısı", "ABD", "dogu_kiyisi", 38.5, -75.5, "Kıyı Deniz Seviyesi Anomalisi", "coastal",
-       "Göreli deniz seviyesi anomalisi", "mm", "Jason-3 · SWOT", 0.0, 45.0, 9, 3.6, 22.0, 0.6, 4012, "up", 1,
-       None, ("new york", "newyork", "nyc", "chesapeake", "doğu kıyısı", "east coast"),
-       en=("US East Coast", "USA", "Coastal Sea-Level Anomaly")),
-    _r("Kanada Kuzey Ormanları", "Kanada", "kanada_boreal", 52.0, -86.0, "Kuzey Ormanı Stresi", "boreal",
-       "Bitki örtüsü indeksi (NDVI)", "NDVI", "VIIRS · Landsat", 0.42, 0.3, 7, 0.0004, 0.03, 0.45, 4321, "down", 4,
-       None, ("kanada", "canada", "toronto", "ontario", "canadian boreal"),
-       en=("Canadian Boreal Forest", "Canada", "Boreal Forest Stress")),
-    _r("Meksika Vadisi", "Meksika", "meksika", 19.4, -99.1, "Havza Sıcaklık Sıkışması", "urban",
-       "Yüzey sıcaklığı", "°C", "Landsat 9 · GOES-16", 17.5, 3.2, 5, 0.05, 0.45, 0.4, 1922, "up", 2,
-       None, ("mexico city", "meksiko", "mexico", "meksika"),
-       en=("Valley of Mexico", "Mexico", "Basin Heat Trapping")),
-    _r("Kaliforniya Çaparalı", "ABD", "kaliforniya", 35.0, -119.0, "Kaliforniya Yangın Mevsimi", "wildfire",
-       "Yangın hava indeksi (FWI)", "FWI", "GOES-18 · VIIRS", 22.0, 14.0, 9, 0.26, 4.5, 0.45, 7117, "up", 2, 0.0,
-       ("los angeles", "kaliforniya", "california", "chaparral", "çaparal"),
-       en=("California Chaparral", "USA", "California Fire Season")),
-    _r("Büyük Göller Havzası", "ABD · Kanada", "buyuk_goller", 45.0, -84.5, "Büyük Göller Kış Isınması", "anomaly",
-       "Kış sıcaklığı anomalisi", "°C", "ERA5 · GOES-16", 0.5, 0.5, 1, 0.03, 0.9, 0.5, 7118, "up", 3,
-       None, ("büyük göller", "great lakes", "chicago", "michigan", "detroit"),
-       en=("Great Lakes Basin", "USA · Canada", "Great Lakes Winter Warming")),
-    _r("Florida Everglades", "ABD", "everglades", 25.8, -80.9, "Kıyı Taşkınları ve Deniz Seviyesi", "coastal",
-       "Göreli deniz seviyesi anomalisi", "mm", "Jason-3 · NOAA", 0.0, 50.0, 10, 5.2, 24.0, 0.6, 7119, "up", 1,
-       None, ("everglades", "florida", "miami"),
-       en=("Florida Everglades", "USA", "Coastal Flooding & Sea Level")),
-    _r("Pasifik Kıyı Dağları", "Kanada", "kiyi_daglari", 50.5, -123.5, "Kıyı Dağları Kar Paketi", "cryosphere",
-       "Kar örtüsü (kıyı dağları)", "%", "MODIS · Sentinel-2", 45.0, 38.0, 2, -0.38, 7.0, 0.5, 7120, "down", 1, 0.0,
-       ("vancouver", "britanya kolumbiyası", "british columbia", "coast mountains"),
-       en=("Pacific Coast Mountains", "Canada", "Coast Mountain Snowpack")),
-    _r("Alaska Permafrost Kuşağı", "ABD", "alaska", 64.8, -150.0, "Arktik Isınma ve Permafrost", "boreal",
-       "Yüzey sıcaklığı anomalisi", "°C", "MODIS · ERA5-Land", 1.1, 0.8, 1, 0.075, 1.1, 0.45, 7121, "up", 3,
-       None, ("alaska", "anchorage", "fairbanks", "yukon"),
-       en=("Alaskan Permafrost Belt", "USA", "Arctic Warming & Permafrost")),
-    # ── Güney Amerika ──
-    _r("Amazon Havzası", "Brezilya · Peru · Kolombiya", "amazon", -3.5, -62.2, "Ormansızlaşma ve Yangın Aerosolü",
-       "tropical_forest", "Aerosol optik derinliği", "AOD", "MODIS MAIAC",
-       0.22, 0.09, 9, 0.009, 0.018, 0.45, 3303, "up", 4, 0.02,
-       ("amazon", "amazonlar", "amazonia", "amazonya", "brezilya", "brazil", "manaus"),
-       en=("Amazon Basin", "Brazil · Peru · Colombia", "Deforestation & Fire Aerosols")),
-    _r("Atlantik Ormanı", "Brezilya", "mata_atlantica", -22.5, -44.5, "Tropikal Yağış Rejimi", "hydro",
-       "Aylık yağış", "mm", "GPM IMERG", 105.0, 70.0, 1, 0.0, 38.0, 0.2, 2213, "up", 1, 0.0,
-       ("rio", "rio de janeiro", "são paulo", "sao paulo", "mata atlântica", "mata atlantica", "atlantic forest"),
-       en=("Atlantic Forest", "Brazil", "Tropical Rainfall Regime")),
-    _r("Pampa Ovaları", "Arjantin · Uruguay", "pampa", -35.0, -61.0, "Güney Yarımküre Isınma Eğilimi", "anomaly",
-       "Aylık ortalama sıcaklık", "°C", "ERA5 · MODIS", 17.9, 6.3, 1, 0.025, 0.6, 0.4, 3417, "up", 2,
-       None, ("pampa", "pampas", "buenos aires", "arjantin", "argentina", "uruguay"),
-       en=("Pampas", "Argentina · Uruguay", "Southern Hemisphere Warming Trend")),
-    _r("Humboldt Akıntısı", "Peru · Şili kıyıları", "humboldt", -12.0, -79.5, "El Niño Kıyı Etkisi", "marine",
-       "Deniz yüzeyi sıcaklığı", "°C", "GHRSST · GOES-16", 18.5, 2.2, 2, 0.0, 0.9, 0.75, 7122, "up", 2,
-       None, ("humboldt", "lima", "peru"),
-       en=("Humboldt Current", "Peru · Chile coast", "El Niño Coastal Impact")),
-    _r("Orta Şili", "Şili", "orta_sili", -34.0, -71.0, "Orta Şili Mega Kuraklığı", "drought",
-       "Aylık yağış", "mm", "GPM IMERG · GRACE-FO", 28.0, 30.0, 6, -0.55, 14.0, 0.3, 7123, "down", 1, 0.0,
-       ("santiago", "şili", "chile", "central chile"),
-       en=("Central Chile", "Chile", "Central Chile Megadrought")),
-    _r("Kuzey And Paramoları", "Kolombiya · Ekvador", "paramo", 4.6, -74.0, "And Yaylası Yağış Rejimi", "hydro",
-       "Aylık yağış", "mm", "GPM IMERG · CHIRPS", 80.0, 35.0, 10, 0.0, 30.0, 0.25, 7124, "down", 1, 0.0,
-       ("bogota", "bogotá", "kolombiya", "colombia", "ekvador", "ecuador", "páramo", "paramo"),
-       en=("Northern Andes Páramo", "Colombia · Ecuador", "Andean Highland Rainfall")),
-    _r("Tropikal And Buzulları", "Bolivya · Peru", "and_buzullari", -16.2, -68.2, "And Buzullarının Erimesi",
-       "cryosphere", "Buzul kaplı alan (Cordillera Real)", "%", "Landsat 8 · Sentinel-2", 70.0, 6.0, 8, -0.6, 2.2, 0.6,
-       7125, "down", 1, None, ("la paz", "bolivya", "bolivia", "titicaca", "cordillera real", "andean glaciers"),
-       en=("Tropical Andean Glaciers", "Bolivia · Peru", "Andean Glacier Retreat")),
-)
-REGIONS: dict[str, Region] = {r.name: r for r in REGION_LIST}
-CITY_NAMES = list(REGIONS.keys())   # iç kimlikler (Türkçe bölge adları); görünen ad dile göre rname() ile
+# 50 bölgelik veritabanı (REGION_LIST, REGIONS, Region) → data_pipelines/regions.py
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -926,66 +672,8 @@ def rvar(spec: Region) -> str:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Veri üretimi ve istatistik
+# Biçimlendirme yardımcıları (seri ve istatistik: data_pipelines/series.py)
 # ─────────────────────────────────────────────────────────────────────────────
-@st.cache_data(show_spinner=False)
-def build_series(region_name: str) -> pd.DataFrame:
-    """Bölgeye özgü, tekrarlanabilir sentetik aylık seri üretir."""
-    spec = REGIONS[region_name]
-    dates = pd.date_range(START, END, freq="MS")
-    n = len(dates)
-    rng = np.random.default_rng(spec.seed)
-    t = np.arange(n, dtype=float)
-    month = dates.month.to_numpy()
-    seasonal = spec.season_amp * np.cos(2 * np.pi * (month - spec.peak_month) / 12.0)
-    trend = (spec.trend_per_year / 12.0) * t
-
-    # AR(1) otokorelasyonlu gürültü
-    shock = rng.normal(0.0, spec.noise, size=n)
-    noise = np.empty(n, dtype=float)
-    noise[0] = shock[0]
-    for i in range(1, n):
-        noise[i] = spec.ar * noise[i - 1] + shock[i]
-
-    values = spec.base + seasonal + trend + noise
-    if spec.floor is not None:
-        values = np.maximum(values, spec.floor)
-    return pd.DataFrame({"Tarih": dates, spec.variable: values})
-
-
-@st.cache_data(show_spinner=False)
-def analyze(region_name: str) -> dict:
-    """Mevsimsel Mann-Kendall testi (periyot = 12) ve yardımcı tanı istatistikleri."""
-    spec = REGIONS[region_name]
-    values = build_series(region_name)[spec.variable].to_numpy(dtype=float)
-    n = len(values)
-    res = mk.seasonal_test(values, period=PERIOD)
-    # seasonal_test eğimi dönem (yıl) başına verir; doğru: intercept + slope · t / period
-    slope_m = float(res.slope) / PERIOD
-
-    half = n // 2
-    h1 = mk.seasonal_test(values[:half], period=PERIOD)
-    h2 = mk.seasonal_test(values[half:], period=PERIOD)
-
-    months = np.arange(n) % PERIOD
-    detrended = values - (float(res.intercept) + slope_m * np.arange(n))
-    clim = np.array([detrended[months == m].mean() for m in range(PERIOD)])
-    resid = detrended - clim[months]
-
-    first = values[:60].reshape(-1, PERIOD).mean(axis=0)
-    last = values[-60:].reshape(-1, PERIOD).mean(axis=0)
-    return {
-        "trend": res.trend, "p": float(res.p), "z": float(res.z), "Tau": float(res.Tau), "s": float(res.s),
-        "slope": slope_m, "slope_year": float(res.slope), "intercept": float(res.intercept), "n": n,
-        "s1": float(h1.slope), "s2": float(h2.slope), "p1": float(h1.p), "p2": float(h2.p),
-        "resid_std": float(resid.std(ddof=1)),
-        "rho1": float(np.corrcoef(resid[:-1], resid[1:])[0, 1]),
-        "amp_first": float(first.max() - first.min()), "amp_last": float(last.max() - last.min()),
-        "peak_month": int(np.argmax(last)) + 1,
-        "projection": float(res.intercept) + slope_m * (n - 1 + PROJECTION_MONTHS),
-    }
-
-
 @st.cache_data(show_spinner=False)
 def export_csv(region_name: str) -> bytes:
     spec = REGIONS[region_name]
@@ -1029,28 +717,9 @@ def status_of(spec: Region, result: dict) -> str:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Canlı hava durumu: Meteomatics (anlık) + Open-Meteo (30 günlük anomali, yedek)
+# Hava verisinin arayüz tarafı (veri çekme: data_pipelines/weather.py)
 # ─────────────────────────────────────────────────────────────────────────────
-WEATHER_CODES = (
-    ((0,), "Açık", "☀️", "🌙"), ((1, 2), "Parçalı bulutlu", "⛅", "☁️"), ((3,), "Kapalı", "☁️", "☁️"),
-    ((45, 48), "Sisli", "🌫️", "🌫️"), ((51, 53, 55, 56, 57), "Çisenti", "🌦️", "🌦️"),
-    ((61, 63, 65, 66, 67), "Yağmurlu", "🌧️", "🌧️"), ((71, 73, 75, 77), "Karlı", "🌨️", "🌨️"),
-    ((80, 81, 82), "Sağanak", "🌧️", "🌧️"), ((85, 86), "Kar sağanağı", "🌨️", "🌨️"),
-    ((95, 96, 99), "Gök gürültülü fırtına", "⛈️", "⛈️"),
-)
-
-
-def describe_code(code: int, is_day: bool) -> tuple[str, str]:
-    for codes, label, day_icon, night_icon in WEATHER_CODES:
-        if code in codes:
-            return label, day_icon if is_day else night_icon
-    return "Bilinmiyor", "·"
-
-
-WEATHER_TTL = 1800  # 30 dakika: termal, basınç ve rüzgâr verileri bu aralıkla otomatik yenilenir
 COMPASS_TR = ("kuzey", "kuzeydoğu", "doğu", "güneydoğu", "güney", "güneybatı", "batı", "kuzeybatı")
-
-
 COMPASS_EN = ("north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest")
 
 
@@ -1069,245 +738,9 @@ def when_text(meta: dict) -> str:
     return f"{meta['time']} UTC"
 
 
-def _fallback_weather(year: int = 0) -> dict:
-    """Ağ yoksa: mevsim ve enlem kuşağına dayalı tutarlı yaklaşık değerler (açıkça 'tahmini' etiketlenir)."""
-    month = NOW.month
-    data = {}
-    for r in REGION_LIST:
-        alat = abs(r.lat)
-        season = math.cos(2 * math.pi * (month - (7 if r.lat >= 0 else 1)) / 12)
-        temp = 27 - 0.42 * alat + 9 * season * min(1.0, alat / 35)
-        # Genel dolaşım: tropiklerde alize (doğudan), orta enlemlerde batı rüzgârları, kutuplarda doğudan
-        wind_dir = 90.0 if alat < 30 else (270.0 if alat < 60 else 90.0)
-        pressure = 1010 + 10 * math.exp(-((alat - 30) / 10) ** 2) - 8 * math.exp(-((alat - 60) / 8) ** 2)
-        data[r.name] = {"temp": temp, "humidity": None, "wind": 15.0, "wind_dir": wind_dir, "pressure": pressure,
-                        "anomaly": 0.0, "label": "Tahmini", "icon": "≈"}
-    stamp = hist_date(year).strftime("%d.%m.%Y %H:%M") if year else NOW.strftime("%H:%M")
-    return {"live": False, "time": stamp, "data": data, "year": year,
-            "source": "Veri kaynağına ulaşılamadı · mevsimsel simülasyon", "provider": "Simülasyon",
-            "anomaly_live": False}
-
-
-MM_URL = "https://api.meteomatics.com"
-MM_CORE = ("t_2m:C", "msl_pressure:hPa", "wind_speed_10m:ms", "wind_dir_10m:d")
-MM_EXTRA = ("relative_humidity_2m:p", "weather_symbol_1h:idx")
-# Meteomatics hava sembolleri (gece için +100)
-MM_SYMBOLS = {
-    1: ("Açık", "☀️", "🌙"), 2: ("Az bulutlu", "🌤️", "☁️"), 3: ("Parçalı bulutlu", "⛅", "☁️"),
-    4: ("Kapalı", "☁️", "☁️"), 5: ("Yağmurlu", "🌧️", "🌧️"), 6: ("Karla karışık yağmur", "🌨️", "🌨️"),
-    7: ("Karlı", "🌨️", "🌨️"), 8: ("Sağanak", "🌧️", "🌧️"), 9: ("Kar sağanağı", "🌨️", "🌨️"),
-    10: ("Sulu kar sağanağı", "🌨️", "🌨️"), 11: ("Hafif sis", "🌫️", "🌫️"), 12: ("Yoğun sis", "🌫️", "🌫️"),
-    13: ("Donan yağmur", "🌧️", "🌧️"), 14: ("Gök gürültülü fırtına", "⛈️", "⛈️"), 15: ("Çisenti", "🌦️", "🌦️"),
-    16: ("Kum fırtınası", "🌪️", "🌪️"),
-}
-
-
-def describe_symbol(idx: int) -> tuple[str, str] | None:
-    night = idx > 100
-    entry = MM_SYMBOLS.get(idx - 100 if night else idx)
-    return (entry[0], entry[2] if night else entry[1]) if entry else None
-
-
-def meteomatics_auth() -> HTTPBasicAuth | None:
-    """Kimlik bilgileri yalnızca st.secrets['meteomatics'] (veya ortam değişkenleri) üzerinden okunur."""
-    try:
-        sec = st.secrets["meteomatics"]
-        user, password = sec["METEOMATICS_USER"], sec["METEOMATICS_PASS"]
-    except Exception:
-        user, password = os.environ.get("METEOMATICS_USER", ""), os.environ.get("METEOMATICS_PASS", "")
-    return HTTPBasicAuth(user, password) if user and password else None
-
-
-def mm_time(when: datetime) -> str:
-    return when.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def meteomatics_now(params: tuple, locations: str, timeout: float = 15, when: str = "now") -> tuple[dict, str]:
-    """Meteomatics tek an sorgusu ('now' ya da ISO tarih → geçmiş veri).
-    Dönüş: {parametre: {(enlem, boylam): değer}}, 'SS:DD' (UTC)."""
-    auth = meteomatics_auth()
-    if auth is None:
-        raise RuntimeError("Meteomatics kimlik bilgisi tanımlı değil")
-    resp = requests.get(f"{MM_URL}/{when}/{','.join(params)}/{locations}/json", auth=auth, timeout=timeout)
-    resp.raise_for_status()
-    body = resp.json()
-    if body.get("status") != "OK":
-        raise ValueError(body.get("message", "Meteomatics hatası"))
-    out, stamp = {}, ""
-    for block in body["data"]:
-        values = {}
-        for c in block["coordinates"]:
-            v = c["dates"][0]["value"]
-            values[(round(float(c["lat"]), 4), round(float(c["lon"]), 4))] = None if v is None or v <= -999 else float(v)
-            stamp = c["dates"][0]["date"][11:16]
-        out[block["parameter"]] = values
-    return out, stamp
-
-
-def meteomatics_daily_anomaly(locations: str, day: datetime, timeout: float = 25) -> dict:
-    """Seçilen günün 24 saatlik ortalama sıcaklığının önceki 30 günün ortalamasından sapması (°C).
-    Meteomatics t_mean_2m_24h:C zaman serisi (P1D adımlı) tek istekte alınır. Dönüş: {(enlem, boylam): sapma}."""
-    auth = meteomatics_auth()
-    if auth is None:
-        raise RuntimeError("Meteomatics kimlik bilgisi tanımlı değil")
-    end = day.replace(hour=0, minute=0, second=0) + timedelta(days=1)
-    start = end - timedelta(days=30)
-    resp = requests.get(f"{MM_URL}/{mm_time(start)}--{mm_time(end)}:P1D/t_mean_2m_24h:C/{locations}/json",
-                        auth=auth, timeout=timeout)
-    resp.raise_for_status()
-    out = {}
-    for c in resp.json()["data"][0]["coordinates"]:
-        vals = [d["value"] for d in c["dates"] if d["value"] is not None and d["value"] > -999]
-        key = (round(float(c["lat"]), 4), round(float(c["lon"]), 4))
-        out[key] = vals[-1] - float(np.mean(vals[:-1])) if len(vals) >= 8 else None
-    return out
-
-
-def _open_meteo_cities() -> tuple[dict, str]:
-    """Open-Meteo: anlık değerler (yedek) ve son 30 günün günlük ortalamasından termal anomali."""
-    resp = requests.get(
-        "https://api.open-meteo.com/v1/forecast",
-        params={
-            "latitude": ",".join(f"{r.lat:.4f}" for r in REGION_LIST),
-            "longitude": ",".join(f"{r.lon:.4f}" for r in REGION_LIST),
-            "current": "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,"
-                       "wind_direction_10m,pressure_msl,is_day",
-            "daily": "temperature_2m_mean",
-            "past_days": 30,
-            "forecast_days": 1,
-            "timezone": "UTC",
-        },
-        timeout=10,
-    )
-    resp.raise_for_status()
-    payload = resp.json()
-    payload = payload if isinstance(payload, list) else [payload]
-    if len(payload) != len(REGION_LIST):
-        raise ValueError("eksik yanıt")
-    data = {}
-    for region, item in zip(REGION_LIST, payload):
-        cur = item["current"]
-        label, icon = describe_code(int(cur["weather_code"]), bool(cur.get("is_day", 1)))
-        means = [v for v in item.get("daily", {}).get("temperature_2m_mean", []) if v is not None]
-        anomaly = (means[-1] - float(np.mean(means[:-1]))) if len(means) >= 8 else None
-        data[region.name] = {
-            "temp": float(cur["temperature_2m"]), "humidity": cur.get("relative_humidity_2m"),
-            "wind": float(cur.get("wind_speed_10m") or 0.0), "wind_dir": float(cur.get("wind_direction_10m") or 0.0),
-            "pressure": float(cur.get("pressure_msl") or 1013.0), "anomaly": anomaly,
-            "label": label, "icon": icon,
-        }
-    return data, payload[0]["current"]["time"][-5:]
-
-
 def fetch_weather() -> dict:
     """Seçili zamana (canlı ya da arşiv yılı) ait 50 bölge verisi."""
     return _fetch_weather(sel_year())
-
-
-def _merge_mm(base: dict, mm: dict) -> dict:
-    """Meteomatics değerlerini bölge kayıtlarına işler."""
-    data = {}
-    for r in REGION_LIST:
-        w = dict(base[r.name])
-        key = (round(r.lat, 4), round(r.lon, 4))
-
-        def val(param: str) -> float | None:
-            return mm.get(param, {}).get(key)
-
-        t, pres, ws, wd, rh, sym = (val(x) for x in MM_CORE + MM_EXTRA)
-        if t is not None:
-            w["temp"] = t
-        if pres is not None:
-            w["pressure"] = pres
-        if ws is not None:
-            w["wind"] = ws * 3.6  # m/s → km/sa
-        if wd is not None:
-            w["wind_dir"] = wd
-        if rh is not None:
-            w["humidity"] = rh
-        described = describe_symbol(int(sym)) if sym else None
-        if described:
-            w["label"], w["icon"] = described
-        data[r.name] = w
-    return data
-
-
-@st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
-def _fetch_historical_weather(year: int) -> dict:
-    """Zamanda yolculuk: seçilen yılda bugünün takvim günü (12:00 UTC) için Meteomatics arşiv verisi.
-    Termal anomali, o günün 24 saatlik ortalamasının önceki 30 günün ortalamasından sapmasıdır."""
-    when = hist_date(year)
-    locs = "+".join(f"{r.lat:.4f},{r.lon:.4f}" for r in REGION_LIST)
-    # Not: weather_symbol_1h arşivde sunulmuyor (tüm isteği düşürür); hava durumu bulut ve yağıştan türetilir.
-    try:
-        mm, _ = meteomatics_now(MM_CORE + ("relative_humidity_2m:p", "total_cloud_cover:p", "precip_1h:mm"),
-                                locs, when=mm_time(when))
-    except Exception:
-        return _fallback_weather(year)
-    try:
-        anomaly = meteomatics_daily_anomaly(locs, when)
-    except Exception:
-        anomaly = {}
-    data = _merge_mm(_fallback_weather(year)["data"], mm)
-    for r in REGION_LIST:
-        key = (round(r.lat, 4), round(r.lon, 4))
-        w = data[r.name]
-        w["anomaly"] = anomaly.get(key)
-        cloud = mm.get("total_cloud_cover:p", {}).get(key)
-        rain = mm.get("precip_1h:mm", {}).get(key) or 0.0
-        if rain >= 0.2:
-            w["label"], w["icon"] = ("Karlı", "🌨️") if w["temp"] <= 0.5 else ("Yağmurlu", "🌧️")
-        elif cloud is not None:
-            w["label"], w["icon"] = (("Açık", "☀️") if cloud < 20 else ("Az bulutlu", "🌤️") if cloud < 50
-                                     else ("Parçalı bulutlu", "⛅") if cloud < 85 else ("Kapalı", "☁️"))
-        else:
-            w["label"], w["icon"] = "Bilinmiyor", "·"
-    stamp = when.strftime("%d.%m.%Y %H:%M")
-    return {"live": True, "time": stamp, "data": data, "year": year, "provider": "Meteomatics",
-            "source": f"Meteomatics · {stamp} UTC", "anomaly_live": bool(anomaly)}
-
-
-def _fetch_weather(year: int) -> dict:
-    return _fetch_historical_weather(year) if year else _fetch_live_weather()
-
-
-@st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
-def _fetch_live_weather() -> dict:
-    """50 bölgenin anlık meteoroloji verisi — çift kaynaklı.
-
-    1. Meteomatics API (HTTPBasicAuth): t_2m, msl_pressure, wind_speed_10m, wind_dir_10m, nem ve hava sembolü.
-    2. Open-Meteo: son 30 günün günlük ortalamaları (termal anomali = bugün − 30 gün ortalaması); Meteomatics'e
-       ulaşılamazsa anlık değerler de buradan gelir.
-    İkisi de başarısızsa uygulama çökmeden mevsimsel simülasyonla sürer. Önbellek 30 dakikada bir yenilenir.
-    """
-    om = mm = None
-    om_stamp = mm_stamp = ""
-    try:
-        om, om_stamp = _open_meteo_cities()
-    except Exception:
-        pass
-    try:
-        mm, mm_stamp = meteomatics_now(MM_CORE + MM_EXTRA,
-                                       "+".join(f"{r.lat:.4f},{r.lon:.4f}" for r in REGION_LIST))
-    except Exception:
-        pass
-    if om is None and mm is None:
-        return _fallback_weather()
-
-    base = om or _fallback_weather()["data"]
-    data = _merge_mm(base, mm) if mm else {k: dict(v) for k, v in base.items()}
-    if om is None:
-        for w in data.values():
-            w["anomaly"] = None
-
-    if mm:
-        provider, stamp = "Meteomatics", mm_stamp
-        source = f"Meteomatics · {stamp} UTC" + (" · anomali: Open-Meteo" if om else "")
-    else:
-        provider, stamp = "Open-Meteo", om_stamp
-        source = f"Open-Meteo · {stamp} UTC (Meteomatics'e ulaşılamadı)"
-    return {"live": True, "time": stamp, "data": data, "source": source, "provider": provider,
-            "anomaly_live": om is not None, "year": 0}
 
 
 def weather_of(city: str) -> dict:
@@ -1341,21 +774,6 @@ def weather_sentence(city: str) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 # NASA POWER (Earthdata · MERRA-2): uzun vadeli sıcaklık ve yağış trendi
 # ─────────────────────────────────────────────────────────────────────────────
-POWER_URL = "https://power.larc.nasa.gov/api/temporal/daily/point"
-
-
-def _power_simulated(spec: Region, y0: int, y1: int) -> pd.DataFrame:
-    """POWER'a ulaşılamazsa: enlem ve mevsime dayalı, açıkça 'simülasyon' etiketli aylık seri."""
-    dates = pd.date_range(f"{y0}-01-01", f"{y1}-12-01", freq="MS")
-    rng = np.random.default_rng(spec.seed + 99)
-    alat = abs(spec.lat)
-    peak = 7 if spec.lat >= 0 else 1
-    season = np.cos(2 * np.pi * (dates.month.to_numpy() - peak) / 12) * 10 * min(1.0, alat / 35)
-    t = np.arange(len(dates)) / 12
-    temp = 27 - 0.42 * alat + season + 0.025 * t + rng.normal(0, 0.6, len(dates))
-    prec = np.maximum(0, 70 + 30 * np.cos(2 * np.pi * (dates.month.to_numpy() - peak) / 12)
-                      + rng.normal(0, 20, len(dates)))
-    return pd.DataFrame({"T2M": temp, "PREC": prec}, index=dates)
 
 
 def power_window() -> tuple[int, int]:
@@ -1366,47 +784,6 @@ def power_window() -> tuple[int, int]:
 
 def fetch_power(city: str) -> dict:
     return _fetch_power(city, *power_window())
-
-
-@st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
-def _fetch_power(city: str, y0: int, y1: int) -> dict:
-    """NASA POWER günlük nokta API'sinden y0–y1 T2M (°C) ve PRECTOTCORR (mm/gün) alır (tarih parametreleri seçili
-    yıla göre dinamik), aylığa toplar ve mevsimsel Mann-Kendall + Sen eğilimiyle uzun vadeli trendi hesaplar."""
-    spec = REGIONS[city]
-    try:
-        resp = requests.get(POWER_URL, params={
-            "parameters": "T2M,PRECTOTCORR", "community": "AG", "format": "JSON",
-            "latitude": round(spec.lat, 4), "longitude": round(spec.lon, 4),
-            "start": f"{y0}0101", "end": f"{y1}1231",
-        }, timeout=25)
-        resp.raise_for_status()
-        par = resp.json()["properties"]["parameter"]
-        daily = pd.DataFrame({"T2M": pd.Series(par["T2M"]), "PREC": pd.Series(par["PRECTOTCORR"])})
-        daily.index = pd.to_datetime(daily.index, format="%Y%m%d")
-        daily = daily.where(daily > -900)
-        monthly = daily.resample("MS").agg({"T2M": "mean", "PREC": "sum"})
-        monthly["T2M"] = monthly["T2M"].interpolate(limit_direction="both")
-        live = True
-    except Exception:
-        monthly, live = _power_simulated(spec, y0, y1), False
-    t_res = mk.seasonal_test(monthly["T2M"].to_numpy(dtype=float), period=PERIOD)
-    p_res = mk.seasonal_test(monthly["PREC"].to_numpy(dtype=float), period=PERIOD)
-    annual = monthly.groupby(monthly.index.year).agg({"T2M": "mean", "PREC": "sum"})
-    prec_mean = float(annual["PREC"].mean())
-    return {
-        "live": live,
-        "live_src": live, "y0": y0, "y1": y1,
-        "source": f"NASA POWER (MERRA-2) · {y0}–{y1}" if live else f"NASA POWER · {y0}–{y1} · simülasyon",
-        "t_trend": t_res.trend, "t_p": float(t_res.p), "t_dec": float(t_res.slope) * 10,
-        "p_trend": p_res.trend, "p_p": float(p_res.p), "p_dec": float(p_res.slope) * 12 * 10,  # mm/yıl/10 yıl
-        "p_dec_pct": float(p_res.slope) * 12 * 10 / prec_mean * 100 if prec_mean > 0 else 0.0,
-        "t_mean": float(annual["T2M"].mean()), "prec_mean": prec_mean,
-        "years": [int(y) for y in annual.index], "annual_t": [round(float(v), 2) for v in annual["T2M"]],
-        "warmest": int(annual["T2M"].idxmax()),
-        "shift": float(annual["T2M"].iloc[-5:].mean() - annual["T2M"].iloc[:5].mean()),
-        "last_t": float(annual["T2M"].iloc[-1]), "last_dev": float(annual["T2M"].iloc[-1] - annual["T2M"].mean()),
-        "last_prec": float(annual["PREC"].iloc[-1]),
-    }
 
 
 def power_sentence(city: str) -> str:
@@ -1460,123 +837,12 @@ def weather_extremes() -> dict:
 # ─────────────────────────────────────────────────────────────────────────────
 # Küresel meteoroloji ızgarası (15°) — termal gradyan alanı, izobarlar ve rüzgâr vektörleri için
 # ─────────────────────────────────────────────────────────────────────────────
-GRID_STEP = 15
-GRID_LATS = np.arange(-75, 76, GRID_STEP, dtype=float)       # 11 enlem
-GRID_LONS = np.arange(-180, 180, GRID_STEP, dtype=float)     # 24 boylam
 FIELD_STEP = 7.5                                             # termal alan ve izobarlar için ara değerleme adımı
 ISOBAR_STEP = 4                                              # hPa
 
 
-def _fallback_grid() -> dict:
-    """Ağ yoksa: genel dolaşıma dayalı, açıkça 'tahmini' etiketli kuşaksal alanlar."""
-    la, lo = np.meshgrid(GRID_LATS, GRID_LONS, indexing="ij")
-    alat = np.abs(la)
-    pressure = 1010 + 10 * np.exp(-((alat - 30) / 10) ** 2) - 12 * np.exp(-((alat - 60) / 8) ** 2) \
-        + 3 * np.cos(np.radians(lo * 3))
-    wind_dir = np.where(alat < 30, 90.0, np.where(alat < 60, 270.0, 90.0))
-    return {"live": False, "time": datetime.now(timezone.utc).strftime("%H:%M"), "source": "simülasyon",
-            "temp": 27 - 0.45 * alat, "anomaly": np.zeros_like(la), "pressure": pressure,
-            "wind": np.full_like(la, 15.0), "wind_dir": wind_dir}
-
-
 def fetch_grid() -> dict:
     return _fetch_grid(sel_year())
-
-
-@st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
-def _fetch_historical_grid(year: int) -> dict:
-    """Seçilen yılın aynı takvim günü için Meteomatics arşiv ızgarası (anlık alanlar + 30 günlük sapma)."""
-    when = hist_date(year)
-    la, lo = np.meshgrid(GRID_LATS, GRID_LONS, indexing="ij")
-    out = _fallback_grid()
-    out["time"] = when.strftime("%d.%m.%Y %H:%M")
-    box = (f"{GRID_LATS[-1]:g},{GRID_LONS[0]:g}_{GRID_LATS[0]:g},{GRID_LONS[-1]:g}:"
-           f"{GRID_STEP:g},{GRID_STEP:g}")
-    keys = [(float(a), float(b)) for a, b in zip(la.ravel(), lo.ravel())]
-    try:
-        mm, _ = meteomatics_now(MM_CORE, box, timeout=25, when=mm_time(when))
-        for param, name, scale in (("t_2m:C", "temp", 1.0), ("msl_pressure:hPa", "pressure", 1.0),
-                                   ("wind_speed_10m:ms", "wind", 3.6), ("wind_dir_10m:d", "wind_dir", 1.0)):
-            arr = np.array([mm[param].get(k) for k in keys], dtype=float)
-            if np.isnan(arr).any():
-                raise ValueError("eksik Meteomatics ızgarası")
-            out[name] = arr.reshape(la.shape) * scale
-        out.update({"live": True, "source": "Meteomatics"})
-    except Exception:
-        return out
-    try:
-        anom = meteomatics_daily_anomaly(box, when, timeout=30)
-        out["anomaly"] = np.array([anom.get(k) if anom.get(k) is not None else 0.0 for k in keys],
-                                  dtype=float).reshape(la.shape)
-    except Exception:
-        pass
-    return out
-
-
-def _fetch_grid(year: int) -> dict:
-    return _fetch_historical_grid(year) if year else _fetch_live_grid()
-
-
-@st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
-def _fetch_live_grid() -> dict:
-    """15°'lik küresel ızgara (264 nokta).
-
-    Anlık sıcaklık, deniz seviyesi basıncı ve 10 m rüzgârı Meteomatics ızgara sorgusundan
-    (75,-180_-75,165:15,15) gelir; son 30 günün günlük ortalamaları (termal anomali) Open-Meteo'dan.
-    Biri başarısız olursa diğeri, ikisi de başarısız olursa kuşaksal simülasyon kullanılır. 30 dk önbellek.
-    """
-    la, lo = np.meshgrid(GRID_LATS, GRID_LONS, indexing="ij")
-    shape = la.shape
-    out = _fallback_grid()
-    sources = []
-    try:
-        resp = requests.get(
-            "https://api.open-meteo.com/v1/forecast",
-            params={"latitude": ",".join(f"{v:g}" for v in la.ravel()),
-                    "longitude": ",".join(f"{v:g}" for v in lo.ravel()),
-                    "current": "temperature_2m,pressure_msl,wind_speed_10m,wind_direction_10m",
-                    "daily": "temperature_2m_mean", "past_days": 30, "forecast_days": 1, "timezone": "UTC"},
-            timeout=20,
-        )
-        resp.raise_for_status()
-        items = resp.json()
-        if not isinstance(items, list) or len(items) != la.size:
-            raise ValueError("eksik ızgara yanıtı")
-        temp, anom, pres, wind, wdir = (np.zeros(la.size) for _ in range(5))
-        for k, item in enumerate(items):
-            cur = item["current"]
-            temp[k] = cur["temperature_2m"]
-            pres[k] = cur["pressure_msl"]
-            wind[k] = cur["wind_speed_10m"] or 0.0
-            wdir[k] = cur["wind_direction_10m"] or 0.0
-            means = [v for v in item.get("daily", {}).get("temperature_2m_mean", []) if v is not None]
-            anom[k] = means[-1] - float(np.mean(means[:-1])) if len(means) >= 8 else 0.0
-        out.update({"live": True, "time": items[0]["current"]["time"][-5:], "temp": temp.reshape(shape),
-                    "anomaly": anom.reshape(shape), "pressure": pres.reshape(shape),
-                    "wind": wind.reshape(shape), "wind_dir": wdir.reshape(shape)})
-        sources.append("Open-Meteo")
-    except Exception:
-        pass
-    try:
-        top, bottom = GRID_LATS[-1], GRID_LATS[0]
-        west, east = GRID_LONS[0], GRID_LONS[-1]
-        mm, stamp = meteomatics_now(MM_CORE, f"{top:g},{west:g}_{bottom:g},{east:g}:{GRID_STEP:g},{GRID_STEP:g}",
-                                    timeout=20)
-        fields = {}
-        for param, name, scale in (("t_2m:C", "temp", 1.0), ("msl_pressure:hPa", "pressure", 1.0),
-                                   ("wind_speed_10m:ms", "wind", 3.6), ("wind_dir_10m:d", "wind_dir", 1.0)):
-            arr = np.array([mm[param].get((float(a), float(b))) for a, b in zip(la.ravel(), lo.ravel())],
-                           dtype=float)
-            if np.isnan(arr).any():
-                raise ValueError("eksik Meteomatics ızgarası")
-            fields[name] = arr.reshape(shape) * scale
-        out.update(fields)
-        out.update({"live": True, "time": stamp})
-        sources.insert(0, "Meteomatics")
-    except Exception:
-        pass
-    out["source"] = " + ".join(sources) if sources else "simülasyon"
-    return out
 
 
 def _wrap_cols(field: np.ndarray) -> tuple[np.ndarray, np.ndarray]:

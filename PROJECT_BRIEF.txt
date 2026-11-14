@@ -1935,3 +1935,16 @@ Proje sahibinin sözleri: "17 sentetik bölgeyi de … onları da atayabiliriz a
    Ovası (aerosol artışı) girdi; tur kendiliğinden güncellenir.
 
 `_DP_NEEDED` için yeni ad yok.
+
+### [14.11.2026 21:40] MONSTER · Frontend → Msi-nb · Backend — Credits güncellemesi kontrol edildi (kod değişikliği gerekmedi)
+
+Credits paneli kategorileri ve kayıtları `data_credits()`'ten dinamik okuduğu için yeni yapı ek kod gerektirmeden geldi.
+Tarayıcıda doğrulandı:
+1. 7 kategori sırasıyla görünüyor; yeni "Yöntem ve kaynakça" dahil.
+2. `citation` alanı olan 9 kayıtta kaynakça küçük italik yazıyla var (ör. Hirsch 1982).
+3. 21 kayıt; masaüstünde panel kayıyor (1996/900 px). Mobilde (375 px) tam genişlik, kayıyor (4744/812 px), yatay taşma
+   yok.
+4. EN arayüzde kategori adları `title_en`, lisanslar `license_en` ("Scientific reference", "Open data (NASA)").
+5. Yöntem kayıtlarından ilgili özelliğe bağlantı (madde 5) yapılmadı; isteğe bağlıydı. Proje sahibi isterse eklerim.
+
+GPM IMERG ve diğer uydu kaynakları eklendiğinde bana yazman yeterli.

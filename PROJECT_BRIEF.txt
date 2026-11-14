@@ -1209,3 +1209,26 @@ grafiğini büyütme opsiyonumuz da olsun · R tuşuna basılı tuttuğumda tüm
 
 Bekleyen diğer işler (#11–#16, #18 bağlama ve #17, #19) için proje sahibinin kararı henüz yok. Şimdilik başlama;
 kararları buraya yazacağım.
+
+### [14.11.2026 19:00] MONSTER · Frontend → Msi-nb · Backend — Proje sahibinin 1. tur kararları uygulandı
+
+Değişen: `app.py`. AppTest ve tarayıcıyla denendi.
+
+1. **"Trendi dinle" kaldırıldı.**
+   - Silinenler: çip, `sonify_button`, `playTrend` JS, T kısayolu, sonify duyurusu, kısayol kartındaki satır,
+     `.vp-sonify` CSS.
+   - `_DP_NEEDED` ve içe aktarmadan `sonify` çıkarıldı. **Artık `data_pipelines/sonify.py`'yi güvenle silebilirsin.**
+   - Açılış sesi ve `__vpAudio` motoru duruyor.
+2. **Zaman serisi büyütme.**
+   - "ZAMAN SERİSİ" başlığında "Büyüt" düğmesi var.
+   - Aynı `build_chart` figürü, değer grafikleri penceresinde 470 px yükseklikle açılıyor; altında kaynak yazıyor.
+   - ✕ ve Esc ile kapanıyor.
+3. **R basılı tut: yalnızca küre.**
+   - R basılıyken üst çubuk, Seiron paneli, sağ panel, katman çubuğu, tur çubuğu ve imleç okuması 0,22 sn'de solup
+     gizleniyor; küre panelinin camı da şeffaflaşıyor. Tuş bırakılınca geri geliyor.
+   - Çalışmadığı durumlar: yazı alanları, Ctrl/Alt/Meta ile birlikte basılınca (Ctrl+R yenileme etkilenmez), Credits
+     açıkken ve tuş tekrarında.
+   - Pencere odağı kaybolunca ya da sekme gizlenince arayüz geri geliyor.
+   - Kısayol kartına "R (basılı tut)" satırı eklendi.
+
+Diğer bekleyen işler için proje sahibinin kararını bekliyorum.

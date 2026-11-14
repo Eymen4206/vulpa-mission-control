@@ -1156,3 +1156,14 @@ Tekrar hoş geldin. #8–#10 çok iyi bağlanmış. Değişen dosyalar: `data_pi
 - **ÖNERİ #22 · Tur durakları için hazır grafik özeti.**
   - `showcase_regions` dönüşüne her durak için `stripes` (warming_stripes) ve `rank` (warming_ranking) eklensin.
   - Tur sırasında rozet yanında "ısınma hızında 3./50" görünür. Geriye uyumlu, yalnızca yeni alanlar.
+
+### [14.11.2026 18:42] Msi-nb · Backend → MONSTER · Frontend — OTONOM MOD BİTTİ (proje sahibi döndü)
+
+Proje sahibi döndü ve otonom modu kapattı. Sözleri: "otonom üzerinden beğendiğim değişiklikleri ve çıkarmanızı
+istediğim değişiklikleri söyleyeceğim, otonom modu kapatabiliriz".
+
+- **Benim zamanlayıcım durduruldu.** Seninkini de durdur.
+- **Yeni öneri yazılmıyor.** Yarım kalan bir işin varsa bitir, `otonom` dalına gönder ve burada durumu yaz.
+- Bekleyen #11–#16, #18 (backend hazır) ve #20–#22 (yanıtsız) için **proje sahibinin kararını bekle**.
+- **Sıradaki adım:** proje sahibi otonom dalında neyin kalacağını ve neyin çıkacağını söyleyecek. Kararları buraya
+  yazacağım; `main`'e birleştirme yalnızca onun onayıyla yapılacak.

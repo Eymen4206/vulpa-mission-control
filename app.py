@@ -60,6 +60,7 @@ except ImportError:  # QR modülü isteğe bağlıdır; yoksa kurulum notu göst
 from data_pipelines import (  # noqa: E402
     CITY_NAMES, END, GRID_LATS, GRID_LONS, LAST_FULL_YEAR, PERIOD, POWER_SPAN, PROJECTION_MONTHS, REGION_LIST,
     REGIONS, START, WEATHER_TTL, Region, _fetch_grid, _fetch_power, _fetch_weather, analyze, build_series,
+    REAL_SOURCES, series_meta,
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -642,6 +643,15 @@ VAR_EN = {
     "Kış sıcaklığı anomalisi": "Winter temperature anomaly",
     "Kar örtüsü (kıyı dağları)": "Snow cover (coast mountains)",
     "Buzul kaplı alan (Cordillera Real)": "Glacier-covered area (Cordillera Real)",
+    "Deniz buzu yayılımı (Güney Yarımküre)": "Sea-ice extent (Southern Hemisphere)",
+    "Atmosferik karbondioksit (CO₂)": "Atmospheric carbon dioxide (CO₂)",
+}
+
+# Gerçek tema serisi kaynaklarından Türkçe ifade içerenlerin İngilizcesi (data_pipelines.series_meta → "source")
+SOURCE_EN = {
+    "NASA POWER · MERRA-2 (yağış, T2M, T2M_MAX/MIN, TOA radyasyonu)":
+        "NASA POWER · MERRA-2 (precipitation, T2M, T2M_MAX/MIN, TOA radiation)",
+    "NOAA GML Mauna Loa Gözlemevi": "NOAA GML Mauna Loa Observatory",
 }
 
 WEATHER_EN = {
@@ -670,6 +680,29 @@ def rtheme(spec: Region) -> str:
 
 def rvar(spec: Region) -> str:
     return VAR_EN.get(spec.variable, spec.variable) if lang() == "en" else spec.variable
+
+
+# ── Bölgesel tema serisi: gerçek mi, sentetik mi? (33 bölge gerçek, 17 bölge sentetik; bkz. data_pipelines) ──
+def theme_real(city: str) -> bool:
+    return bool(series_meta(city)["real"])
+
+
+def theme_source(city: str) -> str:
+    """Tema serisinin kaynağı: gerçekse ölçüm kaynağı, sentetikse bölgenin örnek uydu kaynağı (seçili dilde)."""
+    src = series_meta(city)["source"]
+    return SOURCE_EN.get(src, src) if lang() == "en" else src
+
+
+def theme_note(city: str) -> str:
+    """Tema serisinin durumu, tek cümle (seçili dilde, sonda nokta yok)."""
+    meta, period = series_meta(city), f"{START[:4]}–{END[:4]}"
+    if meta["real"]:
+        return L(f"Gerçek veri · {meta['source']} · {period}", f"Real data · {theme_source(city)} · {period}")
+    if REAL_SOURCES.get(city):   # gerçek kaynak tanımlı, ama ulaşılamadı → geçici sentetik
+        return L("Gerçek veri kaynağına ulaşılamadı; geçici olarak sentetik seri gösteriliyor",
+                 "The real data source could not be reached; a synthetic series is shown temporarily")
+    return L("Sentetik prototip verisi (anahtarsız ve 2000'den bu yana kesintisiz bir kaynak bulunamadı)",
+             "Synthetic prototype data (no key-free source with continuous coverage since 2000 was found)")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1266,10 +1299,10 @@ def report_plain_text(city: str) -> str:
         lines += [f"{title}:", body, ""]
     lines.append(L("Önerilen adımlar:", "Recommended actions:"))
     lines += [f"{i}. {a}" for i, a in enumerate(rep["actions"], 1)]
-    lines += ["", L("Not: Bölgesel tema serisi sentetik prototip verisidir; sıcaklık/yağış trendi NASA POWER, "
-                    "anlık/tarihsel hava Meteomatics verisidir.",
-                    "Note: The regional theme series is synthetic prototype data; the temperature/precipitation "
-                    "trend is NASA POWER data and current/historical weather is Meteomatics data.")]
+    lines += ["", L("Not: Bölgesel tema serisi: ", "Note: Regional theme series: ") + theme_note(city) + ". "
+              + L("Sıcaklık/yağış trendi NASA POWER, anlık/tarihsel hava Meteomatics verisidir.",
+                  "The temperature/precipitation trend is NASA POWER data and current/historical weather is "
+                  "Meteomatics data.")]
     return "\n".join(lines)
 
 
@@ -1426,8 +1459,12 @@ def region_context(city: str) -> str:
         f"Tema: {spec.theme} · Coğrafi tür: {rep['archetype']}",
         weather_sentence(city),
         "[GERÇEK ÖLÇÜM · uzun vadeli iklim trendi] " + power_sentence(city),
-        "[SENTETİK PROTOTİP · bölgesel tema serisi — aşağıdaki satırlar gerçek ölçüm DEĞİLDİR]",
-        f"Değişken: {spec.variable} ({spec.unit}) · Örnek uydu kaynağı: {spec.source}",
+        *(["[GERÇEK VERİ · bölgesel tema serisi — aşağıdaki satırlar gerçek gözleme dayanır]",
+            f"Değişken: {spec.variable} ({spec.unit}) · Kaynak: {series_meta(city)['source']}"
+            + (f" · Tanım: {series_meta(city)['description']}" if series_meta(city)["description"] else "")]
+           if theme_real(city) else
+           ["[SENTETİK PROTOTİP · bölgesel tema serisi — aşağıdaki satırlar gerçek ölçüm DEĞİLDİR]",
+            f"Değişken: {spec.variable} ({spec.unit}) · Örnek uydu kaynağı: {spec.source}"]),
         f"Dönem: {START[:7]} – {END[:7]} ({r['n']} ay).",
         f"Mevsimsel Mann-Kendall (periyot 12): eğilim={DIRECTION_LABELS[r['trend']]}, {p_phrase(r['p'])}, "
         f"Kendall τ={r['Tau']:.3f}, z={r['z']:.2f}",
@@ -1467,11 +1504,11 @@ KAPSAM:
 ÜSLUP:
 - Akıcı, sade, kurumsal ve saygılı bir Türkçe kullan; İngilizce terimleri yalnızca zorunlu akademik kavramlarla sınırla.
 - Yanıtlar dar bir sohbet panelinde gösterilir: genellikle 60–170 kelime, tablo kullanma, gerekirse kısa maddeler kullan.
-- Platform verilerine ilişkin sayıları yalnızca aşağıdaki bağlamdan al; uydurma. Genel bilimsel bilgileri yerleşik bilimsel uzlaşıya dayandır. Veri kaynakları: anlık sıcaklık, basınç ve rüzgâr Meteomatics API'sinden; termal anomali Open-Meteo'dan; uzun vadeli sıcaklık/yağış trendi NASA POWER'dan (MERRA-2, 2001–2024) gelir ve gerçektir. Bölgesel tema serileri (ör. buzul, orman örtüsü) ise sentetik prototip verisidir; gerektiğinde bunu belirt. Gerçek sıcaklık/yağış eğilimi veya ısınma sorulduğunda YALNIZCA [GERÇEK ÖLÇÜM] satırını kullan, dönemi 2001–2024 olarak belirt; sentetik serinin Sen eğilimini, projeksiyonunu veya senaryo önerilerini bu sonuçla karıştırma. Sentetik tema serisinden söz edersen bunun prototip verisi olduğunu açıkça söyle.
+- Platform verilerine ilişkin sayıları yalnızca aşağıdaki bağlamdan al; uydurma. Genel bilimsel bilgileri yerleşik bilimsel uzlaşıya dayandır. Veri kaynakları: anlık sıcaklık, basınç ve rüzgâr Meteomatics API'sinden; termal anomali Open-Meteo'dan; uzun vadeli sıcaklık/yağış trendi NASA POWER'dan (MERRA-2, 2001–2024) gelir ve gerçektir. Bölgesel tema serileri bölgeye göre değişir: 50 bölgenin 33'ünde gerçek gözlemdir (NASA POWER, NOAA ERSST, NOAA Mauna Loa CO₂, NSIDC deniz buzu; bağlamda [GERÇEK VERİ · bölgesel tema serisi] etiketli), kalan bölgelerde sentetik prototip verisidir ([SENTETİK PROTOTİP] etiketli). Her bölge için bağlamdaki etikete uy; gerçek seriyi sentetik, sentetik seriyi gerçek diye anlatma. Gerçek sıcaklık/yağış eğilimi veya ısınma sorulduğunda öncelikle [GERÇEK ÖLÇÜM] satırını kullan ve dönemini belirt; tema serisinin Sen eğilimini, projeksiyonunu veya senaryo önerilerini bu sonuçla karıştırma. Sentetik tema serisinden söz edersen bunun prototip verisi olduğunu açıkça söyle.
 - Matematiksel ifadeler için LaTeX veya dolar işareti kullanma.
 
 HARİTA KATMANLARI (yalnızca bu tanımları kullan; uydu görüntüsü YOKTUR):
-- Klasik Görünüm: şehir pinleri, uzun dönemli (2000–2024, sentetik) eğilim durumuna göre renklendirilir.
+- Klasik Görünüm: şehir pinleri, bölgesel tema serisinin uzun dönemli (2000–2024; bölgeye göre gerçek ya da sentetik) eğilim durumuna göre renklendirilir.
 - Termal Analiz: bugünkü günlük ortalama sıcaklığın son 30 günün ortalamasından sapması (°C). Küre üzerinde 15°'lik küresel ızgaradan 7,5°'ye ara değerlenmiş, bölgeler arası yumuşak geçişli bir gradyan alanı ve 50 bölgede nabız gibi atan termal halkalar vardır. Renk skalası: koyu mavi (≤ −8 °C, soğuk sapma) → camgöbeği → yeşil → sarı (≈ 0) → turuncu → kırmızı (≥ +8 °C, sıcak sapma). Kaynak: anomali Open-Meteo, anlık alanlar Meteomatics; 30 dakikada bir yenilenir.
 - Basınç & Hava Dalgası: 15°'lik küresel ızgaradaki deniz seviyesi basıncından hesaplanan 4 hPa aralıklı izobarlar (üzerlerinde yavaşça akan dalga deseni), ızgara noktalarında rüzgârın AKTIĞI yönü gösteren akan vektörler ve oklar (uzunluk hızla orantılı), ayrıca yerel en düşük/en yüksek basınç noktalarında A (alçak, < 1008 hPa) ve Y (yüksek, > 1018 hPa) merkezleri ve etraflarında yayılan dalga halkaları. Bölge noktaları basınca göre renklenir (kırmızı alçak → gri → krem yüksek). Kaynak: Meteomatics API (msl_pressure, wind_speed_10m, wind_dir_10m), 30 dakikada bir yenilenir. Izgara 15° olduğu için küçük ölçekli sistemler görünmez; bu bir sinoptik ölçek özetidir.
 Şu an etkin katman: {LAYERS[st.session_state.get("layer", "classic")]}
@@ -1646,8 +1683,10 @@ def local_answer(question: str, city: str, navigated: bool = False) -> str:
         "impacts": (f"{sec['impacts']} Yerel analiz motorunun risk değerlendirmesi: {rep['risk']}/100 "
                     f"({tr_lower(risk_label(rep['risk']))})."),
         "actions": "Bu bölge için öne çıkan öneriler:\n\n" + "\n".join(f"- {a}" for a in rep["actions"]),
-        "method": (f"Seri, {START[:4]}–{END[:4]} dönemini kapsayan {r['n']} aylık sentetik prototip verisidir "
-                   f"(örnek uydu kaynağı: {spec.source}). Mevsimsellik nedeniyle mevsimsel Mann-Kendall testi "
+        "method": ((f"Seri, {START[:4]}–{END[:4]} dönemini kapsayan {r['n']} aylık gerçek gözlem verisidir "
+                    f"(kaynak: {theme_source(city)}). " if theme_real(city) else
+                    f"Seri, {START[:4]}–{END[:4]} dönemini kapsayan {r['n']} aylık sentetik prototip verisidir "
+                    f"(örnek uydu kaynağı: {spec.source}). ") + "Mevsimsellik nedeniyle mevsimsel Mann-Kendall testi "
                    "(periyot 12) kullanılmıştır; eğilim büyüklüğü her takvim ayının yıllar arası farklarının "
                    "medyanı olan Sen eğilimiyle hesaplanmıştır."),
     }
@@ -1729,8 +1768,10 @@ def local_answer_en(question: str, city: str, navigated: bool = False) -> str:
         "seasonal": sec["seasonal"],
         "impacts": f"{sec['impacts']} Local engine risk score: {rep['risk']}/100 ({risk_label(rep['risk']).lower()}).",
         "actions": "Key recommendations for this region:\n\n" + "\n".join(f"- {a}" for a in rep["actions"]),
-        "method": (f"The regional theme series is {r['n']} months of synthetic prototype data ({START[:4]}–{END[:4]}, "
-                   f"example source: {spec.source}), tested with the seasonal Mann-Kendall test (period 12) and Sen's "
+        "method": ((f"The regional theme series is {r['n']} months of real observational data ({START[:4]}–{END[:4]}, "
+                    f"source: {theme_source(city)}), " if theme_real(city) else
+                    f"The regional theme series is {r['n']} months of synthetic prototype data ({START[:4]}–{END[:4]}, "
+                    f"example source: {spec.source}), ") + "tested with the seasonal Mann-Kendall test (period 12) and Sen's "
                    "slope. Temperature and precipitation trends come from NASA POWER; weather from Meteomatics."),
     }
     chosen = matched[:2] if matched else ["diagnosis", "mechanism"]
@@ -1990,6 +2031,11 @@ div:has(> .st-key-fx_redirect) {
 .fact .v { font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; margin-top: .1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fact .v small { font-family: 'Inter', sans-serif; font-size: .64rem; font-weight: 400; color: var(--muted); margin-left: .15rem; }
 .sec-title { font-size: .74rem; font-weight: 600; letter-spacing: .06em; color: var(--orange); margin: 1rem 0 .35rem; }
+/* Tema serisinin türü: gerçek gözlem (kehribar dolgu) / sentetik prototip (soluk çerçeve) */
+.ts-kind { display: inline-block; font-size: .6rem; letter-spacing: .08em; padding: .05rem .4rem; border-radius: 999px;
+  vertical-align: 1px; }
+.ts-kind.is-real { color: #0c0a09; background: var(--orange); }
+.ts-kind.is-synth { color: var(--muted); border: 1px solid rgba(168,162,158,.45); }
 .verdict { border-left: 2px solid var(--c); padding: .1rem 0 .1rem .7rem; font-size: .84rem; line-height: 1.6; color: #e7e5e4; }
 .rep h4 { font-size: .74rem; font-weight: 600; color: var(--amber); margin: .75rem 0 .2rem; padding: 0; }
 .rep p { font-size: .82rem; line-height: 1.6; color: #d6d3d1; margin: 0; }
@@ -3144,6 +3190,7 @@ def city_details(city: str) -> None:
     status = status_of(spec, r)
     c = STATUS_COLORS[status]
     unit = html.escape(spec.unit)
+    real = theme_real(city)   # tema serisi gerçek gözlem mi (33 bölge), sentetik mi (17 bölge)
     wx = fetch_weather()
     w = wx["data"][city]
     hist = bool(wx.get("year"))
@@ -3188,7 +3235,7 @@ def city_details(city: str) -> None:
         <span>{L('Ort.', 'Mean')} <b>{pw['t_mean']:.1f} °C</b> · <b>{pw['prec_mean']:.0f} mm</b>/{yr}</span></div>
       <div class="pw-src">{html.escape(pw['source'])}</div>
     </div>
-    <div class="sec-title">{L('ZAMAN SERİSİ', 'TIME SERIES')} · {html.escape(rvar(spec))}</div>
+    <div class="sec-title">{L('ZAMAN SERİSİ', 'TIME SERIES')} · {html.escape(rvar(spec))} · <span class="ts-kind {'is-real' if real else 'is-synth'}">{L('GERÇEK VERİ', 'REAL DATA') if real else L('SENTETİK', 'SYNTHETIC')}</span></div>
     """)
     st.plotly_chart(build_chart(build_series(city), spec, r), theme=None, width="stretch",
                     config={"displayModeBar": False})
@@ -3200,11 +3247,12 @@ def city_details(city: str) -> None:
     <div class="sec-title">{L('ANALİZ SONUCU', 'ANALYSIS RESULT')} · {html.escape(rep['title'])}</div>
     <div class="verdict" style="--c:{c}">{html.escape(rep['s']['diag'])}</div>
     <div class="rep">{secs}<h4>{L('Önerilen adımlar', 'Recommended actions')}</h4><ol>{acts}</ol></div>
-    <div class="meta"><b>{L('Örnek veri kaynağı', 'Example data source')}:</b> {html.escape(spec.source)} · <b>{L('Konum', 'Location')}:</b> {spec.lat:.4f}°, {spec.lon:.4f}°<br>
-    {L("Bölgesel tema serisi sentetik prototip verisidir; uzun vadeli sıcaklık/yağış trendi NASA POWER'dan, anlık ve "
-       "tarihsel hava Meteomatics'ten, canlı termal anomali Open-Meteo'dan alınır.",
-       "The regional theme series is synthetic prototype data; the long-term temperature/precipitation trend comes from "
-       "NASA POWER, current and historical weather from Meteomatics, and the live thermal anomaly from Open-Meteo.")}</div>
+    <div class="meta"><b>{L('Veri kaynağı', 'Data source') if real else L('Örnek veri kaynağı', 'Example data source')}:</b> {html.escape(theme_source(city))} · <b>{L('Konum', 'Location')}:</b> {spec.lat:.4f}°, {spec.lon:.4f}°<br>
+    {L('Bölgesel tema serisi', 'Regional theme series')}: {html.escape(theme_note(city))}.
+    {L("Uzun vadeli sıcaklık/yağış trendi NASA POWER'dan, anlık ve tarihsel hava Meteomatics'ten, canlı termal anomali "
+       "Open-Meteo'dan alınır.",
+       "The long-term temperature/precipitation trend comes from NASA POWER, current and historical weather from "
+       "Meteomatics, and the live thermal anomaly from Open-Meteo.")}</div>
     """)
     copy_button(city)
     with st.expander(L("Yöntem ve veri", "Method & data")):
@@ -3220,7 +3268,8 @@ def city_details(city: str) -> None:
             "- Time travel: today's calendar date in the chosen year comes from the Meteomatics archive; the long-term "
             "trend uses the 20 years of NASA POWER data ending that year."))
         st.download_button(L("CSV olarak indir", "Download CSV"), data=export_csv(city),
-                           file_name=f"{spec.slug}_sentetik.csv", mime="text/csv", width="stretch")
+                           file_name=f"{spec.slug}_{'gercek' if real else 'sentetik'}.csv", mime="text/csv",
+                           width="stretch")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

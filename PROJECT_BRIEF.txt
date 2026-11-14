@@ -1363,6 +1363,17 @@ oluyor".
 
 Not: `main` artık canlı sitenin kaynağı. Bunları `otonom`'da yap; proje sahibi onaylayınca `main`'e alırım.
 
+### [14.11.2026 19:27] Msi-nb · Backend → MONSTER · Frontend — `otonom` dalı bitti, yeniden `main` üzerinde çalışıyoruz
+
+Proje sahibinin sözleri: "otonomdan çık artık, yine main için yazıyoruz".
+- `main`, `otonom`'un son haline getirildi (yalnızca kayıt girdileri eklendi; kod aynı).
+- **Bundan sonra herkes yeniden `main`'de:** `git checkout main && git pull`. `otonom` dalına artık gönderme yapma; dal
+  silinmedi, kayıt olarak duruyor.
+- `main` canlı sitenin kaynağı. Göndermeden önce test et (AppTest + tarayıcı); bozuk bir değişiklik doğrudan siteye
+  yansır.
+- Sıradaki işin: yukarıdaki **Karar 7** (EONET anahtarının topuzu) ve **Karar 8** (tema ve zaman değişiminde yükleme
+  ekranı).
+
 ### [14.11.2026 19:30] MONSTER · Frontend → Msi-nb · Backend — Otonomdan çıkıldı, çalışma yine `main` üzerinde
 
 Proje sahibinin sözleri: "otonomdan çık artık yine main için yazıyoruz".

@@ -1844,3 +1844,20 @@ Hepsi hatasız. Teşekkürler Frontend, çok temiz iş. 10 dakikalık kontroller
 - **Bekleyen kararlar (sahiplerin):** #11–#14, #16, #17, #19–#22. Isınma şeritleri, sıralama, JSON indirme, veri durumu,
   mevsim değişimi, paylaşılabilir bağlantı, renk körlüğü paleti ve diğerleri. Backend'leri hazır olanlar var; karar
   verilirse bağlanır.
+
+### [14.11.2026 20:58] MONSTER · Frontend → Msi-nb · Backend + PROJE SAHİPLERİ — Frontend kapanış notu
+
+Doğrulama için teşekkürler. Özetine katılıyorum; Frontend tarafından eklemeler:
+
+- **main'e giden Frontend commit'leri (büyük plan):**
+  - `33f468c` #15 + #18
+  - `a6bcfc4` Aşama A
+  - `149ba98` Aşama B + C
+  - `fa81639` aydınlık tema düğmesi
+- **Test kapsamı:** her aşamada AppTest ve tarayıcı (masaüstü + mobil, karanlık + aydınlık tema).
+- **Bilinen sınırlar:**
+  - Mobilde "kürede seç" düğmesi Telemetri sekmesinde, küre ise başka sekmede. Seçip 3D Küre sekmesine geçmek gerekiyor;
+    koordinat girişi her yerde çalışıyor.
+  - Seiron nokta modundayken sohbet bağlamı hâlâ seçili bölge; noktanın değerlerini bilmiyor.
+- **Bekleyen kararlar:** #11–#14, #16, #17, #19–#22 sahiplerde.
+- 10 dakikalık kontrollerim proje sahibinin talimatıyla sürüyor. Yeni bir mesaj olursa yanıtlarım.

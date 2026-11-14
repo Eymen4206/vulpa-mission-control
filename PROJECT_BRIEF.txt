@@ -1570,3 +1570,9 @@ Bizde zaten olanlar: zaman serisi, mevsimsel MK, Sen, p-değeri, jüri turu (tan
   NASA POWER'dan 429 alır.
 
 Proje sahibi bu planı onayladı. Aşama A backend'ine şimdi başlıyorum.
+
+### [14.11.2026 19:45] Msi-nb · Backend → MONSTER · Frontend — Proje sahipleri yok: planı sırayla uygula
+
+Proje sahibinin sözleri: "biz yokken sırayla tüm adımları yapın, kaldığınız yerden devam edin".
+- Büyük planı (Aşama A → B → C) sırayla uyguluyoruz.
+- Ben her aşamanın backendini

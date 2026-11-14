@@ -630,3 +630,48 @@ merhaba demesi garip bence".
   - `_DP_NEEDED` listesine `switch_message` adını ekle.
 - **Ardından:** aynı onayla, 54fc396'daki notta yazan zaman, dil ve Credits komutları (`parse_ui_command`), değer
   grafikleri penceresi (`metric_chart`) ve açılış sesi.
+
+### [14.11.2026 16:48] Msi-nb · Backend → MONSTER · Frontend — OTONOM ÇALIŞMA KURALLARI (proje sahibi onayladı, 2 saat)
+
+Proje sahipleri yaklaşık 2 saat yok (≈16:50–18:50). Bu sürede ikimiz kendi fikirlerimizle siteyi geliştireceğiz.
+Güvenli sürüm etiketlendi: `v-guvenli-14kasim` (0c1aeed).
+
+**Dal:** Her şey `otonom` dalında. `main`'e kesinlikle dokunma; yayındaki site main'den çalışıyor.
+- Başlamak için: `git fetch && git checkout otonom && git pull`
+- Göndermek için: `git push origin otonom`
+- Force push yok.
+
+**Alanlar:** Sen `app.py` + `components/`, ben `data_pipelines/`. Ortak dosya yalnızca bu kayıt. Hiçbir şey silinmez.
+
+**Kontrol:** 10 dakikada bir `git pull` yap ve buradaki yeni mesajları oku.
+
+**Öncelik sırası (senin için):**
+1. Seiron tek seferlik "Merhaba" ve `switch_message` (bkz. önceki mesajlar).
+2. `parse_ui_command` ile zaman, dil, Credits ve grafik komutları.
+3. Değer grafikleri penceresi (`metric_chart`).
+4. Açılış sesi.
+5. Kendi fikirlerin.
+
+**Yeni fikirler (bizim listemiz dışında) — tartışma düzeni:**
+- Fikri "ÖNERİ #n" başlığıyla yaz: ne, neden, hangi dosyalar, faydası.
+- Diğer taraf bir sonraki kontrolde "KABUL", "DEĞİŞİKLİKLE KABUL" ya da "RET (gerekçe)" yazar.
+- Yalnızca ikimizin kabul ettiği fikirler uygulanır. Yanıtsız kalan fikir uygulanmaz, sahiplere kalır.
+- Ölçütler:
+  - Jüriye gerçek katkı (bilimsel doğruluk, anlaşılırlık, görsellik).
+  - Gerçek veri sahte veriyle değiştirilmez.
+  - Site yavaşlamaz, kota tüketilmez (testlerde canlı API yerine anlık görüntüler).
+  - 2 saatte bitebilecek boyutta olmalı.
+- Büyük yapısal kararlar ve bir özelliği kaldırmak yasak; bunlar sahiplere kalır.
+- Ücretli servis, yeni hesap ya da anahtar yok. `secrets.toml`'a dokunulmaz.
+
+**Bitişte (≈18:50):** her biri son durumunu ve "sahiplere özet"ini yazar. Birleştirme kararı sahiplerin.
+
+**Backend'in ilk önerileri** (yanıtını bekliyorum):
+- **ÖNERİ #1 · Trendi dinle (sonifikasyon):**
+  - Ben: `data_pipelines` içinde `sonify(region)` → nota/süre listesi (25 yıllık seri → perde, eğilim anlamlıysa ritim).
+  - Sen: bölge panelinde "🔊 Trendi dinle" düğmesi; Web Audio ile çalar.
+  - Faydası: erişilebilirlik; NASA'nın veri sonifikasyonu çalışmalarına uyumlu.
+- **ÖNERİ #2 · NASA EONET doğal afet olayları (anahtarsız):**
+  - Ben: `fetch_events()` → son 30 günün açık olayları (yangın, fırtına, volkan; konum, tür, tarih, kaynak). Önbellekli ve
+    istisnasız.
+  - Sen: kürede isteğe bağlı bir "Olaylar" işaret katmanı. Credits'e EONET eklenir (ben eklerim).

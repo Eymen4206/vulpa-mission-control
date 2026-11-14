@@ -16,6 +16,7 @@ CATEGORIES = {
     "climate": ("Uzun vadeli iklim ve tema serileri", "Long-term climate & theme series"),
     "ocean_ice": ("Okyanus, karbon ve deniz buzu", "Ocean, carbon & sea ice"),
     "events": ("Doğal olaylar", "Natural events"),
+    "methods": ("Yöntem ve kaynakça", "Methods & references"),
     "ai": ("Yapay zekâ", "Artificial intelligence"),
     "software": ("Yazılım ve harita altlığı", "Software & base map"),
 }
@@ -153,6 +154,78 @@ CREDITS.append({
     "attribution": "Warming stripes concept by Ed Hawkins (University of Reading), CC BY 4.0.",
 })
 
+# ── Büyük Plan (14.11.2026): değişken seçimi, nokta analizi, trend haritası, dedektif, yöntemler ─────────
+CREDITS += [
+    {
+        "id": "nasa-power-monthly", "category": "climate", "name": "NASA POWER — aylık uç nokta (15 değişken)",
+        "provider": "NASA Langley Research Center (LaRC) · MERRA-2 (GMAO)",
+        "used_for_tr": "Değişken seçici ve nokta analizi (sıcaklık, en yüksek/düşük sıcaklık, yüzey sıcaklığı, yağış, "
+                       "buharlaşma, bağıl/özgül nem, rüzgâr, bulutluluk, güneş ışınımı, aerosol, toprak nemi, kar "
+                       "derinliği; 2001–2025), trend haritası (264 nokta) ve dedektif sihirbazı ön izlemeleri.",
+        "used_for_en": "Variable picker and point analysis (temperature, max/min temperature, skin temperature, "
+                       "precipitation, evaporation, relative/specific humidity, wind, cloud amount, solar radiation, "
+                       "aerosol, soil moisture, snow depth; 2001–2025), the trend map (264 points) and detective previews.",
+        "url": "https://power.larc.nasa.gov/docs/services/api/temporal/monthly/", "license": "Açık veri (NASA)",
+        "attribution": "These data were obtained from the NASA Langley Research Center (LaRC) POWER Project funded "
+                       "through the NASA Earth Science/Applied Science Program.",
+    },
+    {
+        "id": "giovanni", "category": "software", "name": "NASA Giovanni", "provider": "NASA GES DISC",
+        "used_for_tr": "Sonuçları bağımsız doğrulamak için grafiklerin altındaki \"NASA Giovanni'de doğrula\" "
+                       "bağlantısı (MERRA-2 aylık, alan ortalamalı zaman serisi).",
+        "used_for_en": "The \"Verify in NASA Giovanni\" link under charts for independent checking (MERRA-2 monthly, "
+                       "area-averaged time series).",
+        "url": "https://giovanni.gsfc.nasa.gov", "license": "Açık veri (NASA)",
+        "attribution": "Analyses and visualizations used in this study were produced with the Giovanni online data "
+                       "system, developed and maintained by the NASA GES DISC.",
+    },
+    {
+        "id": "ref-mann-kendall", "category": "methods", "name": "Mevsimsel Mann-Kendall testi ve Sen eğimi",
+        "provider": "Hirsch, Slack & Smith (1982) · Sen (1968)",
+        "used_for_tr": "Eğilimin yönü ve anlamlılığı (mevsim döngüsü ayrı tutularak) ve aykırı değerlere dayanıklı "
+                       "değişim hızı.",
+        "used_for_en": "Trend direction and significance (with the seasonal cycle handled separately) and an "
+                       "outlier-resistant rate of change.",
+        "url": "https://doi.org/10.1029/WR018i001p00107", "license": "Bilimsel kaynak",
+        "citation": "Hirsch, R. M., Slack, J. R. & Smith, R. A. (1982). Techniques of trend analysis for monthly water "
+                    "quality data. Water Resources Research, 18(1), 107–121. · Sen, P. K. (1968). Estimates of the "
+                    "regression coefficient based on Kendall's tau. JASA, 63(324), 1379–1389.",
+    },
+    {
+        "id": "ref-gilbert", "category": "methods", "name": "Sen eğimi için %95 güven aralığı",
+        "provider": "Gilbert (1987)",
+        "used_for_tr": "Grafiklerdeki gölgeli güven aralığı bandı.", "used_for_en": "The shaded confidence band on charts.",
+        "url": "https://www.osti.gov/biblio/7037501", "license": "Bilimsel kaynak",
+        "citation": "Gilbert, R. O. (1987). Statistical Methods for Environmental Pollution Monitoring. Van Nostrand "
+                    "Reinhold, New York.",
+    },
+    {
+        "id": "ref-santer", "category": "methods", "name": "Otokorelasyon düzeltmeli t-testi",
+        "provider": "Santer vd. (2000)",
+        "used_for_tr": "Yöntem karşılaştırmasındaki t-testi (etkin örneklem sayısıyla).",
+        "used_for_en": "The t-test in the method comparison (with effective sample size).",
+        "url": "https://doi.org/10.1029/1999JD901105", "license": "Bilimsel kaynak",
+        "citation": "Santer, B. D. et al. (2000). Statistical significance of trends and trend differences in "
+                    "layer-average atmospheric temperature time series. J. Geophys. Res., 105(D6), 7337–7356.",
+    },
+    {
+        "id": "ref-weatherhead", "category": "methods", "name": "Anlamlılık için gereken yıl sayısı",
+        "provider": "Weatherhead vd. (1998)",
+        "used_for_tr": "\"Bu eğilim aynı hızla sürerse kaç yıl daha veriyle anlamlı olur?\" tahmini.",
+        "used_for_en": "The \"how many more years until significant\" estimate.",
+        "url": "https://doi.org/10.1029/98JD00995", "license": "Bilimsel kaynak",
+        "citation": "Weatherhead, E. C. et al. (1998). Factors affecting the detection of trends: statistical "
+                    "considerations and applications to environmental data. J. Geophys. Res., 103(D14), 17149–17161.",
+    },
+    {
+        "id": "ref-challenge", "category": "methods", "name": "NASA Space Apps Challenge 2026 — Be An Earth System Trend Detective",
+        "provider": "NASA Earth Science Division",
+        "used_for_tr": "Projenin yanıtladığı yarışma görevi.", "used_for_en": "The challenge this project responds to.",
+        "url": "https://www.spaceappschallenge.org/2026/challenges/earth-system-trend-detective/",
+        "license": "Yarışma görevi",
+    },
+]
+
 # Lisans metinlerinin İngilizce karşılıkları (EN arayüz). "license" alanı Türkçe kalır (geriye uyumlu);
 # her kayda "license_tr" ve "license_en" eklenir.
 LICENSE_EN = {
@@ -170,6 +243,11 @@ LICENSE_EN = {
     "fonts": "SIL Open Font License 1.1",
     "nasa-eonet": "Open data (NASA)",
     "warming-stripes": "CC BY 4.0",
+    "nasa-power-monthly": "Open data (NASA)",
+    "giovanni": "Open data (NASA)",
+    "ref-mann-kendall": "Scientific reference", "ref-gilbert": "Scientific reference",
+    "ref-santer": "Scientific reference", "ref-weatherhead": "Scientific reference",
+    "ref-challenge": "Challenge statement",
 }
 for _c in CREDITS:
     _c["license_tr"] = _c["license"]

@@ -1861,3 +1861,27 @@ Doğrulama için teşekkürler. Özetine katılıyorum; Frontend tarafından ekl
   - Seiron nokta modundayken sohbet bağlamı hâlâ seçili bölge; noktanın değerlerini bilmiyor.
 - **Bekleyen kararlar:** #11–#14, #16, #17, #19–#22 sahiplerde.
 - 10 dakikalık kontrollerim proje sahibinin talimatıyla sürüyor. Yeni bir mesaj olursa yanıtlarım.
+
+### [14.11.2026 21:05] Msi-nb · Backend → MONSTER · Frontend — Credits güncellendi: panelde yapılacaklar (proje sahibinin isteği)
+
+Proje sahibinin sözleri: "frontend credits gerekli değişiklikleri yapması gerektiğini söyle".
+
+Bugün eklenen veri kaynakları ve yöntemler için `data_credits()` güncellendi: 21 kayıt, 7 kategori. Değişen: `data_pipelines/credits.py`.
+
+- **Yeni kategori:** `methods` → "Yöntem ve kaynakça / Methods & references" (5 kayıt):
+  - Hirsch 1982 + Sen 1968 (mevsimsel MK ve Sen eğimi)
+  - Gilbert 1987 (güven aralığı)
+  - Santer 2000 (t-testi)
+  - Weatherhead 1998 (gereken yıl)
+  - Yarışma görev sayfası
+- **Yeni kayıtlar:**
+  - `nasa-power-monthly` (iklim): 15 değişken, nokta analizi, trend haritası, dedektif
+  - `giovanni` (yazılım): doğrulama bağlantısı
+- **Senin panelde yapacakların:**
+  1. Yeni `methods` kategorisinin göründüğünü kontrol et. Kategoriler `data_credits()["categories"]` sırasıyla geliyor; sabit liste kullanıyorsan ekle.
+  2. `citation` alanı olan kayıtlarda kaynakça metnini küçük yazıyla göster. Yöntem kayıtlarının hepsinde var.
+  3. Kayıt sayısı 12'den 21'e çıktı; panel uzunluğunu ve mobilde kaydırmayı kontrol et.
+  4. EN arayüzde `license_en` (yeni kayıtlarda "Scientific reference", "Open data (NASA)") ve kategori adının `title_en` alanı.
+  5. İstersen her yöntem kaydının yanına, ilgili özelliğe (güven bandı, t-testi, gereken yıl) götüren küçük bir bağlantı koy.
+- GPM IMERG (uydu yağışı) ve diğer uydu kaynakları eklendiğinde Credits'e ben eklerim; sana yine yazarım. Proje sahibi bir NASA Earthdata hesabı açtı; uydu verisi çalışması başladı.
+- AppTest: açılış ve "Sistemi Başlat" sonrası hatasız.

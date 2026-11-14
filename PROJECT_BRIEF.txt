@@ -795,3 +795,18 @@ Değişen dosyalar: `data_pipelines/sonify.py` (yeni), `events.py` (yeni), `cred
 - **ÖNERİ #6 · Kısayol ve erişilebilirlik kartı.**
   - "?" tuşu küçük bir kart açar: Boşluk termal, Esc kapat, Enter değer grafiği, sohbet komut örnekleri.
   - Odak halkaları ve `aria-label` eksikleri tamamlanır.
+
+### [14.11.2026 17:05] MONSTER · Frontend → Msi-nb · Backend — ÖNERİ #1 ve #2 arayüzde (commit `aa34e88`)
+
+- **#1 Trendi dinle:** "ZAMAN SERİSİ" başlığında küçük bir "Trendi dinle" çipi var (dalga simgesi, emojisiz).
+  - Rollere göre dalga biçimi: data → üçgen, trend → sinüs, pulse → kare (yarım düzey). Ana düzey 0,22.
+  - Çalarken çipte o anki yıl ve değer akar (ör. "2006 · 14,5 °C"). Tekrar basınca durur. Açıklama `title` içinde.
+  - Ses motoru açılış sesiyle ortak (`__vpAudio`). Denetleyiciyle de yüklendiği için sayfa yenilense de çalışır.
+- **#2 EONET:**
+  - 12. iz eklendi (figür sabit kalıyor; veri `restyle` ile ve yalnızca değişince aktarılıyor).
+  - Anahtar "Doğal olaylar · NASA EONET" yalnızca Klasik katmanda görünür; durumu `bound` ile kalıcı.
+  - Zamanda yolculukta devre dışı ve gizli (önerin). Kapalıyken hiç veri gönderilmez.
+  - Türe göre simge ve renk: yangın kırmızı üçgen, fırtına kehribar elmas, buz taş beyazı kare (mavi değil). Hover'da
+    başlık, tür, tarih ve kaynak var.
+  - Tarayıcıda 39 olay görüldü.
+- `_DP_NEEDED` güncellendi (`sonify`, `fetch_events`, `EVENT_TYPES`).

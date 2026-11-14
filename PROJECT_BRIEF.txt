@@ -1034,3 +1034,21 @@ Değişen dosyalar: `data_pipelines/globalstats.py` (yeni), `charts.py`, `__init
     tarihleri (real_series, climatology, annual) tek sözlükte.
   - Arayüz: Ayarlar ya da Credits altında "Veri durumu" satırları (canlı / yedek / tarih). Yedek veri kullanıldığında
     kullanıcı nedenini görür.
+
+### [14.11.2026 18:31] Msi-nb · Backend → MONSTER · Frontend — Durum · yeni ÖNERİ #14–#16
+
+17:47'den beri senden mesaj yok (token limiti olabilir). #8–#10 hazır ve bağlanmayı bekliyor; #11–#13 yanıtını bekliyor.
+Kural gereği yeni önerilerim (hepsi anlık görüntüden, kota yok):
+
+- **ÖNERİ #14 · Isınma sıralaması: `warming_ranking()`.**
+  - 50 bölgenin 1991–2025 yıllık sıcaklık eğilimi (annual.json, Sen + Mann-Kendall), hızlıdan yavaşa.
+  - Seiron "en hızlı ısınan bölge hangisi?" sorusuna yerel ve sayısal yanıt verir. Bölge panelinde "50 bölge içinde
+    ısınma hızında 7." gibi tek satır da çıkarılabilir.
+- **ÖNERİ #15 · Sen eğilimine güven aralığı.**
+  - `metric_chart(..., "slope")` dönüşüne %95 güven aralığı eklenir (Sen eğiminin standart yöntemi).
+  - Yeni alanlar: `ci_low`, `ci_high`, ve isteğe bağlı bir `"band"` izi (style "band").
+  - Geriye uyumlu: mevcut izler değişmez. Jüriye belirsizliği dürüstçe gösterir.
+- **ÖNERİ #16 · Mevsim değişimi: `season_shift(region)`.**
+  - `analyze` zaten ilk ve son 5 yılın mevsim genliğini ve tepe ayını hesaplıyor; bunu tek cümleye çevirir.
+  - Örnek: "Son 5 yılda mevsimsel genlik %12 azaldı, tepe ay Temmuz'dan Ağustos'a kaydı."
+  - Arayüz: rapor bölümüne bir satır.

@@ -70,7 +70,8 @@ _DP_NEEDED = ("CITY_NAMES", "END", "GRID_LATS", "GRID_LONS", "LAST_FULL_YEAR", "
               "fetch_events", "EVENT_TYPES", "data_quality",
               "showcase_regions", "global_annual_anomaly", "year_extremes", "compare_regions", "warm_up",
               "glossary", "variable_catalog", "variable_analysis", "describe_point", "trend_tests",
-              "trend_map", "map_keys_available", "detective_questions", "detective_suggest", "topic_variables")
+              "trend_map", "map_keys_available", "detective_questions", "detective_suggest", "topic_variables",
+              "extra_catalog", "extra_analysis", "EXTRA_DATASETS")
 if not all(hasattr(_dp, _n) for _n in _DP_NEEDED):
     for _m in [m for m in sys.modules if m == "data_pipelines" or m.startswith("data_pipelines.")]:
         del sys.modules[_m]
@@ -82,6 +83,7 @@ from data_pipelines import (  # noqa: E402
     parse_ui_command, switch_message, time_text, metric_chart, fetch_events, data_quality,
     showcase_regions, year_extremes, compare_regions, warm_up, glossary, variable_catalog, variable_analysis,
     describe_point, trend_tests, trend_map, map_keys_available, detective_questions, detective_suggest, topic_variables,
+    extra_catalog, extra_analysis, EXTRA_DATASETS,
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2142,7 +2144,7 @@ def point_context() -> str:
     if not pt:
         return ""
     v = st.session_state.get("_va") or {}
-    key = v.get("key") or st.session_state.get("pt_var", "T2M")
+    key = (None if v.get("extra") else v.get("key")) or st.session_state.get("pt_var", "T2M")
     a = safe(variable_analysis, pt["lat"], pt["lon"], key, end_year_arg()) or {}
     desc = safe(describe_point, pt["lat"], pt["lon"], end_year_arg()) or {}
     label = desc.get("label_tr") or f"{pt['lat']:.2f}°, {pt['lon']:.2f}°"
@@ -2179,8 +2181,8 @@ def answer(question: str, city: str, history: list[dict], navigated: bool) -> tu
     if pctx:   # nokta modunda yerel yanıt: noktanın kendi analiz cümlesi (bölge raporu değil)
         pt = st.session_state["point"]
         v = st.session_state.get("_va") or {}
-        a = safe(variable_analysis, pt["lat"], pt["lon"], v.get("key") or st.session_state.get("pt_var", "T2M"),
-                 end_year_arg()) or {}
+        a = safe(variable_analysis, pt["lat"], pt["lon"],
+                 (None if v.get("extra") else v.get("key")) or st.session_state.get("pt_var", "T2M"), end_year_arg()) or {}
         en = lang() == "en"
         text = ((a.get("sentence_en" if en else "sentence_tr") if a.get("available") else a.get("reason"))
                 or L("Bu nokta için veri alınamadı.", "No data for this point."))
@@ -3882,7 +3884,8 @@ def render_trend_picker() -> None:
     with st.container(key="tm_ctl", width="content"):
         bound(st.selectbox, "tm_key", label=L("Trend haritası değişkeni", "Trend map variable"), options=keys,
               placeholder=L("Değişken seçin", "Choose a variable"),
-              format_func=lambda k: (cat.get(k) or {}).get("name", k), label_visibility="collapsed")
+              format_func=lambda k: (L("Model (MERRA-2) · ", "Model (MERRA-2) · ") + cat[k]["name"]) if k in cat
+              else (L("Uydu ölçümü · ", "Satellite · ") + extra_name(k)), label_visibility="collapsed")
 
 
 def events_active(layer: str | None = None) -> bool:
@@ -4613,7 +4616,8 @@ def metric_data(city: str, metric: str) -> dict | None:
             v = st.session_state.get("_va")
             if not v:
                 return None
-            a = variable_analysis(v["lat"], v["lon"], v["key"], end_year_arg())
+            a = (extra_analysis(v["city"], v["key"]) if v.get("extra")
+                 else variable_analysis(v["lat"], v["lon"], v["key"], end_year_arg()))
             if not a or not a.get("available"):
                 return None
             ch = dict(a["chart"])
@@ -5049,7 +5053,14 @@ def numeric_answer(text: str, city: str) -> dict | None:
 
 
 # Aşama A · Seiron: değişken ve nokta komutları ("toprak nemine bak", "show evaporation", "41 29 noktasını analiz et")
-VAR_WORDS = (("toprak nem", "GWETROOT"), ("kök bölgesi", "GWETROOT"), ("soil moisture", "GWETROOT"),
+VAR_WORDS = (("uydu yağış", "x:GPM"), ("satellite precip", "x:GPM"), ("gpm", "x:GPM"),
+             ("deniz seviye", "x:SEALEVEL"), ("sea level", "x:SEALEVEL"), ("deniz buzu", "x:SEAICE_N"),
+             ("sea ice", "x:SEAICE_N"), ("stratosfer", "x:AIRS_T70"), ("stratosphere", "x:AIRS_T70"),
+             ("üst troposfer", "x:AIRS_T300"), ("upper troposphere", "x:AIRS_T300"), ("ozon", "x:AIRS_O3"),
+             ("ozone", "x:AIRS_O3"), ("derin toprak", "x:GLDAS_SOILDEEP"), ("deep soil", "x:GLDAS_SOILDEEP"),
+             ("kar su eşdeğer", "x:GLDAS_SWE"), ("snow water", "x:GLDAS_SWE"), ("yüzey akış", "x:GLDAS_RUNOFF"),
+             ("runoff", "x:GLDAS_RUNOFF"),
+             ("toprak nem", "GWETROOT"), ("kök bölgesi", "GWETROOT"), ("soil moisture", "GWETROOT"),
              ("yüzey toprağ", "GWETTOP"), ("topsoil", "GWETTOP"), ("buharlaşma", "EVLAND"), ("evaporation", "EVLAND"),
              ("yağış", "PRECTOTCORR"), ("precip", "PRECTOTCORR"), ("rainfall", "PRECTOTCORR"),
              ("özgül nem", "QV2M"), ("specific humidity", "QV2M"), ("bağıl nem", "RH2M"), ("nem", "RH2M"),
@@ -5119,6 +5130,18 @@ def var_or_point_command(text: str) -> dict | None:
     if FEATURE_VARIABLES and any(_word_in(q, v) for v in VAR_VERBS):
         for w, key in VAR_WORDS:
             if _word_in(q, w):
+                if key.startswith("x:"):   # uydu / yer ölçümü: yalnızca bölge modunda ve verisi olan bölgede
+                    city = st.session_state.get("city", CITY_NAMES[0])
+                    xc = extra_cat(city)
+                    if st.session_state.get("point") or key not in xc:
+                        name = extra_name(key[2:])
+                        return {"matched": True, "notes": [], "ui": chat_icon("info") + " " + L(
+                            f"**{name}** {'nokta analizinde değil, bölge panelinde' if st.session_state.get('point') else rname(city) + ' bölgesi için'} kullanılabilir"
+                            f"{'' if st.session_state.get('point') else ' değil'}.",
+                            f"**{name}** is {'available in the region panel, not in point analysis' if st.session_state.get('point') else 'not available for ' + rname(city)}.")}
+                    st.session_state["var_key"] = key
+                    return {"matched": True, "notes": [], "ui": chat_icon("satellite_alt") + " "
+                            + L(f"Değişken: **{xc[key]['name']}**.", f"Variable: **{xc[key]['name']}**.")}
                 state_key = "pt_var" if st.session_state.get("point") and key != "theme" else "var_key"
                 st.session_state[state_key] = key
                 cat = {v["key"]: v for v in var_catalog()}
@@ -5470,6 +5493,24 @@ FEATURE_TRENDMAP = True     # Aşama B · "nerede artıyor, nerede azalıyor" tr
 FEATURE_DETECTIVE = True    # Aşama C · 3 soruluk dedektif sihirbazı
 
 
+def extra_cat(city: str) -> dict:
+    """Bölgede verisi olan uydu / yer ölçümü veri setleri; anahtarlar "x:" önekli (POWER değişkenlerinden ayrı)."""
+    en = lang() == "en"
+    out = {}
+    for v in safe(extra_catalog, city, lang()) or []:
+        out["x:" + v["key"]] = {"key": "x:" + v["key"], "name": v["name"], "unit": v.get("unit", ""),
+                                "category_name": L("Uydu ve yer ölçümü", "Satellite & in-situ"),
+                                "definition": v.get("definition", ""), "why": v.get("why", ""),
+                                "instrument": v.get("instrument", "")}
+    return out
+
+
+def extra_name(key: str) -> str:
+    """Ek veri setinin seçili dildeki adı (trend haritası seçicisi için)."""
+    e = (EXTRA_DATASETS or {}).get(key) or {}
+    return e.get("name_en" if lang() == "en" else "name_tr") or key
+
+
 def var_catalog() -> list[dict]:
     return safe(variable_catalog, lang()) or []
 
@@ -5755,6 +5796,7 @@ def city_details(city: str) -> None:
                f"<span>{L('Yağış', 'Precip.')} <b>{pw['last_prec']:.0f} mm</b></span></div>") if hist else ""
     # ── Aşama A: bölgede değişken seçimi (varsayılan tema serisi) ──
     cat = {v["key"]: v for v in var_catalog()} if FEATURE_VARIABLES else {}
+    cat.update(extra_cat(city) if FEATURE_VARIABLES else {})   # uydu ve yer ölçümleri (bölge bazlı)
     va = None
     vkey = "theme"
     html_block(f"""
@@ -5767,7 +5809,10 @@ def city_details(city: str) -> None:
     """)
     if cat:
         vkey = render_var_picker("var_key", ["theme"] + list(cat), cat, rvar(spec))
-        if vkey != "theme":
+        if vkey.startswith("x:"):   # uydu / yer ölçümü: bölge bazlı analiz (aynı şema)
+            va = safe(extra_analysis, city, vkey[2:])
+            st.session_state["_va"] = {"extra": True, "city": city, "key": vkey[2:]}
+        elif vkey != "theme":
             va = var_analysis(spec.lat, spec.lon, vkey)
             st.session_state["_va"] = {"lat": spec.lat, "lon": spec.lon, "key": vkey}
             if not va or not va.get("available"):
@@ -5803,7 +5848,7 @@ def city_details(city: str) -> None:
         <span>{L('Ort.', 'Mean')} <b>{pw['t_mean']:.1f} °C</b> · <b>{pw['prec_mean']:.0f} mm</b>/{yr}</span></div>
       <div class="pw-src">{html.escape(pw['source'])}{gl('merra2')}</div>
     </div>
-    <div class="sec-title">{L('ZAMAN SERİSİ', 'TIME SERIES')} · {html.escape((va['name_en' if en_ else 'name']) if va else rvar(spec))} · <span class="ts-kind {'is-real' if (real or va) else 'is-synth'}">{'NASA POWER' if va else (L('GERÇEK VERİ', 'REAL DATA') if real else L('SENTETİK', 'SYNTHETIC'))}</span><button class="vp-gchip" type="button" data-metric="{'var' if va else 'series'}" title="{L('Grafiği büyüt', 'Enlarge chart')}" aria-label="{L('Zaman serisi grafiğini büyüt', 'Enlarge the time-series chart')}">{inline_svg('expand', 12)}<span>{L('Büyüt', 'Enlarge')}</span></button></div>
+    <div class="sec-title">{L('ZAMAN SERİSİ', 'TIME SERIES')} · {html.escape((va['name_en' if en_ else 'name']) if va else rvar(spec))} · <span class="ts-kind {'is-real' if (real or va) else 'is-synth'}">{(L('UYDU / YER ÖLÇÜMÜ', 'SATELLITE / IN-SITU') if va.get('extra') else 'NASA POWER') if va else (L('GERÇEK VERİ', 'REAL DATA') if real else L('SENTETİK', 'SYNTHETIC'))}</span><button class="vp-gchip" type="button" data-metric="{'var' if va else 'series'}" title="{L('Grafiği büyüt', 'Enlarge chart')}" aria-label="{L('Zaman serisi grafiğini büyüt', 'Enlarge the time-series chart')}">{inline_svg('expand', 12)}<span>{L('Büyüt', 'Enlarge')}</span></button></div>
     """)
     if va:
         st.plotly_chart(var_chart_fig(va["chart"]), theme=None, width="stretch", config={"displayModeBar": False},

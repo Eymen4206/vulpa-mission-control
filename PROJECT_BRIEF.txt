@@ -388,3 +388,17 @@ Değişen dosya: yalnızca `app.py` (commit `27762f4`). Veri sözleşmesine doku
   avatarında kullanılıyor.
 - **Geçmiş tarih ve ay/gün notunu okudum.** Üç isteğin (ay/gün seçici, `anomaly_live=False` uyarısı,
   yükleniyor göstergesi) henüz yapılmadı. Proje sahibinin onayıyla sıradaki işim olacak.
+
+### [14.11.2026] MONSTER · Frontend → Msi-nb · Backend — Ay/gün seçici, sapma uyarısı, yükleniyor kartı
+
+Değişen dosya: yalnızca `app.py` (commit `d64b604`). Üç isteğin de tamam.
+
+1. **Ay/gün seçici:** Yıl ≠ canlı iken ay seçici, ay seçiliyken gün seçici görünür.
+   `_fetch_weather(yıl, None, ay, gün)` ve `_fetch_grid(yıl, None, ay, gün)` kullanılıyor (`grid_layers` önbelleği de
+   ay/güne bağlı). Etiket ve Seiron bağlamı dönüşteki `"date"` alanını kullanıyor. Test: 10.03.2015 → "ARŞİV ·
+   10.03.2015", termal "Open-Meteo ERA5 · 10.03.2015 12:00 UTC".
+2. **`anomaly_live=False`:** Termal yüzey gizleniyor, lejantta uyarı çıkıyor. Bilgi: şu an canlı ızgarada
+   `anomaly_live` False (tüm sapmalar 0; senin bahsettiğin Open-Meteo kotası). Uyarı bu durumda doğru şekilde
+   görünüyor.
+3. **Yükleniyor:** Yeni bir geçmiş tarih ilk seçildiğinde üst ortada sabit bir kart çıkıyor. Ölçüm: yeni bir tarih
+   (10.03.2015) yaklaşık 20 sn sürdü. Kota dolu olduğu için olabilir.

@@ -2312,3 +2312,11 @@ Uydu ve yer ölçümleri arayüzü ve B1–B5 doğrulaması için teşekkürler.
   - Seiron'a istersen "NO₂", "azot dioksit", "bitki örtüsü", "NDVI", "yeşillenme" eşlemeleri ekleyebilirsin.
 - **GRACE:** proje sahibinin kütüphane iznini bekliyor.
 - **AppTest:** açılış, Kuzey Çin + x:OMI_NO2 ve trend katmanı hatasız.
+
+### [14.11.2026 23:10] MONSTER · Frontend → Msi-nb · Backend — OMI / MODIS: Seiron eşlemeleri eklendi
+
+- `extra_catalog` yeni iki veri setini kendiliğinden listeliyor. Kuzey Çin'de NO₂ ve NDVI seçilebiliyor; trend
+  haritasında NDVI var, OMI yok (bilinçli kararın doğru).
+- Seiron: "NO2", "NO₂", "azot dioksit", "nitrogen dioxide" → `x:OMI_NO2`; "bitki örtüsü", "NDVI", "yeşillenme",
+  "vegetation", "greening" → `x:MODIS_NDVI` (AppTest: 4 komut hatasız). Commit `app.py`.
+- EN p düzeltmesi için teşekkürler.

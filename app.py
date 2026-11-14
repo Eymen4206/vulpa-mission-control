@@ -68,7 +68,8 @@ _DP_NEEDED = ("CITY_NAMES", "END", "GRID_LATS", "GRID_LONS", "LAST_FULL_YEAR", "
               "_fetch_power", "_fetch_weather", "analyze", "build_series", "REAL_SOURCES", "series_meta", "data_credits",
               "parse_ui_command", "switch_message", "time_text", "metric_chart", "ALLOWED_ACTIONS", "METRICS",
               "fetch_events", "EVENT_TYPES", "data_quality",
-              "showcase_regions", "global_annual_anomaly", "year_extremes", "compare_regions", "warm_up")
+              "showcase_regions", "global_annual_anomaly", "year_extremes", "compare_regions", "warm_up",
+              "glossary")
 if not all(hasattr(_dp, _n) for _n in _DP_NEEDED):
     for _m in [m for m in sys.modules if m == "data_pipelines" or m.startswith("data_pipelines.")]:
         del sys.modules[_m]
@@ -78,7 +79,7 @@ from data_pipelines import (  # noqa: E402
     REGIONS, START, WEATHER_TTL, Region, _fetch_grid, _fetch_power, _fetch_weather, analyze, build_series,
     REAL_SOURCES, series_meta, data_credits,
     parse_ui_command, switch_message, time_text, metric_chart, fetch_events, data_quality,
-    showcase_regions, year_extremes, compare_regions, warm_up,
+    showcase_regions, year_extremes, compare_regions, warm_up, glossary,
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2359,6 +2360,19 @@ div[role="dialog"]:has(.set-sec) { background: rgba(20,17,15,.92); backdrop-filt
   linear-gradient(to top, var(--orange) 0 100%) right bottom / 2px 70% no-repeat; transition: opacity .18s; }
 .fact.clk:hover::after, .pw-main.clk:hover::after { opacity: 1; }
 .st-key-metric_btns, .st-key-yx_btns { display: none !important; }
+.gl { position: relative; display: inline-flex; margin-left: .25rem; color: var(--muted); vertical-align: -.1em; cursor: help; outline: none; }
+.gl:hover, .gl:focus-visible { color: var(--orange); }
+.gl-tip { display: none; position: absolute; top: calc(100% + 6px); left: -8px; z-index: 40; width: 230px;
+  max-width: calc(100vw - 32px); padding: .5rem .6rem; border-radius: 10px; background: rgba(20,17,15,.96);
+  backdrop-filter: blur(14px); border: 1px solid var(--line-strong); color: #e7e5e4; font: 400 .7rem/1.45 'Inter', sans-serif;
+  text-transform: none; letter-spacing: 0; white-space: normal; box-shadow: 0 10px 26px rgba(0,0,0,.45); }
+.gl:hover .gl-tip, .gl:focus .gl-tip { display: block; }
+.facts .fact:nth-child(3n) .gl-tip { left: auto; right: -8px; }
+.facts .fact:nth-child(3n+2) .gl-tip { left: 50%; transform: translateX(-50%); }
+.pw-src .gl-tip { top: auto; bottom: calc(100% + 6px); }
+@media (max-width: 640px) {   /* mobilde değer kutuları 2 sütun: sol sütun sola, sağ sütun sağa hizalı */
+  .facts .fact:nth-child(n) .gl-tip { left: -8px; right: auto; transform: none; width: min(230px, calc(100vw - 48px)); }
+  .facts .fact:nth-child(2n) .gl-tip { left: auto; right: -8px; transform: none; } }
 /* R basılı: yalnızca küre (arayüz solarak gizlenir, küre yerinde kalır) */
 .st-key-topbar, .st-key-left_panel, .st-key-right_panel, .st-key-layer_bar, .st-key-tour_bar, .narrow-hint { transition: opacity .22s ease; }
 html.vp-globe-only .st-key-topbar, html.vp-globe-only .st-key-left_panel, html.vp-globe-only .st-key-right_panel,
@@ -2734,6 +2748,9 @@ _SVG_ICONS = {
     "expand": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' "
               "stroke-width='2.2' stroke-linejoin='miter' stroke-linecap='square'><path d='M4 9V4h5M20 9V4h-5M4 15v5h5"
               "M20 15v5h-5'/></svg>",
+    "info": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' "
+            "stroke-width='2.2' stroke-linejoin='miter'><path d='M8.5 3h7L21 8.5v7L15.5 21h-7L3 15.5v-7Z'/>"
+            "<path d='M12 11v6M12 7.2v1.4'/></svg>",
     "wave": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' "
             "stroke-width='2.2' stroke-linejoin='miter' stroke-linecap='square'><path d='M2 12h3l2-6 3 12 3-9 2 6 "
             "2-3h5'/></svg>",
@@ -3072,6 +3089,7 @@ GLOBE_CONTROLLER_JS = """
     document.addEventListener("click", function(e) {
       const t = e.target;
       // Sağ paneldeki değer kutuları: tıklanınca gizli Streamlit düğmesine basılır, grafik penceresi açılır.
+      if (t.closest && t.closest(".gl")) { e.preventDefault(); return; }   // sözlük ⓘ: grafik açılmasın
       const dc = t.closest && t.closest("[data-click]");
       if (dc) {
         const b = document.querySelector(".st-key-" + dc.getAttribute("data-click") + " button");
@@ -4239,6 +4257,13 @@ def metric_figure(d: dict) -> go.Figure:
     txt, muted = ("#292524", "#78716c") if light else ("#e7e5e4", "#a8a29e")
     grid = "rgba(120,113,108,.22)" if light else "rgba(168,162,158,.14)"
     fig = go.Figure()
+    band = d.get("band")
+    if band and band.get("x"):   # #15 · Sen eğiminin %95 güven aralığı (iki uç doğru arası, yarı saydam)
+        fig.add_trace(go.Scatter(x=band["x"], y=band["y_high"], mode="lines", line=dict(width=0), hoverinfo="skip",
+                                 showlegend=False))
+        fig.add_trace(go.Scatter(x=band["x"], y=band["y_low"], mode="lines", line=dict(width=0), fill="tonexty",
+                                 fillcolor="rgba(249,115,22,.16)", name=band.get("name_en" if en else "name_tr", "95%"),
+                                 hoverinfo="skip"))
     for t in d.get("traces", []):
         name = t.get("name_en" if en else "name_tr", "")
         x = t.get("x_en") if en and t.get("x_en") else t.get("x", [])
@@ -4419,6 +4444,9 @@ def _light_rules(css: str) -> str:
 
 
 LIGHT_FIXED = """
+.gl-tip, .dq-tip { background: rgba(255,255,255,.97) !important; color: #292524 !important;
+  border-color: rgba(234,88,12,.3) !important; box-shadow: 0 10px 26px rgba(28,25,23,.18) !important; }
+.dq-tip li, .dq-tip li span { color: #292524 !important; } .dq-tip li.no, .dq-tip li.no b { color: #78716c !important; }
 .st-key-events_ctl label > span + div { background-color: #a8a29e !important; }
 .st-key-events_ctl label:has(input:checked) > span + div { background-color: #f97316 !important; }
 .st-key-events_ctl label p { color: #292524 !important; }
@@ -4849,6 +4877,26 @@ def quality_chip(city: str, wx: dict, pw: dict) -> str:
             f"</span><ul>{rows}</ul></span></span>")
 
 
+def safe(fn, *a, **k):
+    """Veri katmanı yardımcısını çağırır; hata olursa None (arayüz çökmez)."""
+    try:
+        return fn(*a, **k)
+    except Exception:
+        return None
+
+
+def gl(key: str) -> str:
+    """#18 · Terim sözlüğü: etiket yanında küçük ⓘ; üstüne gelince / odakta kısa tanım (data_pipelines.glossary).
+    Yarışma hedef kitlesi lise/üniversite öğrencileri: istatistik terimleri yerinde açıklanır."""
+    g = safe(glossary, lang()) or {}
+    item = g.get(key)
+    if not item:
+        return ""
+    text = html.escape(f"{item['term']}: {item['text']}", quote=True)
+    return (f"<span class='gl' tabindex='0' role='note' aria-label=\"{text}\">{inline_svg('info', 11)}"
+            f"<span class='gl-tip'>{text}</span></span>")
+
+
 def go_region(name: str) -> None:
     st.session_state["city"] = name
 
@@ -4930,10 +4978,10 @@ def city_details(city: str) -> None:
     <div class="wx"><div class="ic">{wx_icon(w, 34)}</div><div class="t">{w['temp']:.1f}°C</div>
       <div class="d">{html.escape(wlabel(w))}{' · ' + ' · '.join(wx_meta) if wx_meta else ''}<br><span>{wx_kind} · {html.escape(wx['source'])}</span></div></div>
     <div class="facts">
-      <div class="fact clk" data-metric="p" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('p-değeri', 'p-value')}</div><div class="v">{format_p(r['p'])}</div></div>
-      <div class="fact clk" data-metric="tau" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">Kendall τ</div><div class="v">{r['Tau']:+.3f}</div></div>
-      <div class="fact clk" data-metric="slope" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('Eğilim yönü', 'Direction')}</div><div class="v">{dir_label(r['trend'])}</div></div>
-      <div class="fact clk" data-metric="slope" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('Sen eğilimi', 'Sen slope')}</div><div class="v">{fmt(spec, r['slope_year'], extra=1)}<small>{unit}/{yr}</small></div></div>
+      <div class="fact clk" data-metric="p" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('p-değeri', 'p-value')}{gl('p')}</div><div class="v">{format_p(r['p'])}</div></div>
+      <div class="fact clk" data-metric="tau" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">Kendall τ{gl('tau')}</div><div class="v">{r['Tau']:+.3f}</div></div>
+      <div class="fact clk" data-metric="slope" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('Eğilim yönü', 'Direction')}{gl('mann_kendall')}</div><div class="v">{dir_label(r['trend'])}</div></div>
+      <div class="fact clk" data-metric="slope" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('Sen eğilimi', 'Sen slope')}{gl('sen')}</div><div class="v">{fmt(spec, r['slope_year'], extra=1)}<small>{unit}/{yr}</small></div></div>
       <div class="fact clk" data-metric="slope" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('On yıllık', 'Per decade')}</div><div class="v">{fmt(spec, r['slope_year'] * 10)}<small>{unit}</small></div></div>
       <div class="fact"><div class="k">Risk</div><div class="v">{risk_label(rep['risk'])}<small>{rep['risk']}</small></div></div>
     </div>
@@ -4946,7 +4994,7 @@ def city_details(city: str) -> None:
       {sel_row}
       <div class="pw-row"><span>{L('Yağış eğilimi', 'Precip. trend')} <b>{pw['p_dec_pct']:+.1f} %</b>/{L('10 yıl', 'decade')}</span>
         <span>{L('Ort.', 'Mean')} <b>{pw['t_mean']:.1f} °C</b> · <b>{pw['prec_mean']:.0f} mm</b>/{yr}</span></div>
-      <div class="pw-src">{html.escape(pw['source'])}</div>
+      <div class="pw-src">{html.escape(pw['source'])}{gl('merra2')}</div>
     </div>
     <div class="sec-title">{L('ZAMAN SERİSİ', 'TIME SERIES')} · {html.escape(rvar(spec))} · <span class="ts-kind {'is-real' if real else 'is-synth'}">{L('GERÇEK VERİ', 'REAL DATA') if real else L('SENTETİK', 'SYNTHETIC')}</span><button class="vp-gchip" type="button" data-metric="series" title="{L('Grafiği büyüt', 'Enlarge chart')}" aria-label="{L('Zaman serisi grafiğini büyüt', 'Enlarge the time-series chart')}">{inline_svg('expand', 12)}<span>{L('Büyüt', 'Enlarge')}</span></button></div>
     """)
@@ -5084,7 +5132,7 @@ def render_mobile() -> None:
         render_year_control()
         render_gear()
     tab_globe, tab_ai, tab_data = st.tabs([L("3D Küre", "3D Globe"), "Seiron AI",
-                                           L("Telemetri & QR", "Telemetry & QR")])
+                                           L("Telemetri", "Telemetry")])
     with tab_globe:
         # Mobil: küre yüksekliği ekran boyuna göre CSS'te belirlenir (clamp), grafik kabı doldurur.
         # Katman seçici kürenin altına, sabit yükseklikli kutunun dışına konur (kesilmesin).

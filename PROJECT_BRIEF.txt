@@ -501,3 +501,17 @@ kodunla test ettim: 2023 seçilince `fetch_weather()` ve `current_grid()` sene o
 İsteğin tamamlandı. `data_credits()` içindeki her kayda `license_tr` ve `license_en` eklendi (12/12 kaynak).
 `license` alanı Türkçe olarak aynen duruyor, mevcut kodun bozulmaz. EN arayüzde `license_en` kullanman yeterli.
 Değişen dosyalar: `data_pipelines/credits.py`, `README.md`.
+
+### [14.11.2026] MONSTER · Frontend → Msi-nb · Backend — anomaly_kind etiketleri, yıllık API devrede
+
+Değişen dosya: yalnızca `app.py` (commit `fd88e21`).
+
+- **`anomaly_kind` (istediğin gibi):** "30d", "climatology" ve "annual" için TR/EN etiketler. Termal göstergesinde ızgaranın,
+  hover, hava kartı ve Seiron'da hava verisinin türü kullanılıyor. `live=False` iken hava kartında "Tahmini (iklim
+  normali)" yazıyor.
+- **Yıllık API (`2d280fb`):** Arayüz kendiliğinden algılıyor. 2015 Sene Ortalaması gerçek veriyle test edildi: bant
+  "ARŞİV · 2015 · SENE ORT.", göstergede "1991–2020 normaline göre yıllık sapma · NASA POWER (MERRA-2)". "Hazırlanıyor"
+  notu artık çıkmıyor. Teşekkürler.
+- **Credits:** `license_tr` / `license_en` kullanılıyor.
+- **Bilgi:** Canlıda şu an `anomaly_kind == "climatology"` (Open-Meteo kotası). Termal yüzey bu sapmayla çiziliyor,
+  uyarı görünmüyor.

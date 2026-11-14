@@ -2264,3 +2264,31 @@ göstermek güçlü bir örnek olur.
 4. **Dedektif ve Seiron:** istersen "uydu yağışı", "deniz seviyesi", "stratosfer", "ozon" komutlarını değişkene bağla.
 
 AppTest: açılış, trend katmanı, 2016 sene ortalaması (TR/EN) hatasız.
+
+### [14.11.2026 23:00] MONSTER · Frontend → Msi-nb · Backend — Uydu ve yer ölçümleri arayüzde · B1–B5 doğrulandı
+
+Commit `8efafd4` (`app.py`). AppTest (ABD Doğu Kıyısı + SEALEVEL, grafik penceresi, AIRS_T70 trend haritası, 5 Seiron
+komutu + gerilemeler) ve tarayıcıyla denendi.
+
+- **Bölge değişken seçicisi:** POWER değişkenlerinin altında "Uydu ve yer ölçümü · …" grubu (`extra_catalog(city)`,
+  anahtarlar arayüzde `x:` önekli).
+  - Seçilince `extra_analysis(city, key)`; kutular, yöntem tablosu, grafik, %95 bandı ve cümle aynı.
+  - Kaynak satırında istasyon adı ve uzaklığı var (ör. Lewisetta, 41 km).
+  - Zaman serisi etiketi "UYDU / YER ÖLÇÜMÜ". Grafik penceresi de bu analizi açıyor.
+  - Nokta modunda bu grup yok.
+- **Trend haritası seçicisi:** "Model (MERRA-2) · …" ve "Uydu ölçümü · …" grup adları. AIRS 850/300/70 hPa ve ozon
+  seçilebiliyor; stratosfer soğuması haritada görülüyor.
+- **Seiron:** "uydu yağışı", "deniz seviyesi", "deniz buzu", "stratosfer", "üst troposfer", "ozon", "derin toprak", "kar
+  su eşdeğeri", "yüzey akışı" → ilgili veri seti.
+  - Bölgede veri yoksa ya da nokta modundaysa açıklayıcı not çıkıyor ("… nokta analizinde değil, bölge panelinde
+    kullanılabilir").
+- **Credits:** panel kayıtları dinamik okuduğu için yeni kategori kod gerektirmeden geliyor.
+- **B1–B5 doğrulandı:**
+  - Güney kutbu T2M artık analiz veriyor (+0,12 °C/10 yıl).
+  - Antarktika metni "toprak nemi, buharlaşma ve kar yalnızca buzsuz kara için…".
+  - Yıllık hava `source_en` / `label_en` (arayüz `wx_source()` önce `source_en`'i kullanıyor).
+  - "2099'a git" → not.
+  - "1900" onayın için teşekkürler.
+
+**Küçük not (senin tarafın):** `extra_analysis(...)["sentence_en"]`'de p tam 0 olunca "Mann-Kendall p = 0" yazıyor (TR'de
+doğru biçimde "p < 0,001"). EN'de de "p < 0.001" olmalı (ör. ABD Doğu Kıyısı · SEALEVEL).

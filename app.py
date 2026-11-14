@@ -120,6 +120,30 @@ def sel_year() -> int:
     return value if value in YEAR_OPTIONS else 0
 
 
+MONTH_OPTIONS = list(range(0, 13))   # 0 = bugünün takvim günü (eski davranış) · 1–12 = ay
+
+
+def days_in(year: int, month: int) -> int:
+    import calendar
+    return calendar.monthrange(year or LAST_FULL_YEAR, month)[1]
+
+
+def sel_date() -> tuple[int, int | None, int | None]:
+    """Zamanda yolculuk: (yıl, ay, gün). Yıl 0 = canlı (ay/gün yok sayılır). Ay yoksa bugünün takvim günü;
+    ay var gün yoksa ayın 15'i (data_pipelines.hist_date ile aynı kural)."""
+    year = sel_year()
+    if not year:
+        return 0, None, None
+    try:
+        month = int(st.session_state.get("month", 0) or 0)
+        day = int(st.session_state.get("day", 0) or 0)
+    except Exception:
+        month, day = 0, 0
+    if not 1 <= month <= 12:
+        return year, None, None
+    return year, month, (day if 1 <= day <= days_in(year, month) else None)
+
+
 def refusal() -> str:
     return L(REFUSAL, REFUSAL_EN)
 
@@ -772,9 +796,16 @@ def when_text(meta: dict) -> str:
     return f"{meta['time']} UTC"
 
 
+def sel_date_text() -> str:
+    """Seçili arşiv tarihinin okunur hali (GG.AA.YYYY); veri katmanının gerçekten kullandığı tarih."""
+    date = str(fetch_weather().get("date") or "")
+    return f"{date[8:10]}.{date[5:7]}.{date[:4]}" if len(date) == 10 else str(sel_year())
+
+
 def fetch_weather() -> dict:
-    """Seçili zamana (canlı ya da arşiv yılı) ait 50 bölge verisi."""
-    return _fetch_weather(sel_year())
+    """Seçili zamana (canlı ya da arşiv tarihi) ait 50 bölge verisi."""
+    year, month, day = sel_date()
+    return _fetch_weather(year, None, month, day) if year else _fetch_weather(0)
 
 
 def weather_of(city: str) -> dict:
@@ -910,7 +941,8 @@ def _smooth_sample(field: np.ndarray, lats: np.ndarray, lons: np.ndarray) -> np.
 
 
 def fetch_grid() -> dict:
-    return _fetch_grid(sel_year())
+    year, month, day = sel_date()
+    return _fetch_grid(year, None, month, day) if year else _fetch_grid(0)
 
 
 def _wrap_cols(field: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -956,15 +988,15 @@ def _contour_segments(field: np.ndarray, lats: np.ndarray, lons: np.ndarray, lev
 
 def current_grid() -> tuple[dict, dict]:
     """(ızgara meta verisi, katman dizileri) — seçili zamana göre."""
-    year = sel_year()
-    g = _fetch_grid(year)
-    return g, grid_layers(year, f"{g['time']}|{int(g['live'])}")
+    year, month, day = sel_date()
+    g = fetch_grid()
+    return g, grid_layers(year, f"{g['time']}|{int(g['live'])}|{int(g.get('anomaly_live', True))}", month, day)
 
 
 @st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
-def grid_layers(year: int, stamp: str) -> dict:
-    """Izgara verisini katman dizilerine dönüştürür (önbellek, yıl ve veri zamanına bağlı)."""
-    g = _fetch_grid(year)
+def grid_layers(year: int, stamp: str, month: int | None = None, day: int | None = None) -> dict:
+    """Izgara verisini katman dizilerine dönüştürür (önbellek, tarih ve veri zamanına bağlı)."""
+    g = _fetch_grid(year, None, month, day) if year else _fetch_grid(0)
     # 1) Termal gradyan alanı: son 30 güne göre sapma, ~7.5° aralıkla ara değerlenmiş.
     #    Küre üzerinde eşit yoğunluk için boylam aralığı enlemle genişler (kutuplarda noktalar sıkışmasın);
     #    noktalar CSS bulanıklığıyla birleşerek pürüzsüz bir gradyan oluşturur.
@@ -1454,7 +1486,7 @@ def region_context(city: str) -> str:
     spec, r, rep = REGIONS[city], analyze(city), generate_report(city)
     lines = [
         f"Bölge: {spec.name} (İngilizce adı: {spec.en[0]}), {spec.country} (enlem {spec.lat:.4f}, boylam {spec.lon:.4f})",
-        "Seçili zaman: " + (f"{sel_year()} yılı arşivi (aynı takvim günü; uzun vadeli trend {power_window()[0]}–"
+        "Seçili zaman: " + (f"{sel_date_text()} tarihli arşiv (12:00 UTC; uzun vadeli trend {power_window()[0]}–"
                             f"{power_window()[1]})" if sel_year() else "canlı veri"),
         f"Tema: {spec.theme} · Coğrafi tür: {rep['archetype']}",
         weather_sentence(city),
@@ -1512,7 +1544,7 @@ HARİTA KATMANLARI (yalnızca bu tanımları kullan; uydu görüntüsü YOKTUR):
 - Termal Analiz: bugünkü günlük ortalama sıcaklığın son 30 günün ortalamasından sapması (°C). Küre üzerinde 15°'lik küresel ızgaradan 7,5°'ye ara değerlenmiş, bölgeler arası yumuşak geçişli bir gradyan alanı ve 50 bölgede nabız gibi atan termal halkalar vardır. Renk skalası: koyu mavi (≤ −8 °C, soğuk sapma) → camgöbeği → yeşil → sarı (≈ 0) → turuncu → kırmızı (≥ +8 °C, sıcak sapma). Kaynak: anomali Open-Meteo, anlık alanlar Meteomatics; 30 dakikada bir yenilenir.
 - Basınç & Hava Dalgası: 15°'lik küresel ızgaradaki deniz seviyesi basıncından hesaplanan 4 hPa aralıklı izobarlar (üzerlerinde yavaşça akan dalga deseni), ızgara noktalarında rüzgârın AKTIĞI yönü gösteren akan vektörler ve oklar (uzunluk hızla orantılı), ayrıca yerel en düşük/en yüksek basınç noktalarında A (alçak, < 1008 hPa) ve Y (yüksek, > 1018 hPa) merkezleri ve etraflarında yayılan dalga halkaları. Bölge noktaları basınca göre renklenir (kırmızı alçak → gri → krem yüksek). Kaynak: Meteomatics API (msl_pressure, wind_speed_10m, wind_dir_10m), 30 dakikada bir yenilenir. Izgara 15° olduğu için küçük ölçekli sistemler görünmez; bu bir sinoptik ölçek özetidir.
 Şu an etkin katman: {LAYERS[st.session_state.get("layer", "classic")]}
-ZAMAN: {"Kullanıcı " + str(sel_year()) + " yılına (bugünün takvim gününe) zamanda yolculuk yaptı; hava değerleri o güne ait Meteomatics arşiv verisidir, NASA POWER trendi " + str(power_window()[0]) + "–" + str(power_window()[1]) + " dönemini kapsar. Bunu yanıtlarında belirt." if sel_year() else "Canlı (güncel) veriler gösteriliyor."}
+ZAMAN: {"Kullanıcı " + sel_date_text() + " tarihine (12:00 UTC) zamanda yolculuk yaptı; hava değerleri o güne ait arşiv verisidir, NASA POWER trendi " + str(power_window()[0]) + "–" + str(power_window()[1]) + " dönemini kapsar. Bunu yanıtlarında belirt." if sel_year() else "Canlı (güncel) veriler gösteriliyor."}
 {layer_summary(st.session_state.get("layer", "classic"))}
 
 SEÇİLİ BÖLGE BAĞLAMI:
@@ -2114,6 +2146,8 @@ div:has(> .st-key-fx_redirect) {
   border-radius: 999px; background: rgba(12,10,9,.72); border: 1px solid var(--line); backdrop-filter: blur(10px);
   white-space: nowrap; max-width: 600px; overflow: hidden; }
 .legend-bar span { color: #e7e5e4; }
+.legend-bar.legend-warn { white-space: normal; border-color: rgba(251,191,36,.55); }
+.legend-bar.legend-warn span, .legend-bar.legend-warn em { color: var(--amber, #fbbf24); }
 .legend-bar i { width: 84px; height: 6px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
 .legend-bar em { font-style: normal; overflow: hidden; text-overflow: ellipsis; }
 .power { border: 1px solid rgba(249,115,22,.22); background: rgba(249,115,22,.05); border-radius: 12px;
@@ -2132,6 +2166,18 @@ div:has(> .st-key-fx_redirect) {
 .lg-thermal { background: linear-gradient(90deg, #1e40af, #0ea5e9, #4ade80, #facc15, #f97316, #dc2626, #7f1d1d); }
 .lg-isobar { width: 34px !important; height: 0 !important; border-top: 2px dashed rgba(251,191,36,.8); border-radius: 0 !important; }
 .lg-pressure { background: linear-gradient(90deg, #dc2626, #f97316, #a8a29e, #fde68a, #fef3c7); }
+/* Geçmiş tarih yükleniyor kartı: akıştan çıkar (düzen ve 100vh bozulmaz), üst ortada sabit cam kart */
+div:has(> .st-key-loading_overlay) { position: fixed !important; top: 64px; left: 50%; transform: translateX(-50%);
+  z-index: 1000; width: max-content !important; max-width: calc(100vw - 32px); height: auto !important;
+  margin: 0 !important; }
+.st-key-loading_overlay { width: max-content !important; padding: .55rem 1rem; border-radius: 999px; background: rgba(12,10,9,.86);
+  border: 1px solid var(--line); backdrop-filter: blur(14px); box-shadow: 0 0 24px rgba(249,115,22,.25); }
+.st-key-loading_overlay [data-testid="stSpinner"] { color: #fed7aa; font-size: .8rem; }
+.st-key-loading_overlay [data-testid="stSpinner"] i { border-top-color: var(--orange) !important; }
+div:has(> .st-key-loading_overlay:not(:has([data-testid="stSpinner"]))) { display: none !important; }
+/* Zamanda yolculuk seçicileri (yıl · ay · gün) tek satırda kalır; üst çubuk 42 px */
+.st-key-date_ctl { flex-wrap: nowrap !important; }
+.st-key-date_ctl > div { flex: 1 1 0 !important; min-width: 0 !important; }
 </style>
 """
 
@@ -2876,8 +2922,9 @@ GLOBE_CONTROLLER_JS = """
       } else if (!gd.__vpFlying) {
         if (gd.__vulpaLabel !== T.name) { gd.__vulpaLabel = T.name; await applySelection(gd, T); }
         if (gd.__vulpaData !== T.data.nonce) { gd.__vulpaData = T.data.nonce; await applyData(gd, T.data); }
-        if (gd.__vulpaLayer !== T.layer) {
-          gd.__vulpaLayer = T.layer;
+        const visKey = T.layer + "|" + T.visibility.join(",");   // termal yüzey veri yoksa gizlenir
+        if (gd.__vulpaLayer !== visKey) {
+          gd.__vulpaLayer = visKey;
           await P().restyle(gd, {visible: T.visibility}, T.visibility.map(function(_, i) { return i; }));
           if (T.layer !== "classic") {     // aynı alan izi: termalde sıcaklık sapması, basınçta hava kütleleri
             const f = T.data.field;
@@ -2896,12 +2943,25 @@ GLOBE_CONTROLLER_JS = """
 """
 
 
+def anomaly_ok() -> bool:
+    """Termal sapma (önceki 30 güne göre) gerçekten alınabildi mi? Alınamadıysa ızgara sıfır döner (yanıltıcı)."""
+    return bool(fetch_grid().get("anomaly_live", True))
+
+
+def layer_visibility(layer: str) -> list[bool]:
+    """Katman görünürlüğü; termalde sapma verisi yoksa sürekli yüzey (iz 11) gösterilmez."""
+    vis = list(LAYER_VISIBILITY[layer])
+    if layer == "thermal" and not anomaly_ok():
+        vis[11] = False
+    return vis
+
+
 def globe_controller(city: str, cam: dict, layer: str) -> None:
     """Hedefi (şehir, kamera, katman, canlı veri) tarayıcıya iletir; denetleyici mevcut küreye yerinde uygular."""
     spec = REGIONS[city]
     target = {"nonce": f"{city}|{camera_key(cam)}", "camera": cam, "index": CITY_NAMES.index(city),
               "count": len(CITY_NAMES), "name": rname(city), "lon0": spec.lon, "lat0": spec.lat, "lang": lang(),
-              "layer": layer, "visibility": LAYER_VISIBILITY[layer], "data": layer_payload(),
+              "layer": layer, "visibility": layer_visibility(layer), "data": layer_payload(),
               "zoom": [MIN_SCALE, MAX_SCALE]}
     # Streamlit st.html içeriğini DOMPurify ile temizler; metninde "<b>" gibi etiket benzeri parçalar bulunan
     # <script> öğelerini tamamen siler. Bu yüzden JSON içindeki "<" karakterleri < olarak kaçırılır
@@ -2915,6 +2975,11 @@ def globe_controller(city: str, cam: dict, layer: str) -> None:
 def layer_legend(layer: str) -> str:
     wx = fetch_weather()
     src = wx["source"]
+    if layer == "thermal" and not anomaly_ok():
+        return (f"<div class='legend-bar legend-warn'><span>⚠</span>"
+                f"<em>{L('Sıcaklık sapması verisi şu an alınamadı; termal yüzey gösterilmiyor. Birkaç dakika sonra '
+                         'yeniden denenecek.', 'Temperature deviation data is currently unavailable; the thermal surface '
+                         'is hidden. It will be retried in a few minutes.')} · {html.escape(src)}</em></div>")
     if layer == "thermal":
         ex = weather_extremes()
         hot = ex.get("hottest")
@@ -3055,20 +3120,57 @@ def render_lang_control() -> None:
                          label_visibility="collapsed")
 
 
+def month_label(m: int) -> str:
+    if m == 0:
+        return L("📅 Bugün", "📅 Today")
+    return (MONTHS_EN if lang() == "en" else MONTHS_TR)[m - 1][:3]
+
+
+def day_label(d: int) -> str:
+    return L("Ay ortası", "Mid-month") if d == 0 else str(d)
+
+
 def render_year_control() -> None:
-    """Zamanda yolculuk: canlı veri ya da son 20 yılın aynı takvim günü."""
+    """Zamanda yolculuk: canlı veri ya da son 20 yılın bir tarihi (yıl · isteğe bağlı ay · isteğe bağlı gün)."""
     st.selectbox(L("Yıl", "Year"), YEAR_OPTIONS, key="year", format_func=year_label, label_visibility="collapsed",
-                 help=L("Geçmiş bir yıl seçildiğinde hava, termal ve basınç katmanları o yılın bugünkü takvim gününe "
-                        "(12:00 UTC) ait Meteomatics arşiv verisiyle, uzun vadeli trend ise o yılla biten 20 yıllık "
-                        "NASA POWER verisiyle yeniden hesaplanır.",
-                        "Choosing a past year reloads weather, thermal and pressure layers with Meteomatics archive data "
-                        "for today's calendar date in that year (12:00 UTC), and recomputes the long-term trend from the "
-                        "20 years of NASA POWER data ending that year."))
+                 help=L("Geçmiş bir yıl seçildiğinde hava, termal ve basınç katmanları o tarihe (12:00 UTC) ait arşiv "
+                        "verisiyle, uzun vadeli trend ise o yılla biten 20 yıllık NASA POWER verisiyle yeniden "
+                        "hesaplanır. Ay seçilmezse o yılın bugünkü takvim günü, ay seçilip gün seçilmezse ayın 15'i "
+                        "kullanılır.",
+                        "Choosing a past year reloads weather, thermal and pressure layers with archive data for that "
+                        "date (12:00 UTC) and recomputes the long-term trend from the 20 years of NASA POWER data ending "
+                        "that year. Without a month, today's calendar date in that year is used; with a month but no "
+                        "day, the 15th."))
+    year = sel_year()
+    if not year:
+        return
+    st.selectbox(L("Ay", "Month"), MONTH_OPTIONS, key="month", format_func=month_label, label_visibility="collapsed")
+    month = int(st.session_state.get("month", 0) or 0)
+    if month:   # gün yalnızca bir ay seçiliyken anlamlıdır
+        st.selectbox(L("Gün", "Day"), [0] + list(range(1, days_in(year, month) + 1)), key="day",
+                     format_func=day_label, label_visibility="collapsed")
+
+
+def normalize_date_state() -> None:
+    """Ay/gün durumunu widget'lar çizilmeden önce geçerli tutar (ör. 31 Ocak → Şubat seçilince 28/29)."""
+    if st.session_state.get("month") not in MONTH_OPTIONS:
+        st.session_state["month"] = 0
+    month, year = st.session_state["month"], sel_year()
+    try:
+        day = int(st.session_state.get("day", 0) or 0)
+    except Exception:
+        day = 0
+    if not month:
+        day = 0
+    st.session_state["day"] = min(max(day, 0), days_in(year, month)) if month else 0
 
 
 def render_topbar() -> None:
     with st.container(key="topbar"):
-        c1, c2, c3, c4, c5 = st.columns([1.3, 4.1, 1.3, 0.72, 0.62], vertical_alignment="center", gap="small")
+        # Geçmiş bir yılda ay/gün seçicileri de görünür: tarih sütunu genişler, bant (ticker) daralır.
+        has_month = bool(sel_year() and st.session_state.get("month"))
+        widths = ([1.3, 2.5, 1.3, 2.3, 0.62] if has_month else [1.3, 3.0, 1.3, 1.52, 0.62]) if sel_year()             else [1.3, 4.1, 1.3, 0.72, 0.62]
+        c1, c2, c3, c4, c5 = st.columns(widths, vertical_alignment="center", gap="small")
         with c1:
             html_block(f"""
             <div class="brand">{logo(30, "t")}<span class="word">VULPA</span>
@@ -3081,7 +3183,7 @@ def render_topbar() -> None:
         with c3:
             st.selectbox(L("Bölge", "Region"), CITY_NAMES, key="city", placeholder=L("Bölge seçin", "Select region"),
                          label_visibility="collapsed", format_func=lambda n: f"◎  {rname(n)}")
-        with c4:
+        with c4, st.container(key="date_ctl", horizontal=True, gap="small", vertical_alignment="center"):
             render_year_control()
         with c5, st.container(key="lang_ctl"):
             render_lang_control()
@@ -3372,6 +3474,7 @@ def init_city() -> str:
         st.session_state["lang"] = "tr"
     if st.session_state.get("year") not in YEAR_OPTIONS:
         st.session_state["year"] = 0
+    normalize_date_state()
     if st.session_state.get("city") not in REGIONS:
         st.session_state["city"] = CITY_NAMES[0]
     if st.session_state.get("layer") not in LAYERS:
@@ -3379,10 +3482,25 @@ def init_city() -> str:
     return st.session_state["city"]
 
 
+def preload_time_data() -> None:
+    """Geçmiş bir tarih ilk kez seçildiğinde (arşiv isteği 2–10 sn sürebilir) veriyi sabit konumlu bir yükleniyor
+    kartıyla önceden çeker. Sonraki çağrılar önbellekten gelir; aynı tarih için kart bir daha görünmez."""
+    year, month, day = sel_date()
+    if not year or st.session_state.get("_loaded_date") == (year, month, day):
+        return
+    when = (f"{day or 15:02d}.{month:02d}.{year}" if month else str(year))
+    with st.container(key="loading_overlay"), st.spinner(L(f"{when} arşiv verisi yükleniyor…",
+                                                           f"Loading archive data for {when}…")):
+        fetch_weather()
+        current_grid()
+    st.session_state["_loaded_date"] = (year, month, day)
+
+
 def render_mission_control() -> None:
     st.markdown(APP_CSS, unsafe_allow_html=True)
     process_globe_selection()  # widget'lar çizilmeden önce: bölge değişikliği güvenle uygulanabilir
     city = init_city()
+    preload_time_data()
 
     render_topbar()
     left, center, right = st.columns([1.05, 1.7, 1.15], gap="small")
@@ -3423,6 +3541,7 @@ def render_mobile() -> None:
     st.markdown(MOBILE_CSS, unsafe_allow_html=True)
     process_globe_selection()
     city = init_city()
+    preload_time_data()
     wx = fetch_weather()
     html_block(f"""
     <div class="m-head"><div class="m-brand">{logo(30, "m")}<span class="word">VULPA</span></div>

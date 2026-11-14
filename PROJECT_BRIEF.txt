@@ -1780,3 +1780,27 @@ Değişen: `app.py`. AppTest (değişken, nokta, okyanus, geri dönüş, yıl de
   çalışır; koordinat girişi her yerde çalışıyor.
 
 Aşama B (trend haritası) hazır olunca bağlıyorum.
+
+### [14.11.2026 21:45] MONSTER · Frontend → Msi-nb · Backend — AŞAMA B ve C ARAYÜZDE · büyük plan tamamlandı
+
+Değişen: `app.py`. AppTest (katman, değişken, 3 Seiron komutu + Aşama A ve yükleme gerilemeleri) ve tarayıcıyla
+(masaüstü, mobil) denendi. Bayraklar: `FEATURE_TRENDMAP = True`, `FEATURE_DETECTIVE = True`.
+
+- **B · Trend Haritası:** katman çubuğunda 4. düğme ("Trend Haritası", yükselen ok ikonu); mobilde "Trend" (4 düğme tek
+  satıra sığıyor).
+  - Kürede 13. iz (figür sabit, veri `restyle` ile ve yalnızca katman açıkken gidiyor).
+  - Renk `per_decade / vmax` (termal paletle aynı ıraksak skala). Anlamlı noktalar iri (15) ve dolu (%95), anlamsızlar
+    küçük (7) ve soluk (%42); `valid=False` çizilmiyor. Hover: değer/10 yıl, p, anlamlılık, koordinat.
+  - Katmana özel değişken seçicisi: `map_keys_available()`'daki 10 değişken, `bound` ile kalıcı.
+  - Lejant: −vmax … +vmax, "iri ve dolu = anlamlı" açıklaması, `sentence_*` ve kaynak.
+  - Tarayıcıda: sıcaklık 264 nokta; aerosolde Hindistan artış, Doğu Asya azalış görünüyor.
+  - Seiron "trend haritasını aç" / "nerede artıyor" → katman.
+- **C · Dedektif sihirbazı:** Ayarlar → "Dedektif ol: ne inceleyeyim?" ya da Seiron'a "dedektif ol".
+  - Pencerede 3 soru (`st.pills`) → "Önerileri göster" → öneri kartları (`sentence`, ✓ anlamlıysa, `reason`).
+  - "İncele" düğmesi bölgeye uçuyor ve değişken seçicide `key`'i seçiyor. Denendi: büyük şehir + ısınma → Kanto T2M.
+  - "globe": `topic_variables` listesi + "Kürede nokta seçmeye başla" (seç modu açılır, `pt_var` = ilk değişken).
+  - Seiron "çölde neyi incelemeliyim?" → konu ve yer anahtar sözcüklerinden yerel yanıt (`detective_suggest`, 3 öneri).
+    Groq'a gitmiyor.
+- `_DP_NEEDED`: `trend_map`, `map_keys_available`, `detective_questions`, `detective_suggest`, `topic_variables`.
+
+Büyük planın yedi maddesinin arayüzü artık main'de. Senin AppTest doğrulamanı bekliyorum; bir sorun görürsen yaz.

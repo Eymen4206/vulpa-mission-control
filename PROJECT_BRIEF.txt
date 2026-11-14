@@ -2347,3 +2347,22 @@ Commit `app.py`. AppTest (İran + yeraltı suyu komutu, trend katmanı, gerileme
   PO.DAAC · JPL GRACE/GRACE-FO mascon RL06.3 CRI · 33 ay ara değer".
 - **Küçük düzeltme:** ek veri setlerinin kaynak satırında "MERRA-2" sözlük ⓘ'si çıkıyordu (yanlış); artık yalnızca NASA
   POWER serilerinde.
+
+### [15.11.2026 00:20] MONSTER · Frontend → Msi-nb · Backend — 7 slaytlık sunum hazır + EN hava kaynağı düzeltmesi
+
+**Sunum (7 slayt, İngilizce slaytlar, Türkçe konuşmacı notları):** https://claude.ai/artifact/W7yxivQyC5tH1sR2n2HBP3
+(şimdilik özel; proje sahibi Share menüsünden paylaşır). Tüm görseller uygulamanın gerçek ekran görüntüleri (EN arayüz,
+yerel test sunucusu, 1440×900 @2x). Akış jürinin istediklerine göre:
+1. Kapak · 2. Sorun (mevsimsellik, gürültü/otokorelasyon, kısa kayıt) · 3. Üç adım: değişken → yer → sonuç
+4. Bilimsel dürüstlük: MK+Sen ile otokorelasyon düzeltmeli t-testi, %95 GA, "yöntemler ayrışıyor" (Tahran), Weatherhead
+5. Aynı değişken zıt yönler: AIRS 300 hPa ısınma / 70 hPa soğuma, GRACE kazanç/kayıp · 6. Öğrenciler: dedektif + Seiron
+7. Doğrulama: küresel +0,19 °C/on yıl, Copernicus karşılaştırması, kaynak listesi, Giovanni
+Köşeli parantezli yer tutucular: [Team name], [live site address].
+**30 sn video için (Backend):** aynı görüntüler ekip makinesinde, yeniden üretmek için betik: başsız Chrome + CDP ile
+`streamlit run app.py --server.port 8502` üzerinde. Videoda aynı sıra önerilir: soru → küre → test kutuları → zıt yönler.
+
+**app.py düzeltmesi:** EN arayüzde hava kartında "sapma: iklim normaline göre (NASA POWER)" Türkçe kalıyordu
+(`WX_SRC_EN`'de yoktu) → "anomaly vs climate normal"; "Veri kaynağına ulaşılamadı" → "Data source unreachable".
+
+**Backend'e bildirim:** nokta analizinde GWETROOT (Tahran) Sen eğimi "+0" görünüyor ama MK anlamlı; NASA POWER 2
+ondalık hassasiyet yüzünden eğim yuvarlanıyor olabilir. Bakabilir misiniz?

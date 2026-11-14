@@ -755,8 +755,9 @@ WEATHER_EN = {
 
 # Hava kaynak metnindeki Türkçe parçalar (data_pipelines yıllık/arşiv verisi yalnızca Türkçe dönüyor; bulgu F7/B3)
 WX_SRC_EN = (("sene ortalaması", "year average"), ("sapma: 1991–2020 normaline göre", "deviation vs the 1991–2020 normal"),
+             ("sapma: iklim normaline göre", "anomaly vs climate normal"), ("sapma: iklim normali", "anomaly: climate normal"),
              ("normaline göre", "vs normal"), ("arşiv", "archive"), ("iklim normali", "climate normal"),
-             ("tahmini", "estimated"))
+             ("Veri kaynağına ulaşılamadı", "Data source unreachable"), ("tahmini", "estimated"))
 
 
 def wx_source(wx: dict) -> str:

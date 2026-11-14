@@ -258,7 +258,8 @@ tutulur; yeni bir kaynak eklendiğinde atıf da burada güncellenir.
 from data_pipelines import data_credits
 c = data_credits()
 # c["categories"]   → [{"id", "title_tr", "title_en", "items": [kayıt, ...]}, ...]   (5 kategori, 12 kaynak)
-# kayıt             → id, category, name, provider, used_for_tr, used_for_en, url, license, (attribution), (citation)
+# kayıt             → id, category, name, provider, used_for_tr, used_for_en, url, license (TR),
+#                     license_tr, license_en, (attribution), (citation)
 # c["disclaimer_tr"] / c["disclaimer_en"]  → gerçek / sentetik bölge açıklaması (33 / 17)
 # c["real_regions"], c["synthetic_regions"], c["series_kinds"], c["snapshot_generated"]
 ```

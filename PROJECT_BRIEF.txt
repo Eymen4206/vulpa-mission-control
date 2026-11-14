@@ -495,3 +495,9 @@ kodunla test ettim: 2023 seçilince `fetch_weather()` ve `current_grid()` sene o
      Skala ±8 °C yerine ±3 °C daha okunaklı olur; yıllık sapmalar −3…+3 °C aralığında.
   2. `weather_sentence` sene ortalamasında "(NASA POWER, 2023 UTC)" yazıyor. `annual` True iken "UTC" ve
      "arşiv hava verisi" yerine "2023 sene ortalaması" demek daha doğru olur.
+
+### [14.11.2026] Msi-nb · Backend → MONSTER · Frontend — Credits: İngilizce lisans metinleri
+
+İsteğin tamamlandı. `data_credits()` içindeki her kayda `license_tr` ve `license_en` eklendi (12/12 kaynak).
+`license` alanı Türkçe olarak aynen duruyor, mevcut kodun bozulmaz. EN arayüzde `license_en` kullanman yeterli.
+Değişen dosyalar: `data_pipelines/credits.py`, `README.md`.

@@ -132,6 +132,26 @@ CREDITS: list[dict] = [
     },
 ]
 
+# Lisans metinlerinin İngilizce karşılıkları (EN arayüz). "license" alanı Türkçe kalır (geriye uyumlu);
+# her kayda "license_tr" ve "license_en" eklenir.
+LICENSE_EN = {
+    "meteomatics": "Hackathon account (NASA Space Apps Challenge 2026)",
+    "open-meteo": "CC BY 4.0",
+    "era5": "Copernicus licence (attribution required)",
+    "nasa-power": "Open data (NASA)",
+    "merra2": "Open data (NASA)",
+    "ersst": "Open data (NOAA)",
+    "noaa-gml-co2": "Open data (attribution requested)",
+    "nsidc-sea-ice": "Open data (attribution requested)",
+    "groq": "Groq terms of service",
+    "natural-earth": "Public domain",
+    "libraries": "Apache 2.0 · MIT · BSD",
+    "fonts": "SIL Open Font License 1.1",
+}
+for _c in CREDITS:
+    _c["license_tr"] = _c["license"]
+    _c["license_en"] = LICENSE_EN.get(_c["id"], _c["license"])
+
 DISCLAIMER_TR = ("50 bölgenin {real}'ü gerçek ölçüm/yeniden analiz verisine dayanır. Kalan {synthetic} bölgenin tema "
                  "serisi (yangın hava indeksi, NDVI, deniz seviyesi, PM2.5, buzul alanı, yeraltı suyu, kar örtüsü) anahtarsız "
                  "ve uzun geçmişli bir kaynak bulunamadığı için sentetik prototip verisidir ve arayüzde böyle işaretlenir.")
@@ -151,7 +171,8 @@ def data_credits() -> dict:
           "series_kinds": {tür: {"description", "source", "regions": int}},
           "snapshot_generated": "YYYY-MM-DD HH:MM UTC" | None,
         }
-    Kayıt alanları: id, category, name, provider, used_for_tr, used_for_en, url, license, ve varsa attribution,
+    Kayıt alanları: id, category, name, provider, used_for_tr, used_for_en, url, license (TR), license_tr,
+    license_en, ve varsa attribution,
     citation.
     """
     real = len(REAL_SOURCES)

@@ -579,3 +579,24 @@ Değişen dosyalar: `data_pipelines/commands.py` (yeni), `data_pipelines/charts.
 
 - Her dönüşte `explain_tr` / `explain_en` var; grafiğin altında 1–2 cümle olarak gösterilebilir.
 - Risk değeri senin rapor motorundan geldiği için grafiği yok. İstersen kutuyu tıklanamaz bırakabilirsin.
+
+### [14.11.2026] Msi-nb · Backend → MONSTER · Frontend — Açılış sesi (proje sahibinin isteği)
+
+Proje sahibi, site açılırken "PlayStation açılış sesi gibi" bir ses istiyor. Backend tarafı yok, tamamen senin alanın
+(`app.py`).
+**Önemli:** Sony'nin sesi telifli, birebir kopyası ya da kaydı kullanılmamalı. Aynı hissi veren **özgün** bir ses olmalı.
+
+- **Ne zaman:** `render_splash` içindeki **"Sistemi Başlat"** (`start_btn`) düğmesine basıldığı anda.
+  - Sayfa yüklenince çalmasın; tarayıcılar kullanıcı etkileşimi olmadan sesi engelliyor.
+  - Düğme tıklaması geçerli bir etkileşim.
+- **Nasıl:** dosya yerine Web Audio API ile tarayıcıda sentezlensin. Toplam 2,5–3 sn. Telif ya da lisans sorunu olmaz,
+  Credits gerekmez.
+  1. **Derin uğultu (0–1,2 sn):** çok alçak (~55 Hz) sinüs ya da üçgen dalga, ses düzeyi 0'dan yavaşça yükselir.
+  2. **Açılan akor (0,6–2 sn):** üstüne yumuşak tonlar kademeli eklenir (ör. A2–E3–A3–C#4–E4).
+     - Hafif detune ve alçak geçiren filtre açılarak ses "genişler".
+  3. **Kristal vuruş (~1,6 sn, logo anı):** tek, temiz, yüksek bir "ping" (~1,3–1,8 kHz sinüs, kısa atak).
+     - VULPA dokunuşu: hemen ardından uydu sinyali gibi iki kısa, kısık bip.
+  4. **Sönme (→ 3 sn):** ConvolverNode ya da delay ile yankı, yavaşça kaybolur.
+- **Ses düzeyi:** düşük tut (ana gain ~0,2). Rahatsız etmemeli.
+- **Kapatma:** üst çubukta küçük bir 🔊/🔇 düğmesi iyi olur; tercih localStorage'da saklanabilir.
+- **Mobil ve Mini VULPA:** aynı düğmede çalabilir. iOS'ta AudioContext ancak dokunmanın içinde başlatılırsa çalar.

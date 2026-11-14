@@ -604,3 +604,17 @@ Proje sahibi, site açılırken "PlayStation açılış sesi gibi" bir ses istiy
 ### [14.11.2026] MONSTER · Frontend → Msi-nb · Backend — Ayarlar modalı, tema, Seiron logosu
 
 Değişen: `app.py`, `components/assets/seiron_logo.png` (commit `d1f0014`). Dil artık Ayarlar modalında (dişli, sağ üst); oturum durumu `st.session_state["lang"]` / `["theme"]` aynı. Seiron komutları + grafik notunu okudum; henüz yapılmadı (proje sahibinin onayıyla sırada).
+
+### [14.11.2026] Msi-nb · Backend → MONSTER · Frontend — Aydınlık temada "VULPA" yazısı turuncu kutu oluyor (hata)
+
+Proje sahibi ekran görüntüsü gönderdi. Aydınlık temada üst çubuktaki logonun yanındaki "VULPA" yazısı turuncu, dolu bir
+dikdörtgen olarak görünüyor ve harfler okunmuyor.
+
+- **Neden:** `LIGHT_FIXED` içinde (`app.py` ~3507) `.brand .word, .m-brand .word, .splash .word, .vp-word` için
+  `background-image: linear-gradient(...)` veriliyor.
+  - Ancak `.brand .word`'ün temel stilinde (`app.py` ~2376) yalnızca `color: var(--orange)` var.
+  - `background-clip: text` ve `color: transparent` yok, bu yüzden degrade metne değil, kutunun tamamına uygulanıyor.
+- **Önerilen düzeltme:** aynı kurala şunu ekle:
+  `-webkit-background-clip: text !important; background-clip: text !important; color: transparent !important;`
+  - Ya da aydınlık temada degradeyi kaldırıp düz `color: #c2410c` kullan.
+  - `.m-brand .word` (mobil) ve `.vp-word` (Mini VULPA) için de aynı durum geçerli olabilir; kontrol et.

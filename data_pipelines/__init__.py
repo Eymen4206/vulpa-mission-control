@@ -16,7 +16,7 @@ from .series import analyze, build_series, synthetic_series
 from .weather import (
     DELTA_FIELDS, MM_SYMBOLS, WEATHER_CODES, _fallback_weather, _fetch_historical_weather, _fetch_live_weather,
     _fetch_weather, _fetch_weather_range, _merge_mm, _open_meteo_cities, describe_code, describe_symbol,
-    meteomatics_auth, meteomatics_daily_anomaly, meteomatics_now, mm_time, range_year,
+    meteomatics_auth, meteomatics_daily_anomaly, meteomatics_now, mm_time, range_year, source_status,
 )
 
 __all__ = [
@@ -29,6 +29,8 @@ __all__ = [
     "_open_meteo_cities", "_merge_mm", "describe_code", "describe_symbol", "WEATHER_CODES", "MM_SYMBOLS",
     # yıl aralığı (delta) — 14.11.2026
     "_fetch_weather_range", "_fetch_grid_range", "range_year", "DELTA_FIELDS",
+    # belirli tarih (ay/gün) ve kaynak durumu — 14.11.2026
+    "source_status",
     # küresel ızgara
     "_fetch_live_grid", "_fetch_historical_grid", "_fetch_grid", "_fallback_grid",
     # NASA POWER

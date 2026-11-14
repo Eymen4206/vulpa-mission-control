@@ -9,11 +9,14 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import numpy as np
-import requests
 import streamlit as st
 
 from .config import GRID_LATS, GRID_LONS, GRID_STEP, MM_CORE, WEATHER_TTL, hist_date
-from .weather import DELTA_FIELDS, meteomatics_daily_anomaly, meteomatics_now, mm_time, range_source, range_year
+from .weather import (
+    DELTA_FIELDS, DataUnavailable, _om_get, anomaly_for, disk_load, disk_save, meteomatics_now, mm_hist,
+    om_archive_instant, run_parallel,
+    range_source, range_year,
+)
 
 def _fallback_grid() -> dict:
     """Ağ yoksa: genel dolaşıma dayalı, açıkça 'tahmini' etiketli kuşaksal alanlar."""
@@ -27,37 +30,107 @@ def _fallback_grid() -> dict:
             "wind": np.full_like(la, 15.0), "wind_dir": wind_dir}
 
 
-@st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
-def _fetch_historical_grid(year: int) -> dict:
-    """Seçilen yılın aynı takvim günü için Meteomatics arşiv ızgarası (anlık alanlar + 30 günlük sapma)."""
-    when = hist_date(year)
+def _grid_points() -> tuple[np.ndarray, np.ndarray, list[tuple[float, float]], str]:
     la, lo = np.meshgrid(GRID_LATS, GRID_LONS, indexing="ij")
-    out = _fallback_grid()
-    out["time"] = when.strftime("%d.%m.%Y %H:%M")
     box = (f"{GRID_LATS[-1]:g},{GRID_LONS[0]:g}_{GRID_LATS[0]:g},{GRID_LONS[-1]:g}:"
            f"{GRID_STEP:g},{GRID_STEP:g}")
     keys = [(float(a), float(b)) for a, b in zip(la.ravel(), lo.ravel())]
+    return la, lo, keys, box
+
+
+@st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
+def _hist_grid_instant(year: int, month: int | None, day: int | None) -> tuple[dict, str]:
+    """Seçilen andaki ızgara alanları: Meteomatics ızgara sorgusu (tek istek, 8 sn sınır) → Open-Meteo ERA5 (264 nokta).
+    Başarısızlık önbelleğe yazılmaz (DataUnavailable)."""
+    when = hist_date(year, month, day)
+    la, lo, keys, box = _grid_points()
+    cached = disk_load("grid", when)
+    if cached:
+        return {k: np.array(v, dtype=float) for k, v in cached["fields"].items()}, cached["provider"]
     try:
-        mm, _ = meteomatics_now(MM_CORE, box, timeout=25, when=mm_time(when))
+        mm = mm_hist(MM_CORE, box, when, timeout=8)
+        fields = {}
         for param, name, scale in (("t_2m:C", "temp", 1.0), ("msl_pressure:hPa", "pressure", 1.0),
                                    ("wind_speed_10m:ms", "wind", 3.6), ("wind_dir_10m:d", "wind_dir", 1.0)):
             arr = np.array([mm[param].get(k) for k in keys], dtype=float)
             if np.isnan(arr).any():
                 raise ValueError("eksik Meteomatics ızgarası")
-            out[name] = arr.reshape(la.shape) * scale
-        out.update({"live": True, "source": "Meteomatics"})
-    except Exception:
-        return out
-    try:
-        anom = meteomatics_daily_anomaly(box, when, timeout=30)
-        out["anomaly"] = np.array([anom.get(k) if anom.get(k) is not None else 0.0 for k in keys],
-                                  dtype=float).reshape(la.shape)
+            fields[name] = arr.reshape(la.shape) * scale
+        disk_save("grid", when, {"fields": {k: v.tolist() for k, v in fields.items()}, "provider": "Meteomatics"})
+        return fields, "Meteomatics"
     except Exception:
         pass
+    try:
+        om = om_archive_instant(la.ravel(), lo.ravel(), when, timeout=25)
+        fields = {name: np.array([r[src] for r in om], dtype=float).reshape(la.shape)
+                  for name, src in (("temp", "temperature_2m"), ("pressure", "pressure_msl"),
+                                    ("wind", "wind_speed_10m"), ("wind_dir", "wind_direction_10m"))}
+        if any(np.isnan(v).any() for v in fields.values()):
+            raise ValueError("eksik arşiv ızgarası")
+        disk_save("grid", when, {"fields": {k: v.tolist() for k, v in fields.items()}, "provider": "Open-Meteo ERA5"})
+        return fields, "Open-Meteo ERA5"
+    except Exception as exc:
+        raise DataUnavailable(str(exc)) from exc
+
+
+# Termal sapma için kaba ızgara (30°, 6 × 12 = 72 nokta): Open-Meteo dakikalık kotasını korur (264 yerine 72 konum,
+# 31 günlük seri). Sonuç 15° ızgaraya (11 × 24) doğrusal ara değerlenir; sapma alanı zaten yumuşak bir alandır.
+COARSE_LATS = np.arange(-75, 76, 30, dtype=float)
+COARSE_LONS = np.arange(-180, 180, 30, dtype=float)
+
+
+def _coarse_to_grid(coarse: np.ndarray) -> np.ndarray:
+    """30° alanı 15° ızgaraya taşır: boylamda periyodik, enlemde doğrusal ara değerleme."""
+    lons_ext = np.append(COARSE_LONS, 180.0)
+    rows = np.array([np.interp(GRID_LONS, lons_ext, np.append(r, r[0])) for r in coarse])   # 6 × 24
+    return np.array([np.interp(GRID_LATS, COARSE_LATS, rows[:, j]) for j in range(rows.shape[1])]).T
+
+
+@st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
+def _hist_grid_anomaly(year: int, month: int | None, day: int | None) -> tuple[np.ndarray, str]:
+    when = hist_date(year, month, day)
+    cached = disk_load("grid_anom", when)
+    if cached:
+        return np.array(cached["values"], dtype=float), cached["source"]
+    cla, clo = np.meshgrid(COARSE_LATS, COARSE_LONS, indexing="ij")
+    box = f"{COARSE_LATS[-1]:g},{COARSE_LONS[0]:g}_{COARSE_LATS[0]:g},{COARSE_LONS[-1]:g}:30,30"
+    vals, src = anomaly_for(cla.ravel(), clo.ravel(), box, when)
+    coarse = np.array([np.nan if v is None else v for v in vals], dtype=float).reshape(cla.shape)
+    coarse = np.where(np.isnan(coarse), np.nanmean(coarse), coarse)
+    grid = np.round(_coarse_to_grid(coarse), 3)
+    disk_save("grid_anom", when, {"values": grid.tolist(), "source": src})
+    return grid, src
+
+
+def _fetch_historical_grid(year: int, month: int | None = None, day: int | None = None) -> dict:
+    """Seçilen tarih (varsayılan: o yılda bugünün takvim günü) için küresel ızgara.
+
+    Anlık alanlar Meteomatics'ten, olmazsa Open-Meteo ERA5 arşivinden; termal sapma (30° ızgarada hesaplanıp 15°'ye
+    ara değerlenir) önce Open-Meteo arşivinden, olmazsa Meteomatics'ten. Hepsi başarısızsa simülasyon; önbelleğe yazılmaz, RETRY_AFTER sn sonra yeniden denenir.
+    """
+    when = hist_date(year, month, day)
+    out = _fallback_grid()
+    out.update({"time": when.strftime("%d.%m.%Y %H:%M"), "year": year, "month": when.month, "day": when.day,
+                "date": when.strftime("%Y-%m-%d"), "anomaly_live": False})
+    inst, anom = run_parallel((("g-inst", year, month, day), _hist_grid_instant, (year, month, day)),
+                              (("g-anom", year, month, day), _hist_grid_anomaly, (year, month, day)))
+    if inst is None:
+        return out
+    fields, provider = inst
+    out.update(fields)
+    out.update({"live": True, "source": provider})
+    if anom is not None:
+        out["anomaly"], src = anom
+        out["anomaly_live"] = True
+        if src != provider:
+            out["source"] = f"{provider} · sapma: {src}"
+    else:
+        out["source"] = f"{provider} · sapma alınamadı"
     return out
 
 
-def _fetch_grid(start_year: int = 0, end_year: int | None = None) -> dict:
+def _fetch_grid(start_year: int = 0, end_year: int | None = None, month: int | None = None,
+                day: int | None = None) -> dict:
     """15° küresel ızgara.
 
     - Tek yıl (geriye uyumlu): `_fetch_grid(year)` → 0 canlı, aksi halde o yılın bugünkü takvim günü.
@@ -65,17 +138,16 @@ def _fetch_grid(start_year: int = 0, end_year: int | None = None) -> dict:
       `pressure_delta`, `wind_delta` (bitiş − başlangıç, numpy 11×24).
     """
     if end_year is None:
-        return _fetch_historical_grid(start_year) if start_year else _fetch_live_grid()
-    return _fetch_grid_range(int(start_year), int(end_year))
+        return _fetch_historical_grid(start_year, month, day) if start_year else _fetch_live_grid()
+    return _fetch_grid_range(int(start_year), int(end_year), month, day)
 
 
-@st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
-def _fetch_grid_range(start_year: int, end_year: int) -> dict:
+def _fetch_grid_range(start_year: int, end_year: int, month: int | None = None, day: int | None = None) -> dict:
     """İki yılın aynı takvim günü için ızgara alanları ve farkları. İstisna fırlatmaz; uçlardan biri
     simülasyonsa `delta_live` False olur."""
     sy, ey = range_year(start_year), range_year(end_year)
-    s = _fetch_historical_grid(sy)
-    e = _fetch_historical_grid(ey)
+    s = _fetch_historical_grid(sy, month, day)
+    e = _fetch_historical_grid(ey, month, day)
     out = dict(e)
     for f in DELTA_FIELDS:
         out[f"{f}_start"] = s[f]
@@ -87,64 +159,65 @@ def _fetch_grid_range(start_year: int, end_year: int) -> dict:
     return out
 
 
+OM_FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
+
+
 @st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
 def _fetch_live_grid() -> dict:
-    """15°'lik küresel ızgara (264 nokta).
+    """15°'lik küresel ızgara (264 nokta), canlı.
 
-    Anlık sıcaklık, deniz seviyesi basıncı ve 10 m rüzgârı Meteomatics ızgara sorgusundan
-    (75,-180_-75,165:15,15) gelir; son 30 günün günlük ortalamaları (termal anomali) Open-Meteo'dan.
-    Biri başarısız olursa diğeri, ikisi de başarısız olursa kuşaksal simülasyon kullanılır. 30 dk önbellek.
+    - Anlık alanlar: Meteomatics ızgara sorgusu (tek istek); olmazsa Open-Meteo yalnızca "current" (264 konum).
+    - Termal sapma: Open-Meteo'dan 30° kaba ızgarada (72 konum, son 30 gün) hesaplanıp 15°'ye ara değerlenir.
+      Eski sürüm 264 konum × 31 gün istiyordu ve ücretsiz kotanın büyük kısmını tek başına tüketiyordu.
+    Hiçbiri olmazsa kuşaksal simülasyon. 30 dk önbellek.
     """
-    la, lo = np.meshgrid(GRID_LATS, GRID_LONS, indexing="ij")
-    shape = la.shape
+    la, lo, keys, box = _grid_points()
     out = _fallback_grid()
     sources = []
     try:
-        resp = requests.get(
-            "https://api.open-meteo.com/v1/forecast",
-            params={"latitude": ",".join(f"{v:g}" for v in la.ravel()),
-                    "longitude": ",".join(f"{v:g}" for v in lo.ravel()),
-                    "current": "temperature_2m,pressure_msl,wind_speed_10m,wind_direction_10m",
-                    "daily": "temperature_2m_mean", "past_days": 30, "forecast_days": 1, "timezone": "UTC"},
-            timeout=20,
-        )
-        resp.raise_for_status()
-        items = resp.json()
-        if not isinstance(items, list) or len(items) != la.size:
-            raise ValueError("eksik ızgara yanıtı")
-        temp, anom, pres, wind, wdir = (np.zeros(la.size) for _ in range(5))
-        for k, item in enumerate(items):
-            cur = item["current"]
-            temp[k] = cur["temperature_2m"]
-            pres[k] = cur["pressure_msl"]
-            wind[k] = cur["wind_speed_10m"] or 0.0
-            wdir[k] = cur["wind_direction_10m"] or 0.0
-            means = [v for v in item.get("daily", {}).get("temperature_2m_mean", []) if v is not None]
-            anom[k] = means[-1] - float(np.mean(means[:-1])) if len(means) >= 8 else 0.0
-        out.update({"live": True, "time": items[0]["current"]["time"][-5:], "temp": temp.reshape(shape),
-                    "anomaly": anom.reshape(shape), "pressure": pres.reshape(shape),
-                    "wind": wind.reshape(shape), "wind_dir": wdir.reshape(shape)})
-        sources.append("Open-Meteo")
-    except Exception:
-        pass
-    try:
-        top, bottom = GRID_LATS[-1], GRID_LATS[0]
-        west, east = GRID_LONS[0], GRID_LONS[-1]
-        mm, stamp = meteomatics_now(MM_CORE, f"{top:g},{west:g}_{bottom:g},{east:g}:{GRID_STEP:g},{GRID_STEP:g}",
-                                    timeout=20)
-        fields = {}
+        mm, stamp = meteomatics_now(MM_CORE, box, timeout=20)
         for param, name, scale in (("t_2m:C", "temp", 1.0), ("msl_pressure:hPa", "pressure", 1.0),
                                    ("wind_speed_10m:ms", "wind", 3.6), ("wind_dir_10m:d", "wind_dir", 1.0)):
-            arr = np.array([mm[param].get((float(a), float(b))) for a, b in zip(la.ravel(), lo.ravel())],
-                           dtype=float)
+            arr = np.array([mm[param].get(k) for k in keys], dtype=float)
             if np.isnan(arr).any():
                 raise ValueError("eksik Meteomatics ızgarası")
-            fields[name] = arr.reshape(shape) * scale
-        out.update(fields)
+            out[name] = arr.reshape(la.shape) * scale
         out.update({"live": True, "time": stamp})
-        sources.insert(0, "Meteomatics")
+        sources.append("Meteomatics")
     except Exception:
-        pass
+        try:
+            items = _om_get({"latitude": ",".join(f"{v:g}" for v in la.ravel()),
+                             "longitude": ",".join(f"{v:g}" for v in lo.ravel()),
+                             "current": "temperature_2m,pressure_msl,wind_speed_10m,wind_direction_10m",
+                             "timezone": "UTC"}, 20, url=OM_FORECAST_URL, name="open-meteo-forecast")
+            if len(items) != la.size:
+                raise ValueError("eksik ızgara yanıtı")
+            for name, src in (("temp", "temperature_2m"), ("pressure", "pressure_msl"),
+                              ("wind", "wind_speed_10m"), ("wind_dir", "wind_direction_10m")):
+                out[name] = np.array([it["current"][src] or 0.0 for it in items], dtype=float).reshape(la.shape)
+            out.update({"live": True, "time": items[0]["current"]["time"][-5:]})
+            sources.append("Open-Meteo")
+        except Exception:
+            pass
+    try:
+        cla, clo = np.meshgrid(COARSE_LATS, COARSE_LONS, indexing="ij")
+        items = _om_get({"latitude": ",".join(f"{v:g}" for v in cla.ravel()),
+                         "longitude": ",".join(f"{v:g}" for v in clo.ravel()),
+                         "daily": "temperature_2m_mean", "past_days": 30, "forecast_days": 1, "timezone": "UTC"},
+                        20, url=OM_FORECAST_URL, name="open-meteo-forecast")
+        vals = []
+        for it in items:
+            means = [v for v in it["daily"]["temperature_2m_mean"] if v is not None]
+            vals.append(means[-1] - float(np.mean(means[:-1])) if len(means) >= 8 else np.nan)
+        coarse = np.array(vals, dtype=float).reshape(cla.shape)
+        if np.isnan(coarse).all():
+            raise ValueError("sapma hesaplanamadı")
+        coarse = np.where(np.isnan(coarse), np.nanmean(coarse), coarse)
+        out["anomaly"] = np.round(_coarse_to_grid(coarse), 3)
+        out["anomaly_live"] = True
+        if "Open-Meteo" not in sources:
+            sources.append("Open-Meteo (sapma)")
+    except Exception:
+        out["anomaly_live"] = False
     out["source"] = " + ".join(sources) if sources else "simülasyon"
     return out
-

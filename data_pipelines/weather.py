@@ -6,16 +6,21 @@ mevsimsel simülasyona geçer. Dil/arayüz yardımcıları (compass, wlabel, wea
 
 from __future__ import annotations
 
+import json
 import math
 import os
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import numpy as np
 import requests
 import streamlit as st
 from requests.auth import HTTPBasicAuth
 
-from .config import MM_CORE, MM_EXTRA, MM_URL, NOW, WEATHER_TTL, hist_date
+from .config import MM_CORE, MM_EXTRA, MM_URL, NOW, OM_ARCHIVE_URL, RETRY_AFTER, WEATHER_TTL, hist_date
 from .regions import REGION_LIST
 
 WEATHER_CODES = (
@@ -35,9 +40,10 @@ def describe_code(code: int, is_day: bool) -> tuple[str, str]:
 
 
 
-def _fallback_weather(year: int = 0) -> dict:
+def _fallback_weather(year: int = 0, month: int | None = None, day: int | None = None) -> dict:
     """Ağ yoksa: mevsim ve enlem kuşağına dayalı tutarlı yaklaşık değerler (açıkça 'tahmini' etiketlenir)."""
-    month = NOW.month
+    when = hist_date(year, month, day) if year else NOW
+    month = when.month
     data = {}
     for r in REGION_LIST:
         alat = abs(r.lat)
@@ -48,8 +54,9 @@ def _fallback_weather(year: int = 0) -> dict:
         pressure = 1010 + 10 * math.exp(-((alat - 30) / 10) ** 2) - 8 * math.exp(-((alat - 60) / 8) ** 2)
         data[r.name] = {"temp": temp, "humidity": None, "wind": 15.0, "wind_dir": wind_dir, "pressure": pressure,
                         "anomaly": 0.0, "label": "Tahmini", "icon": "≈"}
-    stamp = hist_date(year).strftime("%d.%m.%Y %H:%M") if year else NOW.strftime("%H:%M")
-    return {"live": False, "time": stamp, "data": data, "year": year,
+    stamp = when.strftime("%d.%m.%Y %H:%M") if year else NOW.strftime("%H:%M")
+    return {"live": False, "time": stamp, "data": data, "year": year, "month": when.month, "day": when.day,
+            "date": when.strftime("%Y-%m-%d"),
             "source": "Veri kaynağına ulaşılamadı · mevsimsel simülasyon", "provider": "Simülasyon",
             "anomaly_live": False}
 
@@ -190,42 +197,283 @@ def _merge_mm(base: dict, mm: dict) -> dict:
     return data
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Geçmiş tarihler: Meteomatics (birincil) + Open-Meteo ERA5 arşivi (hızlı yedek / termal sapma)
+# ─────────────────────────────────────────────────────────────────────────────
+class DataUnavailable(Exception):
+    """Tüm kaynaklar başarısız. Önbelleğe YAZILMAZ; çağıran simülasyona geçer ve RETRY_AFTER sonra yeniden dener."""
+
+
+_FAILED: dict[tuple, float] = {}
+
+# ── Kota sigortası ───────────────────────────────────────────────────────────
+# Open-Meteo ücretsiz kotası konum başına sayar (çok konumlu ve 2 haftadan uzun istekler katlanır): dakikada 600,
+# saatte 5.000, günde 10.000. Kota dolunca (HTTP 429) bir süre hiç denenmez; istek beklemeden yedeğe geçer.
+_BLOCKED: dict[str, float] = {}
+OM_BLOCK_SECONDS = {"Minutely": 60, "Hourly": 900, "Daily": 3600}
+MM_HIST_BLOCK_SECONDS = 120          # Meteomatics arşiv isteği zaman aşımına düşerse bu süre atlanır
+
+
+def _blocked(name: str) -> bool:
+    return time.time() < _BLOCKED.get(name, 0.0)
+
+
+def source_status() -> dict:
+    """Arayüz/teşhis için: kota sigortası nedeniyle geçici olarak atlanan kaynaklar ve kalan süre (sn)."""
+    now = time.time()
+    return {k: round(v - now) for k, v in _BLOCKED.items() if v > now}
+
+
+def _om_get(params: dict, timeout: float, url: str = OM_ARCHIVE_URL, name: str = "open-meteo-archive") -> list:
+    """Open-Meteo isteği (varsayılan: ERA5 arşivi). 429 alırsa kaynağı kotanın türüne göre bir süre kapatır."""
+    if _blocked(name):
+        raise RuntimeError(f"{name} kotası dolu (geçici olarak atlanıyor)")
+    resp = requests.get(url, params=params, timeout=timeout)
+    if resp.status_code == 429:
+        try:
+            reason = resp.json().get("reason", "")
+        except ValueError:
+            reason = ""
+        wait = next((v for k, v in OM_BLOCK_SECONDS.items() if k in reason), 60)
+        _BLOCKED[name] = time.time() + wait
+        raise RuntimeError(f"Open-Meteo kotası: {reason or 429}")
+    resp.raise_for_status()
+    items = resp.json()
+    return items if isinstance(items, list) else [items]
+
+
+def mm_hist(params: tuple, locations: str, when: datetime, timeout: float = 12) -> dict:
+    """Meteomatics arşiv sorgusu; zaman aşımı ya da bağlantı hatasında kaynağı kısa süre kapatır."""
+    if _blocked("meteomatics-archive"):
+        raise RuntimeError("Meteomatics arşivi yavaş (geçici olarak atlanıyor)")
+    try:
+        mm, _ = meteomatics_now(params, locations, timeout=timeout, when=mm_time(when))
+        return mm
+    except (requests.Timeout, requests.ConnectionError):
+        _BLOCKED["meteomatics-archive"] = time.time() + MM_HIST_BLOCK_SECONDS
+        raise
+
+
+# ── Diske kalıcı arşiv önbelleği ─────────────────────────────────────────────
+# Geçmiş tarih verisi değişmez: bir kez çekilen tarih data_pipelines/cache/ altına yazılır, uygulama yeniden
+# başlasa bile kota harcamadan gelir. Son 7 gün yazılmaz (ERA5 ön sürümü güncellenebilir).
+CACHE_DIR = Path(__file__).with_name("cache")
+
+
+def disk_load(kind: str, when: datetime):
+    try:
+        return json.loads((CACHE_DIR / f"{kind}_{when:%Y%m%d}.json").read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def disk_save(kind: str, when: datetime, value) -> None:
+    if when > NOW - timedelta(days=7):
+        return
+    try:
+        CACHE_DIR.mkdir(exist_ok=True)
+        ignore = CACHE_DIR / ".gitignore"
+        if not ignore.exists():
+            ignore.write_text("*\n", encoding="utf-8")
+        (CACHE_DIR / f"{kind}_{when:%Y%m%d}.json").write_text(json.dumps(value, ensure_ascii=False),
+                                                              encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _guarded(key: tuple, fn, *args):
+    """Önbellekli fn'i çağırır; DataUnavailable olursa None döner ve aynı isteği RETRY_AFTER sn boyunca denemez.
+    Böylece geçici bir zaman aşımı 30 dakika boyunca önbellekte 'veri yok' olarak kalmaz."""
+    if time.time() - _FAILED.get(key, 0.0) < RETRY_AFTER:
+        return None
+    try:
+        return fn(*args)
+    except DataUnavailable:
+        _FAILED[key] = time.time()
+        return None
+
+
+def run_parallel(*jobs: tuple) -> list:
+    """(anahtar, fonksiyon, argümanlar) işlerini aynı anda çalıştırır; her biri `_guarded` korumalıdır.
+    Anlık değer ve termal sapma istekleri paralel gider; bekleme süresi toplamı değil en yavaşı kadar olur."""
+    try:
+        from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
+        ctx = get_script_run_ctx()
+    except Exception:  # Streamlit dışında (testler)
+        ctx, add_script_run_ctx = None, None
+
+    def init() -> None:
+        if ctx is not None and add_script_run_ctx is not None:
+            add_script_run_ctx(threading.current_thread(), ctx)
+
+    with ThreadPoolExecutor(max_workers=len(jobs), initializer=init) as pool:
+        futures = [pool.submit(_guarded, key, fn, *args) for key, fn, args in jobs]
+        return [f.result() for f in futures]
+
+
+def weather_label(temp: float | None, cloud: float | None, rain: float | None) -> tuple[str, str]:
+    """Bulut örtüsü (%) ve saatlik yağıştan (mm) hava durumu etiketi (arşivde hava sembolü yok)."""
+    if (rain or 0.0) >= 0.2:
+        return ("Karlı", "🌨️") if temp is not None and temp <= 0.5 else ("Yağmurlu", "🌧️")
+    if cloud is None:
+        return "Bilinmiyor", "·"
+    return (("Açık", "☀️") if cloud < 20 else ("Az bulutlu", "🌤️") if cloud < 50
+            else ("Parçalı bulutlu", "⛅") if cloud < 85 else ("Kapalı", "☁️"))
+
+
+def om_archive_instant(lats, lons, when: datetime, timeout: float = 20) -> list[dict]:
+    """Open-Meteo ERA5 arşivinden belirli saatteki değerler (her nokta için sözlük). Rüzgâr km/sa."""
+    day = when.strftime("%Y-%m-%d")
+    items = _om_get({
+        "latitude": ",".join(f"{v:.4f}" for v in lats), "longitude": ",".join(f"{v:.4f}" for v in lons),
+        "start_date": day, "end_date": day, "timezone": "UTC",
+        "hourly": "temperature_2m,pressure_msl,wind_speed_10m,wind_direction_10m,relative_humidity_2m,"
+                  "cloud_cover,precipitation",
+    }, timeout)
+    if len(items) != len(lats):
+        raise ValueError("eksik arşiv yanıtı")
+    out = []
+    for it in items:
+        h = it["hourly"]
+        i = min(when.hour, len(h["time"]) - 1)
+        rec = {k: h[k][i] for k in ("temperature_2m", "pressure_msl", "wind_speed_10m", "wind_direction_10m",
+                                     "relative_humidity_2m", "cloud_cover", "precipitation")}
+        if rec["temperature_2m"] is None or rec["pressure_msl"] is None:
+            raise ValueError("arşivde bu tarih için değer yok")
+        out.append(rec)
+    return out
+
+
+def om_archive_anomaly(lats, lons, when: datetime, timeout: float = 20) -> list[float | None]:
+    """Seçilen günün ortalama sıcaklığı − önceki 30 günün ortalaması (°C), Open-Meteo ERA5 arşivi (~1 sn)."""
+    end = when.strftime("%Y-%m-%d")
+    start = (when - timedelta(days=30)).strftime("%Y-%m-%d")
+    items = _om_get({
+        "latitude": ",".join(f"{v:.4f}" for v in lats), "longitude": ",".join(f"{v:.4f}" for v in lons),
+        "start_date": start, "end_date": end, "daily": "temperature_2m_mean", "timezone": "UTC",
+    }, timeout)
+    if len(items) != len(lats):
+        raise ValueError("eksik arşiv yanıtı")
+    out = []
+    for it in items:
+        vals = [v for v in it["daily"]["temperature_2m_mean"] if v is not None]
+        out.append(vals[-1] - float(np.mean(vals[:-1])) if len(vals) >= 8 else None)
+    if all(v is None for v in out):
+        raise ValueError("arşivde sapma hesaplanamadı")
+    return out
+
+
+def anomaly_for(lats, lons, mm_locations: str, when: datetime) -> tuple[list[float | None], str]:
+    """Termal sapma: önce Open-Meteo arşivi (hızlı), olmazsa Meteomatics zaman serisi. Hepsi olmazsa
+    DataUnavailable. Dönüş: (nokta sırasıyla değerler, kaynak adı)."""
+    try:
+        return om_archive_anomaly(lats, lons, when), "Open-Meteo ERA5"
+    except Exception:
+        pass
+    try:
+        if _blocked("meteomatics-archive"):
+            raise RuntimeError("Meteomatics arşivi geçici olarak atlanıyor")
+        try:
+            mm = meteomatics_daily_anomaly(mm_locations, when, timeout=20)
+        except (requests.Timeout, requests.ConnectionError):
+            _BLOCKED["meteomatics-archive"] = time.time() + MM_HIST_BLOCK_SECONDS
+            raise
+        return [mm.get((round(float(a), 4), round(float(b), 4))) for a, b in zip(lats, lons)], "Meteomatics"
+    except Exception as exc:
+        raise DataUnavailable(str(exc)) from exc
+
+
+HIST_POINT_PARAMS = MM_CORE + ("relative_humidity_2m:p", "total_cloud_cover:p", "precip_1h:mm")
+
+
 @st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
-def _fetch_historical_weather(year: int) -> dict:
-    """Zamanda yolculuk: seçilen yılda bugünün takvim günü (12:00 UTC) için Meteomatics arşiv verisi.
-    Termal anomali, o günün 24 saatlik ortalamasının önceki 30 günün ortalamasından sapmasıdır."""
-    when = hist_date(year)
-    locs = "+".join(f"{r.lat:.4f},{r.lon:.4f}" for r in REGION_LIST)
-    # Not: weather_symbol_1h arşivde sunulmuyor (tüm isteği düşürür); hava durumu bulut ve yağıştan türetilir.
+def _hist_points_instant(year: int, month: int | None, day: int | None) -> tuple[list[dict], str]:
+    """50 bölgenin seçilen andaki değerleri: Meteomatics (8 sn sınır) → Open-Meteo ERA5 arşivi.
+
+    Meteomatics tek istekte tüm noktaları verir ve Open-Meteo kotası harcamaz; normalde ~1 sn yanıt verir ama yoğun
+    anlarda 30–60 sn gecikebiliyor (14.11.2026 ölçümü). Bu yüzden kısa zaman aşımı ve kota sigortası kullanılır;
+    takılırsa ERA5 arşivi devreye girer. Başarısızlık önbelleğe yazılmaz, başarılı sonuç diske yazılır.
+    """
+    when = hist_date(year, month, day)
+    cached = disk_load("points", when)
+    if cached and len(cached.get("recs", [])) == len(REGION_LIST):
+        return cached["recs"], cached["provider"]
+    lats, lons = [r.lat for r in REGION_LIST], [r.lon for r in REGION_LIST]
     try:
-        mm, _ = meteomatics_now(MM_CORE + ("relative_humidity_2m:p", "total_cloud_cover:p", "precip_1h:mm"),
-                                locs, when=mm_time(when))
+        mm = mm_hist(HIST_POINT_PARAMS, "+".join(f"{a:.4f},{b:.4f}" for a, b in zip(lats, lons)), when, timeout=8)
+        recs = []
+        for a, b in zip(lats, lons):
+            k = (round(a, 4), round(b, 4))
+            g = {p: mm.get(p, {}).get(k) for p in HIST_POINT_PARAMS}
+            if g["t_2m:C"] is None:
+                raise ValueError("eksik Meteomatics değeri")
+            recs.append({"temp": g["t_2m:C"], "pressure": g["msl_pressure:hPa"],
+                         "wind": None if g["wind_speed_10m:ms"] is None else g["wind_speed_10m:ms"] * 3.6,
+                         "wind_dir": g["wind_dir_10m:d"], "humidity": g["relative_humidity_2m:p"],
+                         "cloud": g["total_cloud_cover:p"], "rain": g["precip_1h:mm"]})
+        disk_save("points", when, {"recs": recs, "provider": "Meteomatics"})
+        return recs, "Meteomatics"
     except Exception:
-        return _fallback_weather(year)
+        pass
     try:
-        anomaly = meteomatics_daily_anomaly(locs, when)
-    except Exception:
-        anomaly = {}
-    data = _merge_mm(_fallback_weather(year)["data"], mm)
-    for r in REGION_LIST:
-        key = (round(r.lat, 4), round(r.lon, 4))
-        w = data[r.name]
-        w["anomaly"] = anomaly.get(key)
-        cloud = mm.get("total_cloud_cover:p", {}).get(key)
-        rain = mm.get("precip_1h:mm", {}).get(key) or 0.0
-        if rain >= 0.2:
-            w["label"], w["icon"] = ("Karlı", "🌨️") if w["temp"] <= 0.5 else ("Yağmurlu", "🌧️")
-        elif cloud is not None:
-            w["label"], w["icon"] = (("Açık", "☀️") if cloud < 20 else ("Az bulutlu", "🌤️") if cloud < 50
-                                     else ("Parçalı bulutlu", "⛅") if cloud < 85 else ("Kapalı", "☁️"))
-        else:
-            w["label"], w["icon"] = "Bilinmiyor", "·"
+        om = om_archive_instant(lats, lons, when)
+        recs = [{"temp": r["temperature_2m"], "pressure": r["pressure_msl"], "wind": r["wind_speed_10m"],
+                 "wind_dir": r["wind_direction_10m"], "humidity": r["relative_humidity_2m"],
+                 "cloud": r["cloud_cover"], "rain": r["precipitation"]} for r in om]
+        disk_save("points", when, {"recs": recs, "provider": "Open-Meteo ERA5"})
+        return recs, "Open-Meteo ERA5"
+    except Exception as exc:
+        raise DataUnavailable(str(exc)) from exc
+
+
+@st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
+def _hist_points_anomaly(year: int, month: int | None, day: int | None) -> tuple[list[float | None], str]:
+    when = hist_date(year, month, day)
+    cached = disk_load("points_anom", when)
+    if cached and len(cached.get("values", [])) == len(REGION_LIST):
+        return cached["values"], cached["source"]
+    lats, lons = [r.lat for r in REGION_LIST], [r.lon for r in REGION_LIST]
+    values, src = anomaly_for(lats, lons, "+".join(f"{a:.4f},{b:.4f}" for a, b in zip(lats, lons)), when)
+    disk_save("points_anom", when, {"values": values, "source": src})
+    return values, src
+
+
+def _fetch_historical_weather(year: int, month: int | None = None, day: int | None = None) -> dict:
+    """Zamanda yolculuk: seçilen tarih (varsayılan: o yılda bugünün takvim günü), 12:00 UTC.
+
+    Anlık değerler Meteomatics'ten, olmazsa Open-Meteo ERA5 arşivinden gelir. Termal sapma (günün ortalaması −
+    önceki 30 gün) önce Open-Meteo arşivinden (hızlı), olmazsa Meteomatics'ten gelir. İkisi de alınamazsa
+    mevsimsel simülasyon döner; bu durum önbelleğe yazılmaz ve RETRY_AFTER sn sonra yeniden denenir.
+    """
+    when = hist_date(year, month, day)
+    inst, anom = run_parallel((("w-inst", year, month, day), _hist_points_instant, (year, month, day)),
+                              (("w-anom", year, month, day), _hist_points_anomaly, (year, month, day)))
+    if inst is None:
+        return _fallback_weather(year, month, day)
+    recs, provider = inst
+    anomalies, anom_src = anom if anom else ([None] * len(REGION_LIST), "")
+    base = _fallback_weather(year, month, day)["data"]
+    data = {}
+    for r, rec, an in zip(REGION_LIST, recs, anomalies):
+        w = dict(base[r.name])
+        for k in ("temp", "pressure", "wind", "wind_dir", "humidity"):
+            if rec.get(k) is not None:
+                w[k] = float(rec[k])
+        w["anomaly"] = an
+        w["label"], w["icon"] = weather_label(rec.get("temp"), rec.get("cloud"), rec.get("rain"))
+        data[r.name] = w
     stamp = when.strftime("%d.%m.%Y %H:%M")
-    return {"live": True, "time": stamp, "data": data, "year": year, "provider": "Meteomatics",
-            "source": f"Meteomatics · {stamp} UTC", "anomaly_live": bool(anomaly)}
+    source = f"{provider} · {stamp} UTC"
+    if anom_src and anom_src != provider:
+        source += f" · sapma: {anom_src}"
+    elif not anom:
+        source += " · sapma alınamadı"
+    return {"live": True, "time": stamp, "data": data, "year": year, "month": when.month, "day": when.day,
+            "date": when.strftime("%Y-%m-%d"), "provider": provider, "source": source, "anomaly_live": bool(anom)}
 
 
-def _fetch_weather(start_year: int = 0, end_year: int | None = None) -> dict:
+def _fetch_weather(start_year: int = 0, end_year: int | None = None, month: int | None = None,
+                   day: int | None = None) -> dict:
     """50 bölge hava verisi.
 
     - Tek yıl (geriye uyumlu): `_fetch_weather(year)` → 0 canlı veri, aksi halde o yılın bugünkü takvim günü.
@@ -233,8 +481,8 @@ def _fetch_weather(start_year: int = 0, end_year: int | None = None) -> dict:
       `temp_delta`, `pressure_delta`, `wind_delta` (bitiş − başlangıç) ve `*_start` değerleri.
     """
     if end_year is None:
-        return _fetch_historical_weather(start_year) if start_year else _fetch_live_weather()
-    return _fetch_weather_range(int(start_year), int(end_year))
+        return _fetch_historical_weather(start_year, month, day) if start_year else _fetch_live_weather()
+    return _fetch_weather_range(int(start_year), int(end_year), month, day)
 
 
 DELTA_FIELDS = ("temp", "pressure", "wind")   # sıcaklık (°C), deniz seviyesi basıncı (hPa), rüzgâr (km/sa)
@@ -261,16 +509,15 @@ def _delta(a: float | None, b: float | None) -> float | None:
     return round(float(b) - float(a), 2) if a is not None and b is not None else None
 
 
-@st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
-def _fetch_weather_range(start_year: int, end_year: int) -> dict:
+def _fetch_weather_range(start_year: int, end_year: int, month: int | None = None, day: int | None = None) -> dict:
     """İki yılın aynı takvim günü (12:00 UTC) için Meteomatics verisi ve aralarındaki fark.
 
     Hiçbir koşulda istisna fırlatmaz: uçlardan biri alınamazsa o uç mevsimsel simülasyondur ve
     `delta_live` False olur (fark yine hesaplanır, arayüz 'tahmini' etiketi göstermelidir).
     """
     sy, ey = range_year(start_year), range_year(end_year)
-    s = _fetch_historical_weather(sy)
-    e = _fetch_historical_weather(ey)
+    s = _fetch_historical_weather(sy, month, day)
+    e = _fetch_historical_weather(ey, month, day)
     data, deltas = {}, {f: {} for f in DELTA_FIELDS}
     for name, w_end in e["data"].items():
         w = dict(w_end)

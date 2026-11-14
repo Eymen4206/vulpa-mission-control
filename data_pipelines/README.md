@@ -202,3 +202,47 @@ Anlık görüntüyü yenilemek için: `.venv\Scripts\python -m data_pipelines.re
 - Antarktika: "Deniz buzu örtüsü (Weddell Denizi)" / % → **"Deniz buzu yayılımı (Güney Yarımküre)" / milyon km²** (yeni ad)
 - Mauna Loa: "Atmosferik karbondioksit (XCO₂)" → **"Atmosferik karbondioksit (CO₂)"** (yeni ad; Mauna Loa yerinde
   ölçümdür, uydu XCO₂ değildir)
+
+---
+
+## Belirli tarih (ay/gün) ve geçmiş veri güvenilirliği — 14.11.2026 (Backend · Msi-nb)
+
+### Belirli tarih desteği (geriye uyumlu)
+
+| Fonksiyon | Yeni imza |
+|---|---|
+| `_fetch_weather` | `(start_year=0, end_year=None, month=None, day=None)` |
+| `_fetch_grid` | `(start_year=0, end_year=None, month=None, day=None)` |
+| `_fetch_historical_weather` / `_fetch_historical_grid` | `(year, month=None, day=None)` |
+| `hist_date` | `(year, month=None, day=None)` → 12:00 UTC `datetime` |
+
+- Tek tarih: `_fetch_weather(2019, None, 7, 15)` → 15 Temmuz 2019, 12:00 UTC. Izgara için de aynı.
+- Ay verilip gün verilmezse ayın 15'i kullanılır. Geçersiz gün ayın son gününe çekilir (31 Şubat → 28/29 Şubat).
+  Gelecekteki tarih bugüne çekilir.
+- Aralık: `_fetch_weather(2005, 2023, 8, 1)` → iki yılın 1 Ağustos'u.
+- Dönüş sözlüklerine eklenenler: `"month"`, `"day"`, `"date"` (`"YYYY-MM-DD"`), `"anomaly_live"`.
+- Ay/gün verilmezse davranış eskisiyle aynı (o yılda bugünün takvim günü).
+
+### "Canlı dışındaki tarihlerde veri gelmiyor" hatasının nedeni ve çözümü
+
+1. **Başarısız sonuç 30 dakika önbelleğe yazılıyordu.** Meteomatics arşivi yoğun anlarda 30–60 sn gecikiyor;
+   zaman aşımına düşen tarih yarım saat boyunca simülasyon (termal sapma 0, boş katman) olarak kalıyordu.
+   Artık başarısızlık önbelleğe yazılmaz; aynı istek 90 sn sonra yeniden denenir (`RETRY_AFTER`).
+2. **Yedek kaynak eklendi:** Open-Meteo ERA5 arşivi (anahtarsız). Sıra:
+   - Anlık değerler: Meteomatics (8 sn sınır) → Open-Meteo ERA5 → simülasyon.
+   - Termal sapma: Open-Meteo ERA5 (~1 sn) → Meteomatics → yok (`anomaly_live=False`).
+3. **Anlık değer ve sapma istekleri paralel** gider.
+4. **Kota sigortası:** Open-Meteo 429 döndürünce (dakikalık / saatlik / günlük kota) 1 / 15 / 60 dk boyunca hiç
+   denenmez. Meteomatics zaman aşımına düşerse 2 dk atlanır. Böylece kaynak kapalıyken istek beklemeden yedeğe
+   geçer. `source_status()` atlanan kaynakları ve kalan süreyi verir.
+5. **Diske kalıcı önbellek:** `data_pipelines/cache/` (depoya girmez). Bir kez çekilen geçmiş tarih yeniden
+   başlatmadan sonra da kota harcamadan anında gelir. Son 7 gün diske yazılmaz.
+6. **Daha az kota:** Izgaranın termal sapması 264 yerine 30° kaba ızgarada (72 nokta) hesaplanıp 15°'ye ara
+   değerlenir; canlı ızgara da aynı yöntemi kullanır (eskiden tek başına kotanın büyük kısmını tüketiyordu).
+
+### Bilinmesi gerekenler
+
+- **Open-Meteo ücretsiz kotası** konum başına sayılır (dakikada 600, saatte 5.000, günde 10.000; 2 haftadan uzun
+  seriler katlanır). Yeni bir geçmiş tarih yaklaşık 350–700 birim harcar; diskteki tarihler hiç harcamaz.
+  Demo öncesi kullanılacak tarihleri bir kez açmak (önbelleği ısıtmak) önerilir.
+- **Meteomatics hackathon hesabı** yoğun arşiv isteklerinde yavaşlıyor; canlı veride sorun görülmedi.

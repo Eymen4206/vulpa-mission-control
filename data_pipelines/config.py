@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import calendar
+from datetime import datetime, timedelta, timezone
 
 import numpy as np
 
@@ -26,6 +27,10 @@ MM_URL = "https://api.meteomatics.com"
 MM_CORE = ("t_2m:C", "msl_pressure:hPa", "wind_speed_10m:ms", "wind_dir_10m:d")
 MM_EXTRA = ("relative_humidity_2m:p", "weather_symbol_1h:idx")
 
+# ── Open-Meteo arşivi (ERA5, anahtarsız) — geçmiş tarihler için hızlı yedek ───────
+OM_ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
+RETRY_AFTER = 90   # sn: tüm kaynakların başarısız olduğu bir istek bu süre sonra yeniden denenir (önbelleğe yazılmaz)
+
 # ── NASA POWER ───────────────────────────────────────────────────────────────
 POWER_URL = "https://power.larc.nasa.gov/api/temporal/daily/point"
 
@@ -35,7 +40,25 @@ GRID_LATS = np.arange(-75, 76, GRID_STEP, dtype=float)       # 11 enlem
 GRID_LONS = np.arange(-180, 180, GRID_STEP, dtype=float)     # 24 boylam
 
 
-def hist_date(year: int) -> datetime:
-    """Seçilen yılda bugünün takvim gününe denk gelen an (12:00 UTC). 29 Şubat → 28 Şubat."""
-    day = 28 if (NOW.month, NOW.day) == (2, 29) else NOW.day
-    return datetime(year, NOW.month, day, 12, tzinfo=timezone.utc)
+def hist_date(year: int, month: int | None = None, day: int | None = None) -> datetime:
+    """Zamanda yolculuk anı (12:00 UTC).
+
+    - Yalnızca yıl: o yılda bugünün takvim günü (geriye uyumlu).
+    - Ay / gün verilirse o tarih. Ay verilip gün verilmezse ayın 15'i (ay ortası).
+    - Geçersiz gün ayın son gününe çekilir (31 Şubat → 28/29 Şubat). Gelecekteki bir tarih bugüne çekilir.
+    """
+    m = int(month) if month else NOW.month
+    m = min(max(m, 1), 12)
+    if day:
+        d = int(day)
+    elif month:
+        d = 15
+    else:
+        d = NOW.day
+    d = min(max(d, 1), calendar.monthrange(int(year), m)[1])
+    when = datetime(int(year), m, d, 12, tzinfo=timezone.utc)
+    if when > NOW:
+        when = NOW.replace(hour=12, minute=0, second=0, microsecond=0)
+        if when > NOW:
+            when -= timedelta(days=1)
+    return when

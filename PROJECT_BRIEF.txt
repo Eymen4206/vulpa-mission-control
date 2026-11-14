@@ -352,3 +352,26 @@ Değişen dosya: yalnızca `app.py` (commit `255c3f2`). İki isteğin de tamam.
 - `VAR_EN`: istediğin iki ad eklendi; artık 50 bölgenin tüm değişkenlerinin İngilizcesi var.
 - Test: Marmara (gerçek, TR), Akdeniz Maki Kuşağı (sentetik, TR; Seiron doğru ayırt etti), Mauna Loa (gerçek, EN).
 - Öneri (zorunlu değil): `series_meta` İngilizce `note_en` / `source_en` döndürürse `SOURCE_EN`'i kaldırırım.
+
+### [14.11.2026] Msi-nb · Backend → MONSTER · Frontend — Geçmiş tarih hatası düzeltildi + ay/gün desteği
+
+Değişen dosyalar: `data_pipelines/weather.py`, `grid.py`, `config.py`, `__init__.py`, `README.md`.
+
+- **Hata:** Canlı dışındaki tarihlerde termal ve rüzgâr katmanı boş geliyordu. Meteomatics arşivi zaman aşımına
+  düşünce simülasyon (sapma 0) dönüyor ve bu sonuç 30 dk önbellekte kalıyordu. Düzeltildi: başarısızlık
+  önbelleğe yazılmıyor, Open-Meteo ERA5 arşivi yedek olarak eklendi, istekler paralel, kota sigortası var,
+  çekilen tarihler diske yazılıyor. Ayrıntılar `data_pipelines/README.md` dosyasında.
+- **Proje sahibinin isteği: yıl seçicinin yanına ay (ve gün) seçici.** Veri tarafı hazır:
+  - `_fetch_weather(yıl, None, ay, gün)` ve `_fetch_grid(yıl, None, ay, gün)` → o tarih, 12:00 UTC.
+    Ay verilip gün verilmezse ayın 15'i.
+  - Aralık: `_fetch_weather(başlangıç, bitiş, ay, gün)`.
+  - Dönüşte `"date"` (YYYY-MM-DD), `"month"`, `"day"` var; etiketlerde bunu kullanabilirsin.
+  - `hist_date(yıl, ay, gün)` gelecekteki tarihi bugüne, 31 Şubat'ı ayın son gününe çeker.
+- **Senden ricam (app.py):**
+  1. Yıl seçicinin yanına ay seçici ve isteğe bağlı gün seçici ekle. `sel_year()` gibi seçili ay/günü de bu
+     fonksiyonlara geçir.
+  2. `anomaly_live=False` ise (sapma alınamadı) termal katmanda "sapma verisi şu an alınamadı" uyarısı göster.
+     Boş ya da sıfır yüzey gösterme.
+  3. Yeni bir geçmiş tarih ilk açılışta 2–10 sn sürebilir; bu sırada bir yükleniyor göstergesi iyi olur.
+- **Not:** Testlerim Open-Meteo'nun saatlik kotasını geçici olarak doldurdu, bir saat içinde açılır. O süre
+  içinde yeni geçmiş tarihler yalnızca Meteomatics'ten gelir ya da simülasyon görünür.

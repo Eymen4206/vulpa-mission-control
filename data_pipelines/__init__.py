@@ -11,7 +11,7 @@ from .config import (
 from .grid import _fallback_grid, _fetch_grid, _fetch_grid_range, _fetch_historical_grid, _fetch_live_grid
 from .power import MIN_TREND_YEARS, POWER_FIRST_YEAR, _fetch_power, _power_simulated, power_years
 from .regions import CITY_NAMES, REGION_LIST, REGIONS, Region
-from .real_series import KINDS, REAL_SOURCES, real_series, series_meta
+from .real_series import KINDS, REAL_SOURCES, real_series, series_meta, theme_type_label
 from .credits import CREDITS, data_credits
 from .annual import _fetch_grid_annual, _fetch_weather_annual
 from .climatology import climatology_anomaly, expected_temp, grid_normals, normal_values, region_normals
@@ -76,7 +76,7 @@ __all__ = [
     # NASA POWER
     "_fetch_power", "_power_simulated", "power_years", "POWER_FIRST_YEAR", "MIN_TREND_YEARS",
     # bölge tema serisi (gerçek veri → sentetik yedek) ve istatistik
-    "build_series", "analyze", "synthetic_series", "series_meta", "real_series", "REAL_SOURCES", "KINDS",
+    "build_series", "analyze", "synthetic_series", "series_meta", "theme_type_label", "real_series", "REAL_SOURCES", "KINDS",
     # sabitler ve zaman
     "START", "END", "PERIOD", "PROJECTION_MONTHS", "NOW", "LAST_FULL_YEAR", "POWER_SPAN", "WEATHER_TTL",
     "MM_URL", "MM_CORE", "MM_EXTRA", "POWER_URL", "GRID_STEP", "GRID_LATS", "GRID_LONS", "hist_date",

@@ -224,12 +224,13 @@ DATA_TYPES = {
 
 
 def data_type_label(key: str, lang: str = "tr") -> str:
-    """Ek veri setinin tür etiketi: "Uydu ölçümü" / "Model (GLDAS)" / "Yerinde ölçüm" (EN: Satellite / Model (GLDAS) / In-situ)."""
+    """Ek veri setinin tür etiketi: "Uydu ölçümü" / "Model (GLDAS)" / "Yerinde ölçüm (PSMSL)" (EN: Satellite / Model (GLDAS) / In-situ (PSMSL))."""
     m = DATASETS.get(key) or {}
     t = m.get("data_type", "satellite")
     tr, en = DATA_TYPES.get(t, DATA_TYPES["satellite"])
     label = en if lang == "en" else tr
-    return f"{label} ({key.split('_')[0]})" if t == "model" else label
+    src = {"model": "GLDAS", "insitu": "PSMSL"}.get(t)
+    return f"{label} ({src})" if src else label
 
 
 def _rec(key: str, region: str) -> tuple[list | None, list[int] | None]:

@@ -310,3 +310,16 @@ def write_snapshot(records: dict[str, dict]) -> Path:
                "regions": records}
     SNAPSHOT_PATH.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     return SNAPSHOT_PATH
+
+
+# Tema serisinin veri türü (arayüz etiketi): model / uydu ölçümü / yerinde ölçüm — kaynakla birlikte
+_KIND_TYPE = {"sst": ("Yerinde ölçüm (NOAA ERSST)", "In-situ (NOAA ERSST)"),
+              "co2": ("Yerinde ölçüm (NOAA Mauna Loa)", "In-situ (NOAA Mauna Loa)"),
+              "seaice_s": ("Uydu ölçümü (NSIDC)", "Satellite (NSIDC)")}
+
+
+def theme_type_label(region_name: str, lang: str = "tr") -> str:
+    """Bölge tema serisinin tür etiketi: "Model (MERRA-2)" / "Uydu ölçümü (NSIDC)" / "Yerinde ölçüm (NOAA …)"."""
+    kind = (series_meta(region_name) or {}).get("kind")
+    tr, en = _KIND_TYPE.get(kind, ("Model (MERRA-2)", "Model (MERRA-2)"))
+    return en if lang == "en" else tr

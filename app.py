@@ -71,7 +71,7 @@ _DP_NEEDED = ("CITY_NAMES", "END", "GRID_LATS", "GRID_LONS", "LAST_FULL_YEAR", "
               "showcase_regions", "global_annual_anomaly", "year_extremes", "compare_regions", "warm_up",
               "glossary", "variable_catalog", "variable_analysis", "describe_point", "trend_tests",
               "trend_map", "map_keys_available", "detective_questions", "detective_suggest", "topic_variables",
-              "extra_catalog", "extra_analysis", "EXTRA_DATASETS", "data_type_label")
+              "extra_catalog", "extra_analysis", "EXTRA_DATASETS", "data_type_label", "theme_type_label")
 if not all(hasattr(_dp, _n) for _n in _DP_NEEDED):
     for _m in [m for m in sys.modules if m == "data_pipelines" or m.startswith("data_pipelines.")]:
         del sys.modules[_m]
@@ -83,7 +83,7 @@ from data_pipelines import (  # noqa: E402
     parse_ui_command, switch_message, time_text, metric_chart, fetch_events, data_quality,
     showcase_regions, year_extremes, compare_regions, warm_up, glossary, variable_catalog, variable_analysis,
     describe_point, trend_tests, trend_map, map_keys_available, detective_questions, detective_suggest, topic_variables,
-    extra_catalog, extra_analysis, EXTRA_DATASETS, data_type_label,
+    extra_catalog, extra_analysis, EXTRA_DATASETS, data_type_label, theme_type_label,
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -3885,8 +3885,8 @@ def render_trend_picker() -> None:
     with st.container(key="tm_ctl", width="content"):
         bound(st.selectbox, "tm_key", label=L("Trend haritası değişkeni", "Trend map variable"), options=keys,
               placeholder=L("Değişken seçin", "Choose a variable"),
-              format_func=lambda k: (L("Model (MERRA-2) · ", "Model (MERRA-2) · ") + cat[k]["name"]) if k in cat
-              else (safe(data_type_label, k, lang()) or L("Uydu ölçümü", "Satellite")) + " · " + extra_name(k),
+              format_func=lambda k: (cat[k]["name"] + " · Model (MERRA-2)") if k in cat
+              else extra_name(k) + " · " + (safe(data_type_label, k, lang()) or L("Uydu ölçümü", "Satellite")),
               label_visibility="collapsed")
 
 
@@ -5607,13 +5607,17 @@ def var_chart_fig(chart: dict, height: int = 250) -> go.Figure:
 
 
 def var_label(key: str, cat: dict, theme_name: str = "", avail: set | None = None) -> str:
+    # önce değişkenin adı, sonra veri türü (Model (MERRA-2) / Model (GLDAS) / Uydu ölçümü / Yerinde ölçüm)
     if key == "theme":
-        return L("Tema serisi · ", "Theme series · ") + theme_name
+        city = st.session_state.get("city", CITY_NAMES[0])
+        kind = safe(theme_type_label, city, lang()) or "Model (MERRA-2)"
+        return f"{theme_name} ({L('tema serisi', 'theme series')}) · {kind}"
     v = cat.get(key)
     if not v:
         return key
     off = (" — " + L("bu noktada yok", "not available here")) if avail is not None and key not in avail else ""
-    return f"{v['category_name']} · {v['name']} ({v['unit']}){off}"
+    kind = v["category_name"] if key.startswith("x:") else "Model (MERRA-2)"
+    return f"{v['name']} ({v['unit']}) · {kind}{off}"
 
 
 def render_var_picker(state_key: str, options: list[str], cat: dict, theme_name: str = "",

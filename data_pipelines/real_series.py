@@ -57,6 +57,9 @@ KINDS: dict[str, tuple[str, str]] = {
     "sst":      ("Aylık deniz yüzeyi sıcaklığı (°C), en yakın 2° deniz hücresi", "NOAA ERSST v5 (ERDDAP)"),
     "co2":      ("Mauna Loa aylık ortalama atmosferik CO₂ (ppm)", "NOAA GML Mauna Loa Gözlemevi"),
     "seaice_s": ("Güney Yarımküre aylık deniz buzu yayılımı (milyon km²)", "NSIDC Sea Ice Index v4"),
+    "gwetroot": ("Kök bölgesi toprak nemi (0 kuru – 1 doygun)", "NASA POWER · MERRA-2 GWETROOT"),
+    "gwettop":  ("Yüzey toprak nemi (0 kuru – 1 doygun)", "NASA POWER · MERRA-2 GWETTOP"),
+    "snodp":    ("Aylık ortalama kar derinliği (cm)", "NASA POWER · MERRA-2 SNODP"),
 }
 
 # Bölge (iç kimlik) → seri türü. Burada olmayan bölgeler sentetik kalır.
@@ -94,6 +97,25 @@ REAL_SOURCES: dict[str, str] = {
     "Humboldt Akıntısı": "sst",
     "Orta Şili": "precip",
     "Kuzey And Paramoları": "precip",
+    # 14.11.2026: önceden sentetik olan 17 bölge, değişken seçici sayesinde gerçek NASA/NOAA serilerine atandı.
+    # Değişken adı ölçülen şeyi söyler (ör. PM2.5 yerine AOD, NDVI yerine toprak nemi); tema başlığı aynen kalır.
+    "Akdeniz Maki Kuşağı": "gwettop",
+    "Grönland Buz Tabakası": "ts_anom",
+    "Nil Deltası ve Vadisi": "gwetroot",
+    "İran Platosu": "gwetroot",
+    "Nijer Deltası": "sst",
+    "Kuzey Çin Ovası": "aod",
+    "Yangtze Deltası": "sst",
+    "Hint-Ganj Ovası": "aod",
+    "Chao Phraya Deltası": "precip",
+    "Cava Kuzey Kıyısı": "sst",
+    "Moğol Bozkırı ve Gobi": "spei3",
+    "ABD Doğu Kıyısı": "sst",
+    "Kanada Kuzey Ormanları": "spei3",
+    "Kaliforniya Çaparalı": "gwettop",
+    "Florida Everglades": "sst",
+    "Pasifik Kıyı Dağları": "snodp",
+    "Tropikal And Buzulları": "t2m_anom",
 }
 
 SYNTHETIC_REASON = ("Anahtarsız ve 2000'den bu yana kesintisiz bir kaynak bulunamadı (FWI, NDVI, deniz seviyesi, "
@@ -210,9 +232,10 @@ def fetch_real_series(region_name: str) -> dict | None:
     if kind is None:
         return None
     spec = REGIONS[region_name]
-    if kind in ("t2m", "t2m_anom", "ts_anom", "t2m_max", "precip", "aod"):
+    if kind in ("t2m", "t2m_anom", "ts_anom", "t2m_max", "precip", "aod", "gwetroot", "gwettop", "snodp"):
         param = {"t2m": "T2M", "t2m_anom": "T2M", "ts_anom": "TS", "t2m_max": "T2M_MAX",
-                 "precip": "PRECTOTCORR_SUM", "aod": "AOD_55"}[kind]
+                 "precip": "PRECTOTCORR_SUM", "aod": "AOD_55", "gwetroot": "GWETROOT", "gwettop": "GWETTOP",
+                 "snodp": "SNODP"}[kind]
         raw = _power_monthly(spec.lat, spec.lon, param)[param]
     elif kind == "spei3":
         raw = _spei3(spec.lat, spec.lon)

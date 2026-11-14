@@ -1885,3 +1885,53 @@ Bugün eklenen veri kaynakları ve yöntemler için `data_credits()` güncellend
   5. İstersen her yöntem kaydının yanına, ilgili özelliğe (güven bandı, t-testi, gereken yıl) götüren küçük bir bağlantı koy.
 - GPM IMERG (uydu yağışı) ve diğer uydu kaynakları eklendiğinde Credits'e ben eklerim; sana yine yazarım. Proje sahibi bir NASA Earthdata hesabı açtı; uydu verisi çalışması başladı.
 - AppTest: açılış ve "Sistemi Başlat" sonrası hatasız.
+
+### [14.11.2026 21:30] Msi-nb · Backend → MONSTER · Frontend — 17 SENTETİK BÖLGE GERÇEK VERİYE ATANDI (proje sahibinin isteği) · arayüz kontrolleri
+
+Proje sahibinin sözleri: "17 sentetik bölgeyi de … onları da atayabiliriz artık".
+- **Sonuç:** Artık **50 bölgenin 50'si gerçek veri** kullanıyor. `series_meta(city)["real"]` hepsinde True;
+  `data_credits()["synthetic_regions"] == 0`.
+- **Değişen dosyalar:** `data_pipelines/real_series.py` (3 yeni tür: gwetroot, gwettop, snodp), `regions.py`
+  (17 bölgenin değişken/birim/kaynak ve risk yönü), `credits.py`, `snapshots/real_series.json`.
+- **Test:** AppTest açılış ve "Sistemi Başlat" sonrası hatasız; Kuzey Çin, Pasifik Kıyı Dağları ve Akdeniz bölgeleri
+  açılıyor.
+
+**Atamalar:** tema başlıkları aynen kaldı; **değişken adı ölçülen şeyi söylüyor** (bilimsel dürüstlük).
+
+| Bölge | Eski (sentetik) | Yeni (gerçek) | Risk yönü |
+|---|---|---|---|
+| Akdeniz Maki Kuşağı, Kaliforniya Çaparalı | Yangın hava indeksi (FWI) | Yüzey toprak nemi (0–1) · MERRA-2 GWETTOP | azalış olumsuz |
+| Nil Deltası ve Vadisi, İran Platosu | NDVI / yeraltı suyu | Kök bölgesi toprak nemi (0–1) · GWETROOT | azalış olumsuz |
+| Moğol Bozkırı ve Gobi, Kanada Kuzey Ormanları | NDVI | Kuraklık indeksi (SPEI-3) | azalış olumsuz |
+| Kuzey Çin Ovası, Hint-Ganj Ovası | PM2.5 | Aerosol optik derinliği · AOD_55 | artış olumsuz |
+| Nijer, Yangtze, Cava, ABD Doğu Kıyısı, Florida | Deniz seviyesi / zemin çökmesi | Deniz yüzeyi sıcaklığı · NOAA ERSST v5 | artış olumsuz |
+| Chao Phraya Deltası | Zemin yüksekliği | Aylık yağış (taşkın) | artış olumsuz |
+| Grönland Buz Tabakası | Kar ve buz örtüsü | Yüzey sıcaklığı anomalisi · TS | artış olumsuz |
+| Tropikal And Buzulları | Buzul alanı | Sıcaklık anomalisi · T2M | artış olumsuz |
+| Pasifik Kıyı Dağları | Kar örtüsü | Kar derinliği (cm) · SNODP | azalış olumsuz |
+
+**Senin tarafında yapılacaklar (app.py):**
+1. **`VAR_EN`'e 3 yeni ad ekle:**
+   - "Yüzey toprak nemi" → "Surface soil moisture"
+   - "Kök bölgesi toprak nemi" → "Root-zone soil moisture"
+   - "Kar derinliği" → "Snow depth"
+   - Diğer yeni adlar zaten listende var: Sıcaklık anomalisi, Yüzey sıcaklığı anomalisi, Kuraklık indeksi (SPEI-3),
+     Aerosol optik derinliği, Aylık yağış, Deniz yüzeyi sıcaklığı.
+2. **Birim "0–1":** grafik eksenlerinde ve kutularda "0–1" ya da "birim (0–1)" olarak görünsün. Kutularda
+   "°C/yıl" gibi biçimler kullanılıyorsa "/yıl" ile birlikte okunur kalmalı.
+3. **Rapor metinleri (`_report` / `generate_report`):** arketipe göre yazılan cümleler bu 17 bölgede eski değişkene göre
+   olabilir. Arketipler:
+   - wildfire: "yangın hava indeksi arttı" yerine artık toprak nemi
+   - sea level: "deniz seviyesi yükseldi" yerine artık deniz yüzeyi sıcaklığı
+   - PM2.5 / NDVI / buzul / yeraltı suyu benzeri
+   Bu bölgelerde rapor metni ölçülen değişkeni yanlış adlandırmasın. Gerekiyorsa `series_meta(city)["kind"]`
+   (gwettop, gwetroot, sst, aod, precip, spei3, ts_anom, t2m_anom, snodp) ile cümle seç.
+   - **Risk yönü:** `spec.bad_dir` doğru ayarlandı. `status_of` bunu kullanıyorsa ek iş yok.
+4. **"SENTETİK" etiketi ve "33 gerçek / 17 sentetik" metinleri:** `series_meta` hepsinde gerçek dediği için çipler
+   kendiliğinden "GERÇEK VERİ" olmalı.
+   - Sabit yazılmış "17 sentetik", "33 bölge gerçek", "sentetik prototip" gibi metinler varsa güncelle (yorumlar dahil).
+   - Credits uyarı metni (`disclaimer_*`) artık "50 bölgenin tamamı gerçek…" diyor.
+5. **Jüri turu ve veri güveni:** rozet dağılımı artık 24 yüksek, 19 orta, 7 düşük. `showcase_regions` vitrinine Hint-Ganj
+   Ovası (aerosol artışı) girdi; tur kendiliğinden güncellenir.
+
+`_DP_NEEDED` için yeni ad yok.

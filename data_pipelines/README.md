@@ -486,3 +486,11 @@ Açılış yükleme ekranı içindir. Hava, ızgara, NASA POWER, tema serisi ve 
   - Sabitler: `REGION_TYPES`, `TYPE_NAMES`, `TOPICS`.
   - Ön izleme `snapshots/regionvars.json`'dan gelir: 50 bölge × 15 değişken, yıllık değerler.
   - Yenilemek için: `python -m data_pipelines.refresh_regionvars` (~1 dk).
+
+## 50 bölgenin tamamı gerçek veri (14.11.2026)
+- Önceden sentetik olan 17 bölge `REAL_SOURCES` içine alındı.
+- **Yeni türler:** `gwetroot`, `gwettop`, `snodp` (NASA POWER / MERRA-2). Diğer bölgeler mevcut türleri kullanıyor:
+  sst, aod, precip, spei3, ts_anom, t2m_anom.
+- **regions.py:** bu bölgelerin `variable`, `unit` ve `source` alanları ölçülen değişkeni söyler; `bad_dir` ve
+  `decimals` alanları da güncellendi.
+- **Etki:** `synthetic_series` artık yalnızca kaynak düşerse kullanılan yedektir.

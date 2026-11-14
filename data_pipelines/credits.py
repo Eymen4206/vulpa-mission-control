@@ -54,11 +54,13 @@ CREDITS: list[dict] = [
     {
         "id": "nasa-power", "category": "climate", "name": "NASA POWER",
         "provider": "NASA Langley Research Center (LaRC)",
-        "used_for_tr": "Bölge kartlarındaki uzun vadeli sıcaklık ve yağış trendi (Mann-Kendall) ile 27 bölgenin tema "
-                       "serisi: sıcaklık, sıcaklık anomalisi, en yüksek sıcaklık, yağış, aerosol ve SPEI-3. Ayrıca "
+        "used_for_tr": "Bölge kartlarındaki uzun vadeli sıcaklık ve yağış trendi (Mann-Kendall) ile 39 bölgenin tema "
+                       "serisi: sıcaklık, sıcaklık anomalisi, en yüksek sıcaklık, yağış, aerosol, SPEI-3, toprak nemi "
+                       "ve kar derinliği. Ayrıca "
                        "aylık iklim normalleri (kaynak yokken gösterilen değerler ve iklim normaline göre sapma).",
-        "used_for_en": "Long-term temperature and precipitation trends on region cards, and the theme series of 27 "
-                       "regions: temperature, anomaly, maximum temperature, precipitation, aerosol and SPEI-3; also "
+        "used_for_en": "Long-term temperature and precipitation trends on region cards, and the theme series of 39 "
+                       "regions: temperature, anomaly, maximum temperature, precipitation, aerosol, SPEI-3, soil "
+                       "moisture and snow depth; also "
                        "monthly climate normals (fallback values and deviation from normal).",
         "url": "https://power.larc.nasa.gov", "license": "Açık veri (NASA)",
         "attribution": "These data were obtained from the NASA Langley Research Center (LaRC) POWER Project funded "
@@ -76,9 +78,12 @@ CREDITS: list[dict] = [
     {
         "id": "ersst", "category": "ocean_ice", "name": "NOAA ERSST v5 (ERDDAP üzerinden)",
         "provider": "NOAA National Centers for Environmental Information (NCEI) · NOAA CoastWatch ERDDAP",
-        "used_for_tr": "Malakka Boğazı, Filipin Denizi, Büyük Set Resifi ve Humboldt Akıntısı deniz yüzeyi sıcaklığı.",
-        "used_for_en": "Sea surface temperature for the Strait of Malacca, Philippine Sea, Great Barrier Reef and "
-                       "Humboldt Current.",
+        "used_for_tr": "9 kıyı ve deniz bölgesinin deniz yüzeyi sıcaklığı: Malakka Boğazı, Filipin Denizi, Büyük Set "
+                       "Resifi, Humboldt Akıntısı, Nijer Deltası, Yangtze Deltası, Cava Kuzey Kıyısı, ABD Doğu Kıyısı, "
+                       "Florida Everglades.",
+        "used_for_en": "Sea surface temperature for 9 coastal and ocean regions: Strait of Malacca, Philippine Sea, "
+                       "Great Barrier Reef, Humboldt Current, Niger Delta, Yangtze Delta, North Java Coast, US East "
+                       "Coast, Florida Everglades.",
         "url": "https://www.ncei.noaa.gov/products/extended-reconstructed-sst", "license": "Açık veri (NOAA)",
         "citation": "Huang, B. et al. (2017). Extended Reconstructed Sea Surface Temperature, Version 5 (ERSSTv5). "
                     "J. Climate, 30, 8179–8205.",
@@ -260,6 +265,16 @@ DISCLAIMER_EN = ("{real} of the 50 regions use measured or reanalysis data. The 
                  "regions (fire weather index, NDVI, sea level, PM2.5, glacier area, groundwater, snow cover) are synthetic "
                  "prototype data because no key-free long-term source was found, and are labelled as such.")
 
+# 14.11.2026: 50 bölgenin tamamı gerçek veriye dayanıyor.
+DISCLAIMER_ALL_TR = ("50 bölgenin tamamının tema serisi gerçek ölçüm ya da yeniden analiz verisidir (NASA POWER/MERRA-2, "
+                     "NOAA ERSST, NOAA GML, NSIDC). Bazı temalarda (yangın riski, deniz seviyesi, partikül kirliliği, "
+                     "çölleşme, buzul) doğrudan ölçüm anahtarsız bulunamadığından ilgili fiziksel bir değişken "
+                     "kullanılır; değişken adı ölçülen şeyi açıkça söyler (ör. PM2.5 yerine aerosol optik derinliği).")
+DISCLAIMER_ALL_EN = ("The theme series of all 50 regions are measured or reanalysis data (NASA POWER/MERRA-2, NOAA ERSST, "
+                     "NOAA GML, NSIDC). For some themes (fire risk, sea level, particulate pollution, desertification, "
+                     "glaciers) no key-free direct measurement exists, so a related physical variable is used; the "
+                     "variable name states exactly what is measured (e.g. aerosol optical depth instead of PM2.5).")
+
 
 def data_credits() -> dict:
     """Credits paneli için tüm içerik.
@@ -285,8 +300,8 @@ def data_credits() -> dict:
         "categories": [{"id": cid, "title_tr": tr, "title_en": en,
                         "items": [c for c in CREDITS if c["category"] == cid]}
                        for cid, (tr, en) in CATEGORIES.items()],
-        "disclaimer_tr": DISCLAIMER_TR.format(real=real, synthetic=50 - real),
-        "disclaimer_en": DISCLAIMER_EN.format(real=real, synthetic=50 - real),
+        "disclaimer_tr": (DISCLAIMER_ALL_TR if real >= 50 else DISCLAIMER_TR.format(real=real, synthetic=50 - real)),
+        "disclaimer_en": (DISCLAIMER_ALL_EN if real >= 50 else DISCLAIMER_EN.format(real=real, synthetic=50 - real)),
         "real_regions": real, "synthetic_regions": 50 - real,
         "series_kinds": kinds,
         "snapshot_generated": load_snapshot().get("generated"),

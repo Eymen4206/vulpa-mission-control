@@ -1,0 +1,240 @@
+# VULPA Mission Control — Proje Özeti ve Ekip Görevleri
+
+> Bu belge, projeye katılan **prompt yazıcı yapay zekâlar** için hazırlandı. Amacı, her geliştirici asistana
+> doğru bağlamda, net sınırlarla ve test edilebilir hedeflerle görev yazılabilmesini sağlamak.
+> Son güncelleme: 14.11.2026 · Depo: https://github.com/Eymen4206/vulpa-mission-control (dal: `main`)
+>
+> **Bu dosya iki asistanın ortak mesajlaşma dosyasıdır.** Her asistan yaptığı her değişikliği en alttaki
+> "7. Mesajlaşma ve değişiklik günlüğü" bölümüne yazar. Her görevin sonunda `git pull` yapıp bu dosyayı okur.
+>
+> ⚠️ **14.11.2026 ROL DEĞİŞİKLİĞİ:** Msi-nb bilgisayarındaki asistan artık **Backend**, MONSTER
+> bilgisayarındaki asistan artık **Frontend**. Ayrıntılar 3. ve 7. bölümde.
+
+---
+
+## 1. Proje nedir?
+
+**VULPA · Earth System Trend Detective**, NASA Space Apps Challenge 2026 için geliştirilen, Streamlit tabanlı
+bir iklim ve ekoloji **görev kontrol paneli** (Mission Control). Dünya üzerindeki 50 stratejik iklim/ekoloji
+bölgesinde uzun dönemli eğilimleri, anlık ve tarihsel hava durumunu 3D bir küre üzerinde gösterir. Seiron adlı
+bir yapay zekâ asistanı bu verileri yorumlar.
+
+### Temel özellikler (hepsi çalışıyor)
+
+| Özellik | Açıklama |
+|---|---|
+| Tek ekran düzeni | Masaüstünde `100vh`, sayfa hiç kaymaz (zero-scroll). |
+| 3 sütunlu masaüstü | Sol: Seiron AI + QR · Orta: 3D ortografik küre · Sağ: telemetri, istatistik, rapor. |
+| Mobil (Mini VULPA) | Sekmeli görünüm: 🌍 3D Küre · 🛰️ Seiron AI · 📊 Telemetri & QR. `?mini=1` ya da telefon User-Agent'ı ile açılır. |
+| 50 ekolojik bölge | Amazon Havzası, Sahra, Sibirya Taygası, Alp Kuşağı, Grönland, Antarktika Yarımadası, Kongo Havzası, Büyük Set Resifi vb. Eski şehir adları takma ad olarak çalışır ("Tokyo" → Kanto Ovası). |
+| 3 harita katmanı | 🌍 Klasik (eğilim durumuna göre pinler) · 🌡️ Termal (30 günlük sıcaklık sapması, maviden kırmızıya gradyan, nabız halkaları) · 💨 Basınç & Hava Dalgası (izobarlar, A/Y merkezleri, akan rüzgâr vektörleri). |
+| Sinematik kamera | Google Earth tarzı: uzaklaş → kay → yaklaş. |
+| Seiron AI | Groq API (`openai/gpt-oss-120b`, yedek `qwen/qwen3.8-27b`), anahtar yoksa yerel kural tabanlı motor. Kapsam: iklim, meteoroloji, orman yangını, ormansızlaşma, ekosistem, kuraklık. Konu dışı soruları reddeder. |
+| Chat-to-UI | "Beni Amazon'a götür", "Termal analizi aç", "yaklaş", "Take me to Greenland" gibi komutlar küreyi ve katmanı değiştirir. |
+| TR / EN | Anında dil değişimi: arayüz, raporlar, küre etiketleri ve Seiron'un yanıt dili. |
+| Zamanda yolculuk | Yıl seçici (canlı + son 20 yıl). Hava, termal ve basınç verileri o yılın bugünkü takvim gününe ait Meteomatics arşivinden gelir; NASA POWER trendi o yılla biten 20 yıllık pencereyle yeniden hesaplanır. |
+| Diğer | Canlı hava bandı (ticker), açılış ekranı ("Sistemi Başlat"), ciddi kurt logosu, telefonla açmak için gerçek QR kod, raporu panoya kopyalama, CSV indirme. |
+
+### Görsel kimlik (değişmez kurallar)
+
+- Arka plan kömür grisi `#0c0a09`, vurgu kehribar/turuncu `#f97316`, yarı saydam cam paneller (blur 14px).
+- Arayüzde mavi/mor tema rengi yok. Tek istisna termal katmanın soğuk tarafındaki mavi; bu meteorolojik bir gelenek.
+- Kurt logosu ciddi ve keskin, gülümsemiyor.
+- Arayüz dili Türkçe, isteğe bağlı İngilizce. Kurumsal ve sade bir üslup.
+
+---
+
+## 2. Teknik yapı
+
+```
+vulpa-mission-control/
+├── app.py                  # Frontend: arayüz, küre, Seiron, CSS, dil (≈3.240 satır)
+├── components/             # Frontend: ayrıştırılacak arayüz bileşenleri (henüz yok)
+├── data_pipelines/         # Backend: veri çekme, önbellek, bölge veritabanı, istatistik
+│   ├── __init__.py         #   dışa aktarılan API (__all__)
+│   ├── config.py           #   sabitler, hist_date(year)
+│   ├── regions.py          #   Region, REGION_LIST (50 bölge), REGIONS, CITY_NAMES
+│   ├── weather.py          #   Meteomatics + Open-Meteo, 50 bölge hava verisi
+│   ├── grid.py             #   15° küresel ızgara (ham numpy alanları)
+│   ├── power.py            #   NASA POWER uzun vadeli trend
+│   ├── series.py           #   sentetik tema serisi + mevsimsel Mann-Kendall
+│   └── README.md           #   iki asistan arasındaki sözleşme
+├── requirements.txt
+├── .streamlit/config.toml  # tema
+├── .streamlit/secrets.toml # API anahtarları — DEPODA YOK, her bilgisayara elle kopyalanır
+└── PROJECT_BRIEF.md        # bu belge
+```
+
+- **Kütüphaneler:** Streamlit 1.67, Plotly 7.1, pandas, numpy, scipy, pymannkendall, requests, truststore, qrcode[pil].
+- **Python:** 3.13+ (bilgisayarlardan biri 3.15, diğeri 3.13 kullanıyor).
+- **Çalıştırma:** `.venv\Scripts\streamlit run app.py`
+
+### Veri kaynakları
+
+| Kaynak | Ne için | Not |
+|---|---|---|
+| Meteomatics API | Anlık ve arşiv `t_2m`, `msl_pressure`, `wind_speed_10m`, `wind_dir_10m`, nem; 50 nokta + 15° ızgara | HTTPBasicAuth, `st.secrets["meteomatics"]`. Arşivde `weather_symbol_1h` yok (hava durumu bulut/yağıştan türetilir). Parametre adı `msl_pressure:hPa`'dır, `pressure_msl` değil. |
+| Open-Meteo | Canlı termal anomali (son 30 gün) ve Meteomatics yedeği | Anahtarsız. |
+| NASA POWER | Günlük `T2M` ve `PRECTOTCORR` → aylık → Mann-Kendall + Sen eğimi | Gerçek uzun vadeli sıcaklık/yağış trendi. |
+| Sentetik seri | Bölge tema değişkenleri (buzul alanı, NDVI, PM2.5, FWI …), 2000–2024 | **Gerçek ölçüm değildir.** Arayüzde ve Seiron'da böyle etiketlenir. |
+| Groq | Seiron yanıtları (SSE akışı) | `GROQ_API_KEY`. 429 olursa yedek modele, o da olmazsa yerel motora geçer. |
+
+Kurallar: tüm veri fonksiyonları `@st.cache_data(ttl=1800)` ile önbelleklenir. Ağ ya da kimlik doğrulama
+hatasında istisna fırlatmaz, açıkça "simülasyon/tahmini" etiketli yedeğe geçer. Gizli bilgiler asla koda yazılmaz.
+
+### Bilinen teknik tuzaklar (prompt yazarken önemli)
+
+1. **Küre titremesi:** `st.plotly_chart` öğe kimliğini figür içeriğinden hesaplar. Küre figürü bu yüzden
+   **hiç değişmez**; kamera, katman ve veri tarayıcıdaki JS denetleyicisiyle (`Plotly.restyle` / `animate`)
+   uygulanır. Figürü her çalıştırmada değiştiren bir istek küreyi bozar.
+2. **DOMPurify:** `st.html(..., unsafe_allow_javascript=True)` içinde metni `<b>` gibi etiket benzeri parça
+   içeren `<script>` silinir. JSON içinde `<` karakteri `<` olarak kaçırılmalıdır.
+3. **Widget anahtarları** (`city`, `layer`, `lang`, `year`) yalnızca widget çizilmeden önce ya da bir callback
+   içinde değiştirilebilir.
+4. **Kaspersky TLS:** Bilgisayarlardan birinde antivirüs TLS'i araya giriyor. `truststore` bu yüzden gerekli.
+5. **Kutup verisi:** Izgara ±75° ile sınırlı, kutup başlıklarında katman verisi yok.
+
+---
+
+## 3. Ekip ve görev dağılımı
+
+İki bilgisayarda iki geliştirici yapay zekâ aynı GitHub deposunda **aynı anda** çalışıyor. Birbirlerini
+canlı görmezler; yalnızca `git pull` / `git push` ile haberleşirler. Her geliştiricinin bir de prompt yazıcı
+yapay zekâsı olacak.
+
+| Rol | Bilgisayar | Çalışma alanı | Dokunmaz |
+|---|---|---|---|
+| **Backend asistanı** (altyapı) | Msi-nb | `data_pipelines/` | `app.py`, `components/` |
+| **Frontend asistanı** (tasarım) | MONSTER | `app.py`, `components/` | `data_pipelines/` |
+| Prompt yazıcı (Backend için) | Msi-nb | Kod yazmaz; Backend'e görev metni yazar | — |
+| Prompt yazıcı (Frontend için) | MONSTER | Kod yazmaz; Frontend'e görev metni yazar | — |
+
+> Roller 14.11.2026'da değişti. Daha önce Msi-nb Frontend, MONSTER Backend idi. Aşağıdaki geçmiş kayıtlarda
+> (commit `975fac4`, `e2ff77e`) "Backend asistanı" MONSTER'ı, "Frontend asistanı" Msi-nb'yi ifade eder.
+| Proje sahibi (insan) | — | Kararlar, öncelikler, onaylar | — |
+
+### 3.1 Backend asistanının görevi (veri mimarı · altyapı) — şu an Msi-nb
+
+**Sorumluluk:** VULPA'nın tüm veri katmanı. API'ler, veri dönüşümü, önbellek, hata yedekleri, bölge
+veritabanı ve istatistik.
+
+**Şu ana kadar yaptığı:** Veri fonksiyonlarını `app.py`'den `data_pipelines/` paketine birebir taşıdı
+(commit `975fac4`). Fonksiyonlar AST ile doğrulandı. Frontend `app.py`'yi bu pakete bağladı (`e2ff77e`).
+Senkronizasyon testi iki yönlü başarılı.
+
+**Sözleşme (kırılmaması gerekenler):**
+- `data_pipelines/__init__.py` içindeki `__all__` listesi Frontend'in kullandığı API'dir. **Ad, parametre ve
+  dönüş sözlüğü anahtarları değişmez.** Değişmesi gerekiyorsa önce `data_pipelines/README.md` güncellenir,
+  geriye uyumlu bir geçiş sağlanır ve proje sahibine haber verilir.
+- Frontend'in şu an içe aktardıkları: `CITY_NAMES, END, GRID_LATS, GRID_LONS, LAST_FULL_YEAR, PERIOD,
+  POWER_SPAN, PROJECTION_MONTHS, REGION_LIST, REGIONS, START, WEATHER_TTL, Region, _fetch_grid, _fetch_power,
+  _fetch_weather, analyze, build_series`.
+- Dönüş yapıları:
+  - `_fetch_weather(year)` → `{"live", "time", "data": {bölge: {"temp", "humidity", "wind" (km/sa), "wind_dir", "pressure", "anomaly", "label" (TR), "icon"}}, "source", "provider", "anomaly_live", "year"}`
+  - `_fetch_grid(year)` → `{"live", "time", "source", "temp", "anomaly", "pressure", "wind", "wind_dir"}` (numpy 11×24, enlem −75…75, boylam −180…165)
+  - `_fetch_power(city, y0, y1)` → `t_dec, t_p, t_trend, p_dec, p_dec_pct, p_p, t_mean, prec_mean, years, annual_t, warmest, shift, last_t, last_dev, last_prec, y0, y1, live, live_src, source`
+- Hata durumunda istisna fırlatmaz, yedeğe geçer. Hava etiketleri Türkçe döner (`"Açık"`, `"Kapalı"` …);
+  İngilizceye çeviriyi Frontend yapar.
+- `st.session_state` okumaz. Yıl ve dil seçimini Frontend parametre olarak verir.
+
+**Olası sonraki görevler (proje sahibi önceliklendirir):**
+- Sentetik tema serilerinin yerine gerçek veri koymak: NASA FIRMS (aktif yangın), MODIS NDVI, GRACE-FO, NASA
+  GIBS, Copernicus vb. Bu, projenin bilimsel değerini en çok artıracak iş.
+- Izgarayı kutuplara (±90°) genişletmek; Frontend'e bunun için dizi boyutunu önceden bildirmek.
+- `tests/` altında birim testleri: yedek mekanizmaları, dönüş şemaları, Meteomatics yanıt ayrıştırma.
+- İstek sayısını azaltmak (Open-Meteo günlük ~10 bin konum sınırı, Meteomatics hackathon kotası).
+- Yeni veri ihtiyaçları için Frontend'le sözleşme önermek: README'ye yeni fonksiyon imzası yazılır.
+
+**Yapmaması gerekenler:** `app.py`'yi ya da `components/`'i düzenlemek; renk, metin, dil ya da düzen
+kararları vermek; gizli bilgileri koda veya depoya yazmak; `main` dalının geçmişini zorla yeniden yazmak
+(`push --force`).
+
+### 3.2 Frontend asistanının görevi (arayüz mimarı · tasarım) — şu an MONSTER
+
+**Sorumluluk:** Görünen her şey. Düzen ve CSS, 3D küre ve JS denetleyicisi, harita katmanlarının
+görselleştirilmesi (`grid_layers`, renk skalaları), Seiron paneli, sohbet ve Chat-to-UI komutları, TR/EN
+metinleri, yerel rapor motoru, mobil görünüm, QR. Veriyi yalnızca `data_pipelines`'tan içe aktarır.
+
+**Bilinen sonraki işler:**
+- `app.py`'yi `components/` modüllerine bölmek (küre, Seiron, telemetri, CSS). Davranış değişmeden.
+- İstenen ince sol navigasyon menüsü (henüz yok; şu an solda Seiron paneli var).
+- Termal soğuk tarafın rengi: "mavi yok" kuralıyla çelişiyor, proje sahibinin kararı bekleniyor.
+
+---
+
+## 4. Ortak çalışma kuralları
+
+1. **Her çalışmadan önce** `git pull origin main`, **her adım sonunda** `git commit` + `git push`. Küçük,
+   açıklamalı commit'ler.
+2. **Dosya sahipliği kesindir.** Aynı dosyaya iki asistan yazmaz; böylece birleştirmede çakışma olmaz.
+3. **Sözleşme değişikliği iki adımda yapılır:** Backend yeni fonksiyonu ekler ve eskisini korur → Frontend
+   yeniye geçer → eskisi sonra kaldırılır. Uygulama her adımdan sonra çalışır durumda kalır.
+4. **Hiçbir şey sıfırdan yeniden yazılmaz, mevcut çalışma silinmez.** Değişiklikler mevcut kodun üzerine yapılır.
+5. **Gizli bilgiler** yalnızca `.streamlit/secrets.toml` dosyasında durur; o dosya depoya girmez.
+6. **Doğrulama:** Her görev, uygulamanın açıldığı ve ilgili özelliğin çalıştığı gösterilerek tamamlanır.
+   Frontend için tarayıcıda, Backend için fonksiyon çıktısı ya da testle.
+7. Commit mesajları Türkçe olabilir. Yapay zekâ commit'leri attribution satırı içerir.
+
+---
+
+## 5. Prompt yazıcılar için rehber
+
+İyi bir görev metninde şunlar bulunmalı:
+
+- **Rol ve alan:** "Sen Backend asistanısın, yalnızca `data_pipelines/` içinde çalış" gibi.
+- **Hedef:** Tek ve somut bir sonuç ("NASA FIRMS'ten son 7 günün yangın sayısını bölge başına döndüren
+  `fetch_fires(year)` ekle").
+- **Sözleşme etkisi:** Yeni ya da değişen fonksiyonun adı, parametreleri ve dönüş şeması. Frontend'in bunu
+  nasıl kullanacağı.
+- **Kabul ölçütleri:** Nasıl test edilecek, hangi çıktı görülmeli, hata durumunda ne olmalı.
+- **Kısıtlar:** Önbellek (`ttl=1800`), yedek davranışı, gizli bilgilerin yeri, mevcut kodu silmemek.
+- **Teslim:** Commit + push ve diğer tarafa ne söylenmesi gerektiği.
+
+Kaçınılması gerekenler:
+
+- **"app.py'yi sıfırdan yaz" gibi istekler.** Çalışan 3.000+ satırı siler; bu proje için yasak.
+- **Belirsiz kapsam** ("her şeyi iyileştir"). İki asistanın aynı dosyalara dokunmasına yol açar.
+- **Başka sohbet botlarından gelen uzun "master prompt"lar.** Bunlar çoğu zaman var olan özellikleri yeniden
+  ister ya da birbiriyle çelişen kurallar içerir (ör. "mavi yok" ama "maviden kırmızıya gradyan"). Prompt
+  yazıcı, isteği mevcut duruma göre farka (yalnızca yeni/değişen kısım) indirgemelidir.
+- **Görsel kural ihlalleri:** Mavi/mor tema, gülen logo, kayan sayfa.
+
+---
+
+## 6. Rol değişikliği notu (14.11.2026)
+
+Proje sahibinin kararıyla roller yer değiştirdi:
+
+- **Msi-nb asistanı → Backend (altyapı):** `data_pipelines/` paketi, API'ler, önbellek, bölge veritabanı,
+  istatistik, testler. `app.py` ve `components/` dosyalarına artık dokunmaz.
+- **MONSTER asistanı → Frontend (tasarım):** `app.py`, `components/`, CSS, küre görselleştirmesi, Seiron
+  paneli, TR/EN metinleri, mobil görünüm. `data_pipelines/` klasörüne artık yazmaz.
+
+Sözleşme (`data_pipelines/__init__.py` içindeki `__all__` ve `data_pipelines/README.md`) aynen geçerli.
+Yalnızca kimin hangi tarafta durduğu değişti.
+
+---
+
+## 7. Mesajlaşma ve değişiklik günlüğü
+
+Kurallar: en yeni kayıt en altta. Her kayıtta tarih, gönderen (bilgisayar + rol), değişen dosyalar ve
+karşı tarafı etkileyen noktalar yazılır. Her görevin sonunda `git pull` yapılır ve bu bölüm okunur.
+
+### [14.11.2026] Msi-nb · Backend → MONSTER · Frontend
+
+Merhaba! Proje sahibinin kararıyla **artık sen Frontend'sin, ben Backend'im.**
+
+- **Senin alanın:** `app.py` ve `components/`, yani tasarım, düzen, küre, Seiron paneli, dil ve mobil görünüm.
+  Lütfen artık `data_pipelines/` içine yazma.
+- **Benim alanım:** `data_pipelines/`, yani veri çekme, Meteomatics/NASA POWER/Open-Meteo, önbellek, bölge
+  veritabanı ve istatistik. `app.py`'ye artık ben dokunmayacağım.
+- **Devraldığın durum:** `app.py` (commit `e2ff77e`) veri katmanını tamamen `from data_pipelines import ...`
+  ile alıyor. Kendi veri kopyası yok. İçe aktarılan adlar 3.1 bölümünde listeli.
+- **Frontend'in açık işleri (3.2):** `app.py`'yi `components/` modüllerine bölmek, ince sol navigasyon
+  menüsü, termal soğuk tarafın rengi (proje sahibinin kararı bekleniyor).
+- **Benim sıradaki işlerim (3.1):** Sözleşmeyi bozmadan veri katmanını geliştirmek. Örnek verinin yerine
+  gerçek veri, ızgarayı kutuplara genişletme, testler. Yeni ya da değişen bir fonksiyon olursa önce burada
+  ve `data_pipelines/README.md` dosyasında duyururum.
+- **Bilgi:** `PROJECT_BRIEF.md` bu dosyanın eski kopyası, depoda yok. Ortak dosya bu `.txt` dosyasıdır.
+
+Bu mesajı okuduğunu, altına kısa bir onay kaydı ekleyip `git push` yaparak bildirirsen sevinirim.

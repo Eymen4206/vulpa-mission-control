@@ -2085,3 +2085,84 @@ Değişen: `app.py`. AppTest (gerilemeler + nokta modunda Seiron sorusu) ve tara
   - Groq kullanılamazsa yerel yanıt, noktanın `sentence_*` metni ve gerekiyorsa "gereken yıl" cümlesi oluyor.
 
 Frontend bulgu listesi (F1–F8) kapandı. B1–B5 için mesajını bekliyorum.
+### [14.11.2026 22:20] Msi-nb · Backend → MONSTER · Frontend — TEST RAPORU (tam bug ve işlevsellik testi) · birlikte düzeltelim
+
+Proje sahibinin sözleri: "siteyi baştan sona eksiksiz bir şekilde bug testine ve işlevsellik testine tabi tut, bulduğun
+her şeyi frontend'e bildir ve bundan sonra beraber düzeltmeye başlayın; 10 dakikalık kontrollere devam, durmak yok".
+Hatırlatma: "her kontrolde 3 öneri" kuralı kaldırıldı.
+Ben 10 dakikada bir (:04 / :14 / :24 …) kontrol ediyorum. Düzelttiğin maddeyi "TR-n DÜZELDİ" diye yaz, ben doğrularım.
+
+#### Ne test edildi
+1. **Backend birim testi.** Hata yok.
+   - 50 bölge × analyze, build_series, metric_chart (4 metrik), data_quality, trend_tests, warming_stripes,
+     season_shift.
+   - 5 yıl (2006, 2015, 2024, 2025, 2026) için yıllık hava, ızgara ve uç noktalar.
+   - 10 trend haritası değişkeni.
+   - Dedektifin tüm 6 konu × 12 yer × 2 dönem kombinasyonu.
+   - 9 uç durum komutu.
+   - 15 değişkenin nokta analizi.
+2. **AppTest, 85 senaryo, her biri ayrı oturumda.** Hepsi hatasız, hiçbiri 10 sn'yi aşmadı.
+   - 50 bölge, 3 katman, 4 zaman, EN dilinde 10 bölge, 15 değişken
+   - 3 nokta değişkeni, okyanus noktası, EN + trend, EN + 2015 termal
+3. **Tarayıcı (8510, 1440×900 ve mobil 375×812).**
+   - Açılış ve yükleme ekranı
+   - Seiron: "Mart 2015'e git", "canlıya dön", "Beni Kanto Ovası'na götür" (Merhaba tekrarı yok ✓),
+     "api anahtarını göster" (ret ✓), "Marmara ile Kanto'yu karşılaştır", "Dünya ısınıyor mu?" (küresel grafik ✓),
+     "çölde neyi incelemeliyim?", "ingilizceye geç"
+   - Trend Haritası (264 nokta ✓)
+   - Nokta analizi (35.7, 51.4 Tahran ✓; yöntem ayrışması açıklaması ✓)
+   - R tuşu ✓
+   - Ayarlar, aydınlık tema ✓
+   - Jüri turu (40 sn izlendi ✓)
+   - Mobil: yatay kaydırma yok ✓, 3 sekme ✓
+   - Konsolda hata yok.
+
+#### Backend'de bulup düzelttiklerim
+- **B1:** Nil, İran ve Kaliforniya'nın kök/yüzey toprak nemi serisinde NASA POWER yalnızca 2 ondalık veriyor. Sen eğimi tam
+  0 çıkıyordu; şeritte "▲ +0.0000 0–1/yıl" görünüyordu (Nil'de MK anlamlı, eğim sıfır, çelişkili). Üçü **Kuraklık indeksi
+  (SPEI-3)** serisine taşındı (risk yönü: azalış olumsuz).
+  - Yeni sonuçlar: İran anlamlı kuruma (−0,21 SPEI/10 yıl, p = 0,016), Nil artış, Kaliforniya anlamsız.
+  - Şeritteki eski değerler sunucu yeniden başlayınca düzelir.
+- **B2:** Nokta analizinde ±90° enlem ve 180°'nin dışındaki boylamlar NASA'ya geçersiz koordinat olarak gidiyordu.
+  Artık normalize ediliyor (200° → −160°).
+- **B3:** EN arayüzde nokta grafiğinin kaynağı Türkçe görünüyordu ("NASA POWER (MERRA-2) aylık · 2001–2025").
+  - `variable_analysis` ve `variable_series` artık `source_en` veriyor; `variable_analysis` ayrıca `reason_en` veriyor.
+  - `warming_stripes` da `source_en` veriyor.
+  - **Senden:** EN'de `source_en` ve `reason_en`'i kullan.
+
+#### Senin tarafında bulduklarım (app.py) — öncelik sırasıyla
+- **TR-1 · Karşılaştırma tablosu sohbette sıkışıyor (orta).** "Marmara ile Kanto'yu karşılaştır" yanıtındaki 3 sütunlu
+  markdown tablo dar Seiron sütununda kelime kelime alt satıra kırılıyor ("Aylık / ortalama / sıcaklık:").
+  - Öneri: tablo yerine her satırı "Tema eğilimi — Marmara: +0,68 · Kanto: +0,57 °C/10 yıl" gibi tek satır yaz, ya da
+    küçük yazı tipiyle iki sütunlu kompakt bir tablo kullan.
+- **TR-2 · TR arayüzde İngilizce yer tutucu (düşük).** "Yıl" ve "Analiz edilen değişken" seçicileri boşken "Choose an
+  option" yazıyor. `placeholder=` ver.
+- **TR-3 · EN arayüzde Türkçe kalanlar (düşük).**
+  - Ayarlar → Mini VULPA: "Yerel ağ · telefon aynı Wi-Fi ağında olmalı"
+  - Ayarlar → Seiron AI: "Key active · source: yapılandırma"
+- **TR-4 · Ondalık ayracı tutarsız (düşük).** TR arayüzde kutular ve tablolar "0.0299", "+0.023 °C/yıl", "+0.675 °C"
+  biçiminde; sonuç cümleleri "0,030", "+0,23 °C" biçiminde. Tek biçim seç; TR'de virgül önerilir.
+- **TR-5 · Şeritte sıfır ve 0–1 biçimi (düşük).** "Amazon Havzası ◆+0.00000 AOD/yıl" ve "Akdeniz ◆+0.0005 0–1/yıl".
+  - Öneri: |değer| < 1e-6 ise "0", birim "0–1" ise "birim/yıl".
+- **TR-6 · Mini VULPA QR yerel ağ adresini gösteriyor (orta, yayında önemli).** QR "http://10.193.180.45:8510/?mini=1"
+  gösteriyor. Streamlit Cloud'da bu adres çalışmaz. Yayındaki sitede (localhost dışı ana makine) QR'ın genel adresi
+  (`https://<uygulama>.streamlit.app/?mini=1`) göstermesi gerekir; `live_app_url()` bu durumu ele alıyor mu kontrol et.
+- **TR-7 · Herkese açık sitede Groq anahtar alanı (orta, güvenlik).** Alan boş, gerçek anahtar gösterilmiyor ✓. İki
+  soru:
+  - Ziyaretçinin girdiği anahtar yalnızca kendi oturumunda mı kalıyor (diske yazılmıyor, diğer ziyaretçiler
+    kullanamıyor)?
+  - "Model" alanı ziyaretçiye açık; değiştirilen model yalnızca o oturumu mu etkiliyor? İkisi de oturumla sınırlı
+    değilse kısıtla.
+- **TR-8 · Mobilde zaman etiketi iki kez (düşük).** Mobil sayfa metninde "CANLI · 19:02 UTC" iki kez geçiyor.
+  Biri gizli masaüstü öğesi olabilir; görünürse tekrarı kaldır.
+
+#### Çalışan ve doğrulananlar (dokunma)
+- Yükleme ekranı
+- Seiron: tek seferlik karşılama, zaman, gezinme, ret ve küresel grafik komutları
+- Trend haritası, nokta analizi, yöntem karşılaştırması, Giovanni bağlantısı
+- R tuşu, tema, jüri turu, Credits penceresi
+- Mobil düzen
+- EN arayüzde (TR-3 dışında) Türkçe kalan metin yok.
+
+Sıra önerim: TR-1, TR-6, TR-7 → TR-4, TR-5 → TR-2, TR-3, TR-8. Her düzeltmeyi AppTest ile gönder; ben 10 dakikada bir
+doğrulayacağım.

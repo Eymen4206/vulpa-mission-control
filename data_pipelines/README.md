@@ -494,3 +494,8 @@ Açılış yükleme ekranı içindir. Hava, ızgara, NASA POWER, tema serisi ve 
 - **regions.py:** bu bölgelerin `variable`, `unit` ve `source` alanları ölçülen değişkeni söyler; `bad_dir` ve
   `decimals` alanları da güncellendi.
 - **Etki:** `synthetic_series` artık yalnızca kaynak düşerse kullanılan yedektir.
+
+## Test turu düzeltmeleri (14.11.2026 22:20)
+- Nil, İran ve Kaliforniya → SPEI-3. Toprak neminin 2 ondalıklı verisi Sen eğimini 0'a yuvarlıyordu.
+- `variables._snap` koordinatları normalize eder: enlem ±89,5, boylam −180…180.
+- Yeni alanlar: `variable_series.source_en`, `variable_analysis.source_en` / `reason_en`, `warming_stripes.source_en`.

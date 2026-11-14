@@ -157,7 +157,11 @@ def variable_catalog(lang: str = "tr") -> list[dict]:
 
 # ── Veri çekme ──────────────────────────────────────────────────────────────
 def _snap(lat: float, lon: float) -> tuple[float, float]:
-    return round(round(float(lat) * 2) / 2, 1), round(round(float(lon) * 2) / 2, 1)
+    """0,5°'ye yuvarlar; enlemi ±89,5'e sıkıştırır, boylamı −180…180 aralığına getirir (ör. 200° → −160°)."""
+    lat = max(-89.5, min(89.5, float(lat)))
+    lon = ((float(lon) + 180.0) % 360.0) - 180.0
+    la, lo = round(round(lat * 2) / 2, 1), round(round(lon * 2) / 2, 1)
+    return la, (-180.0 if lo == 180.0 else lo)
 
 
 def _disk_path(lat: float, lon: float, y0: int, y1: int) -> Path:
@@ -237,7 +241,8 @@ def variable_series(lat: float, lon: float, key: str, end_year: int | None = Non
     v = VARIABLES.get(key)
     pd_ = point_data(lat, lon, end_year)
     base = {"key": key, "unit": v[2] if v else "", "lat": pd_["lat"], "lon": pd_["lon"], "y0": pd_["y0"],
-            "y1": pd_["y1"], "live": pd_["ok"], "source": f"NASA POWER (MERRA-2) aylık · {pd_['y0']}–{pd_['y1']}"}
+            "y1": pd_["y1"], "live": pd_["ok"], "source": f"NASA POWER (MERRA-2) aylık · {pd_['y0']}–{pd_['y1']}",
+            "source_en": f"NASA POWER (MERRA-2) monthly · {pd_['y0']}–{pd_['y1']}"}
     if v is None:
         return {**base, "dates": [], "values": [], "available": False, "reason": "bilinmeyen değişken"}
     if not pd_["ok"]:
@@ -349,6 +354,26 @@ def _yts_sentences(a: dict) -> tuple[str, str]:
             f"years of data (≈{y['years_needed']:.0f} years in total; Weatherhead et al. 1998).")
 
 
+_REASON_EN = {
+    "Bu değişken bu noktada yok (ör. denizde toprak nemi ya da buharlaşma).":
+        "This variable is not available at this point (e.g. soil moisture or evaporation over the sea).",
+    "Bu noktada verinin %10'undan fazlası eksik.": "More than 10% of the data is missing at this point.",
+    "Değişken bu noktada sabit (ör. hiç kar yok); trend hesaplanamaz.":
+        "The variable is constant at this point (e.g. no snow at all); no trend can be computed.",
+    "bilinmeyen değişken": "unknown variable",
+}
+
+
+def _reason_en(reason: str | None) -> str | None:
+    if not reason:
+        return None
+    if reason.startswith("NASA POWER'a ulaşılamadı"):
+        return "NASA POWER could not be reached; please try again shortly."
+    if reason.startswith("analiz yapılamadı"):
+        return "The analysis could not be computed."
+    return _REASON_EN.get(reason, reason)
+
+
 def giovanni_url(key: str, lat: float, lon: float, y0: int, y1: int) -> str | None:
     """NASA Giovanni 'alan ortalamalı zaman serisi' bağlantısı (MERRA-2 aylık). Karşılığı olmayan değişkende None.
     Giovanni ücretsiz NASA Earthdata hesabı isteyebilir."""
@@ -367,7 +392,8 @@ def variable_analysis(lat: float, lon: float, key: str, end_year: int | None = N
     v = VARIABLES.get(key)
     head = {"key": key, "name": v[5] if v else key, "name_en": v[6] if v else key, "unit": s["unit"],
             "lat": s["lat"], "lon": s["lon"], "period": [s["y0"], s["y1"]], "available": s["available"],
-            "reason": s.get("reason"), "live": s["live"], "source": s["source"],
+            "reason": s.get("reason"), "reason_en": _reason_en(s.get("reason")), "live": s["live"],
+            "source": s["source"], "source_en": s["source_en"],
             "giovanni_url": giovanni_url(key, s["lat"], s["lon"], s["y0"], s["y1"]) if v else None}
     if not s["available"]:
         return head

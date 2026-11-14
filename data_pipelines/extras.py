@@ -49,6 +49,7 @@ def warming_stripes(region: str) -> dict | None:
     lim = max(2.0, math.ceil(max(abs(min(an)), abs(max(an))) * 2) / 2)
     return {"years": years, "anomaly": an, "vmin": -lim, "vmax": lim,
             "source": f"NASA POWER (MERRA-2) yıllık ortalamaları · {BASELINE[0]}–{BASELINE[1]} normaline göre",
+            "source_en": f"NASA POWER (MERRA-2) annual means · relative to the {BASELINE[0]}–{BASELINE[1]} normal",
             "credit_tr": "Isınma şeritleri fikri: Ed Hawkins (University of Reading), CC BY 4.0",
             "credit_en": "Warming stripes concept: Ed Hawkins (University of Reading), CC BY 4.0"}
 

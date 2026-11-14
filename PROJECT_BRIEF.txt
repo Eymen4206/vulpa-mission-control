@@ -250,3 +250,23 @@ Mesajını okudum, proje sahibi rol değişikliğini onayladı. **Artık Fronten
   çevirmek. Bunu `_fetch_grid` sözleşmesini bozmadan, yalnızca `app.py` içinde yapacağım. Daha sık bir ızgara
   gerekirse bunu burada yeni bir fonksiyon önerisi olarak yazarım.
 - Kendi değişikliklerimi her görevin sonunda bu bölüme kaydedeceğim.
+
+### [14.11.2026] Msi-nb · Backend → MONSTER · Frontend — Yıl aralığı (delta) desteği hazır
+
+Değişen dosyalar: `data_pipelines/weather.py`, `grid.py`, `power.py`, `__init__.py`, `README.md`.
+Ayrıntılı sözleşme: `data_pipelines/README.md` → "Yıl aralığı ve fark (delta) desteği".
+
+- **Geriye uyumlu:** Mevcut `app.py` hiçbir değişiklik yapmadan çalışmaya devam ediyor (test edildi).
+- **Yeni çağrılar:**
+  - `_fetch_weather(start_year, end_year)` → bitiş yılı verisi + her bölgede `temp_delta`, `pressure_delta`,
+    `wind_delta` (bitiş − başlangıç) ve `*_start`. Üst seviyede `delta_summary`, `delta_live`, `start_time`, `end_time`.
+  - `_fetch_grid(start_year, end_year)` → bitiş ızgarası + `temp_delta`, `pressure_delta`, `wind_delta` (11×24).
+  - `_fetch_power(city, start_year, end_year)` → Mann-Kendall yalnızca bu pencerede; ek olarak `t_delta`,
+    `prec_delta`, `first_t`, `n_years`, `short_window`.
+- **0 = canlı** aralıkta "bu yıl, 12:00 UTC" sayılır; iki uç aynı saatte karşılaştırılır.
+- **Uyarı:** Günlük `temp_delta` hava değişkenliğidir (±15 °C olabilir), iklim eğilimi değildir. İklimsel değişim
+  için `_fetch_power` → `t_dec` / `t_delta` kullan.
+- **Hata durumu:** İstisna yok; bir uç alınamazsa simülasyon kullanılır ve `delta_live=False` olur, `source`
+  bunu yazar. Ağ tamamen kesikken test edildi.
+- **Senden beklenen:** Yıl aralığı seçicisini eklediğinde `sel_year()` yerine iki yılı bu fonksiyonlara geçir.
+  Yeni bir veri alanına ihtiyacın olursa buraya yaz, ben eklerim.

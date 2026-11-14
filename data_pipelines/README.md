@@ -80,3 +80,71 @@ Kurallar:
 - Hepsi `@st.cache_data(ttl=1800)` ile önbelleklenir; ağ ya da kimlik doğrulama hatasında **istisna fırlatmaz**,
   simülasyon yedeğine geçer.
 - Gizli bilgiler (Meteomatics, Groq) yalnızca `.streamlit/secrets.toml` üzerinden okunur; koda yazılmaz.
+
+---
+
+## Yıl aralığı ve fark (delta) desteği — 14.11.2026 (Backend · Msi-nb)
+
+Frontend'in tek yıl seçicisini "Yıl Aralığı" (`start_year`, `end_year`) seçicisine çevirmesi için eklendi.
+**Geriye uyumludur:** mevcut tek yıllı çağrılar (`_fetch_weather(year)`, `_fetch_grid(year)`) aynen çalışır.
+Frontend istediği zaman iki parametreli çağrıya geçebilir.
+
+### Değişen imzalar
+
+| Fonksiyon | Eski | Yeni |
+|---|---|---|
+| `_fetch_weather` | `(year)` | `(start_year=0, end_year=None)`. `end_year` verilmezse eski davranış. |
+| `_fetch_grid` | `(year)` | `(start_year=0, end_year=None)`. `end_year` verilmezse eski davranış. |
+| `_fetch_power` | `(city, y0, y1)` | Aynı imza; `y0` = başlangıç, `y1` = bitiş yılı. Pencere artık sıralanıp 1981 ile son tamamlanmış yıl arasına çekilir. |
+
+Yeni dışa aktarılanlar: `_fetch_weather_range`, `_fetch_grid_range`, `range_year`, `DELTA_FIELDS`, `power_years`,
+`POWER_FIRST_YEAR`, `MIN_TREND_YEARS`.
+
+### `_fetch_weather(start_year, end_year)` dönüşü
+
+Bitiş yılının normal sözlüğü (`live`, `time`, `data`, `provider`, `anomaly_live`) ve ek olarak:
+
+| Anahtar | Anlamı |
+|---|---|
+| `range` | `True` (aralık modu) |
+| `start_year`, `end_year` | Kullanılan yıllar (0 verildiyse bu yıl) |
+| `start_time`, `end_time` | `"GG.AA.YYYY 12:00"` |
+| `start_live`, `end_live`, `delta_live` | Uçların gerçek veri olup olmadığı; `delta_live` = ikisi de gerçek |
+| `delta_summary` | `{"temp"\|"pressure"\|"wind": {"mean", "max_region", "max", "min_region", "min"}}` |
+| `source` | ör. `"Meteomatics · 14.11.2010 12:00 → 14.11.2025 12:00 UTC"`; simülasyon varsa bunu açıkça yazar |
+| `year` | `end_year` (eski tek yıllı kodla uyum için) |
+
+`data[bölge]` içine eklenen anahtarlar (birimler: °C, hPa, km/sa):
+
+| Anahtar | Anlamı |
+|---|---|
+| `temp`, `pressure`, `wind` | Bitiş yılı değeri (eskisi gibi) |
+| `temp_start`, `pressure_start`, `wind_start` | Başlangıç yılı değeri |
+| `temp_delta`, `pressure_delta`, `wind_delta` | Bitiş − başlangıç (2 ondalık); bir uç eksikse `None` |
+
+### `_fetch_grid(start_year, end_year)` dönüşü
+
+Bitiş yılının ızgarası ve ek olarak `temp_delta`, `pressure_delta`, `wind_delta`, `temp_start`, `pressure_start`,
+`wind_start` (numpy 11×24), `range`, `start_year`, `end_year`, `start_time`, `end_time`, `start_live`, `end_live`,
+`delta_live`.
+
+### `_fetch_power(city, start_year, end_year)` ek anahtarları
+
+| Anahtar | Anlamı |
+|---|---|
+| `start_year`, `end_year` | Düzeltilmiş pencere (`y0`, `y1` ile aynı) |
+| `n_years`, `short_window` | Pencere uzunluğu; 3 yıldan kısaysa `True` ve eğilim testi yapılmaz (`t_trend="no trend"`, `t_p=1.0`, eğim 0) |
+| `first_t`, `first_prec` | Başlangıç yılının yıllık ortalama sıcaklığı ve toplam yağışı |
+| `t_delta`, `prec_delta` | Bitiş − başlangıç yılı (°C, mm) |
+
+Mann-Kendall ve Sen eğimi (`t_dec`, `t_p`, `p_dec` …) yalnızca seçilen pencere için hesaplanır.
+
+### Frontend için önemli notlar
+
+- **0 = canlı:** Aralık modunda 0 "bu yıl" sayılır ve canlı sorgu yerine bugünün 12:00 UTC verisi kullanılır.
+  Böylece iki uç aynı saatte karşılaştırılır; gün içi sıcaklık döngüsü farka karışmaz.
+- **Tek günlük fark iklim eğilimi değildir.** `temp_delta`, iki yılın *aynı günündeki* hava durumu farkıdır ve
+  hava değişkenliği nedeniyle ±15 °C olabilir (ör. Sibirya). Arayüzde bunu "iklim değişimi" olarak sunmayın;
+  iklimsel değişim için `_fetch_power` sonucundaki `t_dec` (Mann-Kendall eğimi) ve `t_delta` kullanılmalı.
+- **Etiketleme:** `delta_live` False ise arayüz "tahmini" etiketi göstermeli; `source` metni bunu zaten içerir.
+- **Süre:** Bir aralık çağrısı iki arşiv sorgusu yapar (ilk çağrı ≈4–9 sn, sonra 30 dk önbellekten anında gelir).

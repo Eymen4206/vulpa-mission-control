@@ -13,7 +13,7 @@ import requests
 import streamlit as st
 
 from .config import GRID_LATS, GRID_LONS, GRID_STEP, MM_CORE, WEATHER_TTL, hist_date
-from .weather import meteomatics_daily_anomaly, meteomatics_now, mm_time
+from .weather import DELTA_FIELDS, meteomatics_daily_anomaly, meteomatics_now, mm_time, range_source, range_year
 
 def _fallback_grid() -> dict:
     """Ağ yoksa: genel dolaşıma dayalı, açıkça 'tahmini' etiketli kuşaksal alanlar."""
@@ -57,8 +57,34 @@ def _fetch_historical_grid(year: int) -> dict:
     return out
 
 
-def _fetch_grid(year: int) -> dict:
-    return _fetch_historical_grid(year) if year else _fetch_live_grid()
+def _fetch_grid(start_year: int = 0, end_year: int | None = None) -> dict:
+    """15° küresel ızgara.
+
+    - Tek yıl (geriye uyumlu): `_fetch_grid(year)` → 0 canlı, aksi halde o yılın bugünkü takvim günü.
+    - Yıl aralığı: `_fetch_grid(start_year, end_year)` → bitiş yılının alanları + `temp_delta`,
+      `pressure_delta`, `wind_delta` (bitiş − başlangıç, numpy 11×24).
+    """
+    if end_year is None:
+        return _fetch_historical_grid(start_year) if start_year else _fetch_live_grid()
+    return _fetch_grid_range(int(start_year), int(end_year))
+
+
+@st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
+def _fetch_grid_range(start_year: int, end_year: int) -> dict:
+    """İki yılın aynı takvim günü için ızgara alanları ve farkları. İstisna fırlatmaz; uçlardan biri
+    simülasyonsa `delta_live` False olur."""
+    sy, ey = range_year(start_year), range_year(end_year)
+    s = _fetch_historical_grid(sy)
+    e = _fetch_historical_grid(ey)
+    out = dict(e)
+    for f in DELTA_FIELDS:
+        out[f"{f}_start"] = s[f]
+        out[f"{f}_delta"] = np.round(np.asarray(e[f], dtype=float) - np.asarray(s[f], dtype=float), 2)
+    both = s["live"] and e["live"]
+    out.update({"range": True, "start_year": sy, "end_year": ey, "start_time": s["time"], "end_time": e["time"],
+                "start_live": s["live"], "end_live": e["live"], "delta_live": both,
+                "source": range_source("Meteomatics", s, e)})
+    return out
 
 
 @st.cache_data(ttl=WEATHER_TTL, show_spinner=False)

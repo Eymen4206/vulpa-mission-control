@@ -225,8 +225,73 @@ def _fetch_historical_weather(year: int) -> dict:
             "source": f"Meteomatics · {stamp} UTC", "anomaly_live": bool(anomaly)}
 
 
-def _fetch_weather(year: int) -> dict:
-    return _fetch_historical_weather(year) if year else _fetch_live_weather()
+def _fetch_weather(start_year: int = 0, end_year: int | None = None) -> dict:
+    """50 bölge hava verisi.
+
+    - Tek yıl (geriye uyumlu): `_fetch_weather(year)` → 0 canlı veri, aksi halde o yılın bugünkü takvim günü.
+    - Yıl aralığı: `_fetch_weather(start_year, end_year)` → bitiş yılının verisi + her bölge için
+      `temp_delta`, `pressure_delta`, `wind_delta` (bitiş − başlangıç) ve `*_start` değerleri.
+    """
+    if end_year is None:
+        return _fetch_historical_weather(start_year) if start_year else _fetch_live_weather()
+    return _fetch_weather_range(int(start_year), int(end_year))
+
+
+DELTA_FIELDS = ("temp", "pressure", "wind")   # sıcaklık (°C), deniz seviyesi basıncı (hPa), rüzgâr (km/sa)
+
+
+def range_year(year: int) -> int:
+    """Aralık modunda 0 (canlı) bu yıl sayılır. İki uç da aynı saatte (12:00 UTC) karşılaştırılsın diye canlı
+    sorgu yerine aynı takvim gününün arşiv/analiz sorgusu kullanılır; aksi halde gün içi döngü farkı karışır."""
+    return int(year) or NOW.year
+
+
+def range_source(provider: str, s: dict, e: dict) -> str:
+    """Aralık verisinin kaynak etiketi: iki uç gerçek, biri simülasyon ya da ikisi de simülasyon."""
+    span = f"{s['time']} → {e['time']} UTC"
+    if s["live"] and e["live"]:
+        return f"{provider} · {span}"
+    if s["live"] or e["live"]:
+        sim = "başlangıç" if not s["live"] else "bitiş"
+        return f"{provider} · {span} · {sim} yılı simülasyon (tahmini)"
+    return f"Simülasyon (tahmini) · {span} · {provider} verisine ulaşılamadı"
+
+
+def _delta(a: float | None, b: float | None) -> float | None:
+    return round(float(b) - float(a), 2) if a is not None and b is not None else None
+
+
+@st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
+def _fetch_weather_range(start_year: int, end_year: int) -> dict:
+    """İki yılın aynı takvim günü (12:00 UTC) için Meteomatics verisi ve aralarındaki fark.
+
+    Hiçbir koşulda istisna fırlatmaz: uçlardan biri alınamazsa o uç mevsimsel simülasyondur ve
+    `delta_live` False olur (fark yine hesaplanır, arayüz 'tahmini' etiketi göstermelidir).
+    """
+    sy, ey = range_year(start_year), range_year(end_year)
+    s = _fetch_historical_weather(sy)
+    e = _fetch_historical_weather(ey)
+    data, deltas = {}, {f: {} for f in DELTA_FIELDS}
+    for name, w_end in e["data"].items():
+        w = dict(w_end)
+        w_start = s["data"].get(name, {})
+        for f in DELTA_FIELDS:
+            w[f"{f}_start"] = w_start.get(f)
+            w[f"{f}_delta"] = _delta(w_start.get(f), w_end.get(f))
+            if w[f"{f}_delta"] is not None:
+                deltas[f][name] = w[f"{f}_delta"]
+        data[name] = w
+    summary = {}
+    for f, vals in deltas.items():
+        if vals:
+            summary[f] = {"mean": round(float(np.mean(list(vals.values()))), 2),
+                          "max_region": max(vals, key=vals.get), "max": max(vals.values()),
+                          "min_region": min(vals, key=vals.get), "min": min(vals.values())}
+    both = s["live"] and e["live"]
+    source = range_source("Meteomatics", s, e)
+    return {**e, "data": data, "range": True, "year": ey, "start_year": sy, "end_year": ey,
+            "start_time": s["time"], "end_time": e["time"], "start_live": s["live"], "end_live": e["live"],
+            "delta_live": both, "delta_summary": summary, "source": source}
 
 @st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
 def _fetch_live_weather() -> dict:

@@ -8,14 +8,14 @@ from .config import (
     END, GRID_LATS, GRID_LONS, GRID_STEP, LAST_FULL_YEAR, MM_CORE, MM_EXTRA, MM_URL, NOW, PERIOD, POWER_SPAN,
     POWER_URL, PROJECTION_MONTHS, START, WEATHER_TTL, hist_date,
 )
-from .grid import _fallback_grid, _fetch_grid, _fetch_historical_grid, _fetch_live_grid
-from .power import _fetch_power, _power_simulated
+from .grid import _fallback_grid, _fetch_grid, _fetch_grid_range, _fetch_historical_grid, _fetch_live_grid
+from .power import MIN_TREND_YEARS, POWER_FIRST_YEAR, _fetch_power, _power_simulated, power_years
 from .regions import CITY_NAMES, REGION_LIST, REGIONS, Region
 from .series import analyze, build_series
 from .weather import (
-    MM_SYMBOLS, WEATHER_CODES, _fallback_weather, _fetch_historical_weather, _fetch_live_weather, _fetch_weather,
-    _merge_mm, _open_meteo_cities, describe_code, describe_symbol, meteomatics_auth, meteomatics_daily_anomaly,
-    meteomatics_now, mm_time,
+    DELTA_FIELDS, MM_SYMBOLS, WEATHER_CODES, _fallback_weather, _fetch_historical_weather, _fetch_live_weather,
+    _fetch_weather, _fetch_weather_range, _merge_mm, _open_meteo_cities, describe_code, describe_symbol,
+    meteomatics_auth, meteomatics_daily_anomaly, meteomatics_now, mm_time, range_year,
 )
 
 __all__ = [
@@ -26,10 +26,12 @@ __all__ = [
     # 50 bölge hava verisi
     "_fetch_live_weather", "_fetch_historical_weather", "_fetch_weather", "_fallback_weather",
     "_open_meteo_cities", "_merge_mm", "describe_code", "describe_symbol", "WEATHER_CODES", "MM_SYMBOLS",
+    # yıl aralığı (delta) — 14.11.2026
+    "_fetch_weather_range", "_fetch_grid_range", "range_year", "DELTA_FIELDS",
     # küresel ızgara
     "_fetch_live_grid", "_fetch_historical_grid", "_fetch_grid", "_fallback_grid",
     # NASA POWER
-    "_fetch_power", "_power_simulated",
+    "_fetch_power", "_power_simulated", "power_years", "POWER_FIRST_YEAR", "MIN_TREND_YEARS",
     # sentetik seri ve istatistik
     "build_series", "analyze",
     # sabitler ve zaman

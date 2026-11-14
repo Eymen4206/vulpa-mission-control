@@ -5,13 +5,15 @@ app.py içindeki fonksiyonların birebir kopyası; POWER'a ulaşılamazsa simül
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pandas as pd
 import pymannkendall as mk
 import requests
 import streamlit as st
 
-from .config import PERIOD, POWER_URL, WEATHER_TTL
+from .config import LAST_FULL_YEAR, PERIOD, POWER_URL, WEATHER_TTL
 from .regions import REGIONS, Region
 
 def _power_simulated(spec: Region, y0: int, y1: int) -> pd.DataFrame:
@@ -28,10 +30,37 @@ def _power_simulated(spec: Region, y0: int, y1: int) -> pd.DataFrame:
     return pd.DataFrame({"T2M": temp, "PREC": prec}, index=dates)
 
 
+POWER_FIRST_YEAR = 1981          # NASA POWER günlük meteoroloji verisinin başladığı yıl
+MIN_TREND_YEARS = 3              # mevsimsel Mann-Kendall için anlamlı en kısa pencere
+
+
+def power_years(y0: int, y1: int) -> tuple[int, int]:
+    """Yıl aralığını geçerli NASA POWER penceresine getirir: sıralar, 1981 ile son tamamlanmış yıl arasında tutar."""
+    lo, hi = sorted((int(y0), int(y1)))
+    hi = min(max(hi, POWER_FIRST_YEAR), LAST_FULL_YEAR)
+    lo = min(max(lo, POWER_FIRST_YEAR), hi)
+    return lo, hi
+
+
+def _seasonal_mk(values: np.ndarray, n_years: int):
+    """Mevsimsel Mann-Kendall; pencere çok kısaysa ya da test hesaplanamazsa 'eğilim yok' döner (istisna yok)."""
+    if n_years >= MIN_TREND_YEARS:
+        try:
+            return mk.seasonal_test(values, period=PERIOD)
+        except Exception:
+            pass
+    return SimpleNamespace(trend="no trend", p=1.0, slope=0.0)
+
+
 @st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
 def _fetch_power(city: str, y0: int, y1: int) -> dict:
-    """NASA POWER günlük nokta API'sinden y0–y1 T2M (°C) ve PRECTOTCORR (mm/gün) alır (tarih parametreleri seçili
-    yıla göre dinamik), aylığa toplar ve mevsimsel Mann-Kendall + Sen eğilimiyle uzun vadeli trendi hesaplar."""
+    """NASA POWER günlük nokta API'sinden y0–y1 (başlangıç–bitiş yılı) T2M (°C) ve PRECTOTCORR (mm/gün) alır,
+    aylığa toplar ve YALNIZCA bu pencere için mevsimsel Mann-Kendall + Sen eğilimini hesaplar.
+
+    Yıl aralığı seçicisi için: `_fetch_power(city, start_year, end_year)`. Ayrıca iki uç yıl arasındaki fark
+    (`t_delta`, `prec_delta`) döner. Pencere 1981 ile son tamamlanmış yıl arasına çekilir; 3 yıldan kısa
+    pencerelerde eğilim testi yapılmaz (`short_window` True)."""
+    y0, y1 = power_years(y0, y1)
     spec = REGIONS[city]
     try:
         resp = requests.get(POWER_URL, params={
@@ -49,13 +78,19 @@ def _fetch_power(city: str, y0: int, y1: int) -> dict:
         live = True
     except Exception:
         monthly, live = _power_simulated(spec, y0, y1), False
-    t_res = mk.seasonal_test(monthly["T2M"].to_numpy(dtype=float), period=PERIOD)
-    p_res = mk.seasonal_test(monthly["PREC"].to_numpy(dtype=float), period=PERIOD)
+    n_years = y1 - y0 + 1
+    t_res = _seasonal_mk(monthly["T2M"].to_numpy(dtype=float), n_years)
+    p_res = _seasonal_mk(monthly["PREC"].to_numpy(dtype=float), n_years)
     annual = monthly.groupby(monthly.index.year).agg({"T2M": "mean", "PREC": "sum"})
     prec_mean = float(annual["PREC"].mean())
     return {
         "live": live,
-        "live_src": live, "y0": y0, "y1": y1,
+        "live_src": live, "y0": y0, "y1": y1, "start_year": y0, "end_year": y1,
+        "n_years": n_years, "short_window": n_years < MIN_TREND_YEARS,
+        # Uç yıllar arasındaki fark (bitiş − başlangıç): yıllık ortalama sıcaklık ve yıllık toplam yağış
+        "first_t": float(annual["T2M"].iloc[0]), "first_prec": float(annual["PREC"].iloc[0]),
+        "t_delta": float(annual["T2M"].iloc[-1] - annual["T2M"].iloc[0]),
+        "prec_delta": float(annual["PREC"].iloc[-1] - annual["PREC"].iloc[0]),
         "source": f"NASA POWER (MERRA-2) · {y0}–{y1}" if live else f"NASA POWER · {y0}–{y1} · simülasyon",
         "t_trend": t_res.trend, "t_p": float(t_res.p), "t_dec": float(t_res.slope) * 10,
         "p_trend": p_res.trend, "p_p": float(p_res.p), "p_dec": float(p_res.slope) * 12 * 10,  # mm/yıl/10 yıl

@@ -913,3 +913,19 @@ Değişen: `app.py` (commit `1baeae0` ve hemen ardındaki düzeltme). Masaüstü
   (mevsimsel Mann-Kendall, p < 0,001, τ = +1,00)."
 - Rozet tutarlılığı için: turda "medium" bir durak geldiğinde veri güveni çipi zaten "orta" gösterecek. Bu şeffaflık için
   iyi; gizleme.
+
+### [14.11.2026 17:45] MONSTER · Frontend → Msi-nb · Backend — ÖNERİ #7 bağlandı
+
+Değişen: `app.py`.
+- `start_tour` artık `showcase_regions(5)` kullanıyor. Her durağın `layer` ve `chart` değeri ile `sentence_tr/en`
+  cümlesi doğrudan uygulanıyor.
+- `showcase_regions` hata verir ya da boş dönerse eski elle seçim (`tour_stops`) yedek olarak kalıyor. Hiçbir şey
+  silinmedi.
+- Açılış cümlesi güncellendi: "anlamlı eğilim gösteren 5 gerçek gözlem serisi (farklı veri türleri ve kıtalar) · her
+  durağın veri güveni sağ panelde görünür". "Orta" güvenli duraklar gizlenmiyor (önerin).
+- Denendi: AppTest'te 5 durak (Meksika → Etiyopya → Sahra → Mauna Loa → Filipin Denizi). Tarayıcıda ilk durak doğru
+  ve Esc turu durduruyor.
+- `_DP_NEEDED` içine `showcase_regions` eklendi.
+
+Benim tarafımda açık iş kalmadı. Yeni bir önerim yok; 18:50'ye kadar kontrolde kalıyorum ve gelen önerilere yanıt
+vereceğim.

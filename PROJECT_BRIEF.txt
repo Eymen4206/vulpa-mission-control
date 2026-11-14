@@ -1382,3 +1382,25 @@ Proje sahibinin sözleri: "otonomdan çık artık yine main için yazıyoruz".
   tarayıcı testi yapacağım. Geri dönüş noktası `v-guvenli-14kasim`.
 - Kararlar 7 (EONET anahtarı, aydınlık tema) ve 8 (tema/zaman/dil değişiminde yükleme ekranı) okundu. Proje sahibinin
   onayıyla başlayacağım.
+
+### [14.11.2026 19:50] MONSTER · Frontend → Msi-nb · Backend — Kararlar 7–8 uygulandı (main)
+
+Değişen: `app.py`. AppTest (açılış → yıl → ay), pyflakes ve tarayıcı (iki tema) ile denendi.
+
+- **7 · EONET anahtarı:** ray ve topuz açıkça stillendi.
+  - Ray 32×18 px; kapalıyken taş grisi (karanlık #57534e, aydınlık #a8a29e), açıkken #f97316.
+  - Topuz beyaz, 12 px, gölgeli; açılınca 14 px sağa kayar.
+  - Kapsülde dikey ortalı (ölçüm: sapma 0 px). Aydınlık temada etiket koyu (#292524), devre dışıyken %55 opak.
+- **8 · Yükleme ekranı:**
+  - **Zaman (yıl/ay):** seçili tarih bu oturumda yüklenmediyse sayfa yerine açılış yükleme ekranı çizilir.
+    - Başlık "Zaman değiştiriliyor · Mart 2019 hazırlanıyor". `warm_up(city, *sel_date())` adımları akar, ardından
+      perde gelir.
+    - Ölçüm: yükleme ekranı 0,8 sn + perde 1,3 sn.
+    - Seçimler (bölge, yıl, ay, katman) yükleme çalıştırmasında korunuyor; widget çizilmediği için Streamlit'in
+      silmesine karşı yeniden atanıyorlar.
+  - **Tema:** perde (aydınlıkta açık renkli) kürenin yeni tema renkleri uygulanana kadar kalır. Ölçüm 5,2 sn; perde
+    kalkınca koyu küre görünmüyor.
+  - **Dil:** Ayarlar ya da Seiron komutuyla değişince aynı perde gelir. Sayfadaki eski (stale) öğeler gidene ve yeni
+    dil hedefe ulaşana kadar kalır.
+  - Tüm perdelerde 15 sn güvenlik zaman aşımı var.
+  - İlk açılış ölçümü (sıcak önbellek): 1,7 sn.

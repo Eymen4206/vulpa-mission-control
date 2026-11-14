@@ -885,3 +885,31 @@ Değişen: `app.py` (commit `1baeae0` ve hemen ardındaki düzeltme). Masaüstü
   - Katman planını `kind`'a göre seçeceğim: POWER/ERSST → termal, diğerleri klasik.
   - Bugünkü elle seçimde Amazon'un serisi AOD ve eğilimi belirgin değil (Sen ≈ 0). Vitrin için zayıf, bu yüzden #7
     gerçekten işe yarar. Bölge başına `chart` olarak "slope" ya da "tau" uygun.
+
+### [14.11.2026 17:35] Msi-nb · Backend → MONSTER · Frontend — ÖNERİ #7 hazır: `showcase_regions(n=5)`
+
+#3–#6 için teşekkürler; ham 15° değerini göstermen çok iyi olmuş. Değişen: `data_pipelines/showcase.py` (yeni),
+`__init__.py`, `README.md`.
+**`_DP_NEEDED` için yeni ad:** `showcase_regions`.
+
+- **Dönüş:**
+  - `[{"region", "kind", "family", "continent", "level"}]`
+  - `"layer": "thermal"|"classic"`: sıcaklık/okyanus ailesi → termal. Senin kind planınla aynı, hazır kullanabilirsin.
+  - `"chart": "slope"|"tau"`: |τ| ≥ 0,2 ise slope.
+  - `"sentence_tr"`, `"sentence_en"`, `"p"`, `"tau"`, `"per_decade"`, `"unit"`
+- **Seçim kuralı:**
+  - Gerçek seri ve p < 0,05; güçlü eğilim önce.
+  - Farklı veri aileleri ve kıtalar tercih edilir.
+  - Yeni bir aile (CO₂, okyanus) "medium" güvende bile aynı ailenin üçüncü sıcaklık bölgesine tercih edilir.
+  - Bu bölgelerin tek olumsuz ölçütü otokorelasyon (düzgün artan seriler için doğal).
+- **Bugünkü 5 durak:**
+  1. Meksika Vadisi: sıcaklık +0,47 °C/10 yıl
+  2. Etiyopya Yaylası: yağış +13,9 mm/10 yıl
+  3. Sahra: AOD −0,010/10 yıl (tau)
+  4. Mauna Loa: CO₂ +22,6 ppm/10 yıl
+  5. Filipin Denizi: SST +0,24 °C/10 yıl
+- Amazon artık seçilmiyor (eğilim anlamsız).
+- **Örnek cümle:** "Mauna Loa (Kuzey Pasifik): atmosferik karbondioksit (CO₂) 2000–2024 arasında on yılda 22,6 ppm arttı
+  (mevsimsel Mann-Kendall, p < 0,001, τ = +1,00)."
+- Rozet tutarlılığı için: turda "medium" bir durak geldiğinde veri güveni çipi zaten "orta" gösterecek. Bu şeffaflık için
+  iyi; gizleme.

@@ -414,3 +414,13 @@ Veri güveni rozeti. Ağ isteği yapmaz; hava ve POWER durumları Frontend'in el
   - Gerçek seride olumsuz ölçüt sayısına göre: 0 → `high`, 1 → `medium`, 2 ve üstü → `low`.
 - **Dönüş:** `{level, score, checks: [{key, ok, text_tr, text_en}], reasons_tr, reasons_en}`.
 - **Bugünkü dağılım** (hava ve POWER canlıyken): 20 high, 9 medium, 21 low.
+
+### `showcase_regions(n=5) -> list[dict]` (showcase.py, ÖNERİ #7)
+Jüri turu için vitrin bölgelerini seçer. Groq ve ağ isteği kullanmaz.
+- **Ön şart:** gerçek seri ve anlamlı eğilim (p < 0,05). Bölgeler güçlüden zayıfa (|z|) sıralanır.
+- **Çeşitlilik:** farklı veri aileleri (sıcaklık, su, hava, okyanus, karbon, buz) ve kıtalar tercih edilir.
+- **Gevşeme sırası:** kıta tekrarı → yeni aile için "medium" güven → aile tekrarı.
+- **Dönüş:** `[{region, kind, family, continent, level, layer: thermal|classic, chart: slope|tau, sentence_tr,
+  sentence_en, p, tau, per_decade, unit}]`.
+- **Bugünkü seçim:** Meksika Vadisi (sıcaklık), Etiyopya Yaylası (yağış), Sahra (AOD), Mauna Loa (CO₂), Filipin Denizi
+  (SST).

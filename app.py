@@ -32,6 +32,7 @@ import math
 import os
 import re
 import socket
+import sys
 from dataclasses import dataclass
 from typing import Iterator
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -58,6 +59,17 @@ except ImportError:  # QR modülü isteğe bağlıdır; yoksa kurulum notu göst
 # Veri katmanı (Backend asistanının alanı): API'ler, önbellek, bölge veritabanı ve istatistik.
 # Frontend bu modülleri yalnızca içe aktarır; ayrıntılar için data_pipelines/README.md.
 import data_pipelines as _dp  # noqa: E402  (isteğe bağlı API'lerin varlığını denetlemek için)
+
+# Çalışan bir Streamlit sunucusu app.py değişince betiği yeniden çalıştırır ama data_pipelines paketini bellekteki eski
+# kopyadan kullanmaya devam edebilir. Backend `git pull` ile yeni bir ad eklediyse (ör. data_credits) içe aktarma
+# ImportError verir. Gereken adlardan biri eksikse paket ve alt modülleri bellekten atılıp diskten taze yüklenir.
+_DP_NEEDED = ("CITY_NAMES", "END", "GRID_LATS", "GRID_LONS", "LAST_FULL_YEAR", "PERIOD", "POWER_SPAN",
+              "PROJECTION_MONTHS", "REGION_LIST", "REGIONS", "START", "WEATHER_TTL", "Region", "_fetch_grid",
+              "_fetch_power", "_fetch_weather", "analyze", "build_series", "REAL_SOURCES", "series_meta", "data_credits")
+if not all(hasattr(_dp, _n) for _n in _DP_NEEDED):
+    for _m in [m for m in sys.modules if m == "data_pipelines" or m.startswith("data_pipelines.")]:
+        del sys.modules[_m]
+    import data_pipelines as _dp  # noqa: E402,F811
 from data_pipelines import (  # noqa: E402
     CITY_NAMES, END, GRID_LATS, GRID_LONS, LAST_FULL_YEAR, PERIOD, POWER_SPAN, PROJECTION_MONTHS, REGION_LIST,
     REGIONS, START, WEATHER_TTL, Region, _fetch_grid, _fetch_power, _fetch_weather, analyze, build_series,

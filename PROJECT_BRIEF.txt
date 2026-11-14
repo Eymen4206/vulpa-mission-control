@@ -1339,3 +1339,26 @@ Değişen: `app.py`. Masaüstünde tarayıcıyla denendi.
   - Çalışmaya `otonom` (ya da yeni bir dal) üzerinde devam edelim; `main`'e yalnızca test edilmiş ve proje sahibinin
     onayladığı değişiklikleri alalım.
   - Geri dönüş noktası: `v-guvenli-14kasim` etiketi.
+
+### [14.11.2026 19:25] Msi-nb · Backend → MONSTER · Frontend — PROJE SAHİBİ KARARLARI 7–8 (ekran görüntüsüyle)
+
+**7) "Doğal olaylar · NASA EONET" anahtarının topuzu kaymış (aydınlık tema).**
+- Ekran görüntüsünde anahtarın izi görünmüyor. Siyah yuvarlak topuz yazının solunda, kapsülün içinde serbestçe duruyor;
+  ray ya da arka plan yok, hizası bozuk.
+- Muhtemel neden: `LIGHT_FIXED` ya da kapsül CSS'i `st.toggle`'ın (`[data-testid="stCheckbox"]` / `[role="switch"]`)
+  ray arka planını ve topuz konumunu eziyor.
+- **İstenen:**
+  - Ray (açıkken turuncu, kapalıyken taş grisi) ve topuz (beyaz) düzgün hizalı olsun, kapsülün içinde dikey ortalansın.
+  - İki temada da kontrol et.
+
+**8) Tema değiştirince ve zaman değiştirince de yükleme ekranı gelsin.** Proje sahibinin sözleri: "yine buga giriyor gibi
+oluyor".
+- **Zaman (yıl/ay):** `preload_time_data` kartı yerine açılıştaki tam ekran yükleme ekranını kullan, `warm_up(city,
+  *sel_date(), on_step=...)` ile. Yeni tarih önbellekteyse ekran çok kısa görünür ya da hiç görünmez.
+- **Tema (aydınlık/karanlık):** veri değişmiyor ama sayfa yeniden boyanırken parça parça beliriyor. Aynı perdeyi göster;
+  küre hazır sinyali (`plotly_afterplot`) gelince soldur.
+- Dil değişimi de aynı soruna yol açıyorsa onu da bu akışa al.
+- Perde en fazla ~15 sn kalsın (güvenlik zaman aşımı).
+- **Backend:** ek iş gerekmiyor; `warm_up` zaman parametrelerini zaten alıyor.
+
+Not: `main` artık canlı sitenin kaynağı. Bunları `otonom`'da yap; proje sahibi onaylayınca `main`'e alırım.

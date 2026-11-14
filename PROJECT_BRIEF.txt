@@ -1744,3 +1744,39 @@ Testler: pyflakes temiz; AppTest açılış ve "Sistemi Başlat" sonrası hatas�
   İstersen bir eşleme yardımcı fonksiyonu yazarım, söyle.
 
 Planın arayüz tarafı tamamen sende. "AŞAMA X ARAYÜZDE" yazdıkça AppTest ile doğrulayacağım.
+
+### [14.11.2026 21:20] MONSTER · Frontend → Msi-nb · Backend — AŞAMA A ARAYÜZDE (madde 1, 2, 5, 6, 7)
+
+Değişen: `app.py`. AppTest (değişken, nokta, okyanus, geri dönüş, yıl değişimi, 8 Seiron komutu) ve tarayıcıyla
+(masaüstü, mobil, iki tema) denendi. Bayraklar: `FEATURE_VARIABLES = True`, `FEATURE_POINT = True`.
+
+- **1 · Değişken seçici:** bölge panelinde hava kartının altında "Analiz edilen değişken".
+  - Seçenekler: "Tema serisi · …" ve 15 değişken, `category_name · name (unit)` biçiminde.
+  - Altında `definition` + `why` satırı (ⓘ simgeli).
+  - Seçim değişince p, τ, yön, Sen ve on yıllık kutuları, yöntem tablosu, zaman serisi grafiği, sonuç cümlesi ve kaynak
+    bu değişkene göre güncelleniyor. Kutulara ve "Büyüt"e tıklayınca değişkenin grafiği açılıyor.
+  - Seçim `bound()` ile kalıcı: nokta modu ve yıl değişimi sırasında kaybolmuyor.
+- **2 · Nokta analizi:** sağ panelin üstünde koordinat kutusu ve "kürede seç" düğmesi (hedef simgesi).
+  - Seç modu açıkken küreye sürüklemeden tıklayınca tıklanan yerin enlem/boylamı kutuya yazılıp gönderiliyor.
+    Kürede imleç artı biçiminde.
+  - Nokta panelinde başlık `label_*`, kara/deniz bilgisi, "Bölgeye dön" düğmesi, değişken seçici (varsayılan T2M;
+    `available_keys` dışındakiler "bu noktada yok" ile işaretli), kutular, yöntem tablosu, grafik ve Giovanni var.
+  - Kürede seçili halka ve etiket noktaya taşınıyor ("35,0°K 42,3°D"); kamera noktaya uçuyor.
+  - `available=False` → `reason` bilgi kutusunda gösteriliyor (ör. okyanusta toprak nemi).
+- **5 · Yöntem karşılaştırması:** tablo `Mann-Kendall + Sen | t-testi (n_eff)`. Sütunlar: eğim / 10 yıl, p, anlamlı ✓/✗.
+  Altında %95 GA ve `agree` cümlesi; yöntemler ayrışırsa kehribar renkte açıklama.
+  - Tema serisi seçiliyken tablo `trend_tests(city)`'den geliyor.
+- **6 · Gereken yıl:** `years_to_significance.significant_now` False ise tablonun altında `sentence_*`.
+- **7 · Giovanni:** değişken ya da nokta grafiğinin altında ve büyük pencerede "NASA Giovanni’de doğrula ↗" + "ücretsiz
+  NASA Earthdata hesabı gerekebilir". `giovanni_url` None ise gizli.
+- **Seiron:**
+  - "toprak nemine bak", "show evaporation", "yağışı göster", "tema serisine geç" → değişken.
+  - "41 29 noktasını analiz et", "analyze point 35N 139E" → nokta.
+  - Soru cümleleri (?) dokunulmadan dil modeline gidiyor.
+- **Grafik notu:** `chart.traces[0].x` "YYYY-MM" metin, diğer izler sayısal yıl. Plotly ekseni sayısal kurunca aylık
+  seri kayboluyordu. Arayüzde ayın ortasına (kesirli yıl) çevirerek çözdüm; senden değişiklik gerekmiyor.
+- `_DP_NEEDED`: `variable_catalog`, `variable_analysis`, `describe_point`, `trend_tests`.
+- **Bilinen sınır:** mobilde "kürede seç" düğmesi var ama küre başka sekmede. Seçip "3D Küre" sekmesine geçince
+  çalışır; koordinat girişi her yerde çalışıyor.
+
+Aşama B (trend haritası) hazır olunca bağlıyorum.

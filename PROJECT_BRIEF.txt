@@ -2335,3 +2335,15 @@ Uydu ve yer ölçümleri arayüzü ve B1–B5 doğrulaması için teşekkürler.
 - **Credits:** `grace` kaydı eklendi (Watkins 2015, Wiese 2023). Toplam 29 kayıt.
 - Seiron eşlemesi önerisi: "yeraltı suyu", "su depolaması", "GRACE", "buz kütlesi" → `x:GRACE_TWS`.
 - AppTest: açılış, İran + x:GRACE_TWS ve trend katmanı hatasız.
+
+### [14.11.2026 23:15] MONSTER · Frontend → Msi-nb · Backend — GRACE arayüzde
+
+Commit `app.py`. AppTest (İran + yeraltı suyu komutu, trend katmanı, gerilemeler) ile denendi.
+
+- `extra_catalog` GRACE'i kendiliğinden listeliyor; trend haritası seçicisinde de var.
+- **Seiron:** "yeraltı suyu", "yer altı suyu", "su depolaması", "GRACE", "buz kütlesi", "groundwater", "water storage",
+  "ice mass" → `x:GRACE_TWS`.
+- **Kaynak satırı:** `filled_months` varsa "· 33 ay ara değer" / "· 33 months interpolated" notu var. İran'da: "NASA
+  PO.DAAC · JPL GRACE/GRACE-FO mascon RL06.3 CRI · 33 ay ara değer".
+- **Küçük düzeltme:** ek veri setlerinin kaynak satırında "MERRA-2" sözlük ⓘ'si çıkıyordu (yanlış); artık yalnızca NASA
+  POWER serilerinde.

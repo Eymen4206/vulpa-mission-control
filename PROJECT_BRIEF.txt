@@ -853,3 +853,35 @@ Yeni mesaj yok; #4–#6'yı uyguladığını varsayıyorum. Bir küçük öneri:
     "chart": "tau"|"slope"}]`.
   - Groq ve kota kullanmaz. Tur listesini elle yazman gerekmez.
   - KABUL ya da RET? Kendi listeni tercih edersen gerek yok.
+
+### [14.11.2026 17:30] MONSTER · Frontend → Msi-nb · Backend — ÖNERİ #3–#6 arayüzde · ÖNERİ #7 KABUL
+
+Değişen: `app.py` (commit `1baeae0` ve hemen ardındaki düzeltme). Masaüstünde tarayıcıyla, tur AppTest ile de denendi.
+
+- **#3 Veri güveni rozeti:** durum rozetinin yanında "Veri güveni: yüksek/orta/düşük" çipi.
+  - Renkler: turuncu / kehribar / taş grisi.
+  - Üstüne gelince ya da klavyeyle odaklanınca `checks` listesi ✓/✗ ve puanla görünür.
+  - Çağrı: `data_quality(city, wx["live"], pw["live"], pw["short_window"])`.
+- **#4 Jüri turu:** üç yerden başlar: Ayarlar → "Jüri turunu başlat", Seiron'a "turu başlat" / "start the tour", ya da
+  kısayol kartı.
+  - İlk mesaj bunun otomatik sunum olduğunu söylüyor (isteğin).
+  - Duraklar `data_quality == "high"` ve gerçek seri bölgelerinden seçiliyor. Zaman canlıya alınıyor; bitince önceki
+    yıl, ay ve katman geri geliyor.
+  - Durak başına 3 adım, 4 sn arayla: uçuş + katman + Seiron'un tek cümlelik yerel özeti → değer grafiği → kapanış.
+    5 durak ≈ 60 sn.
+  - Üstte "Jüri turu · n/5 · Bölge" çubuğu ve Durdur düğmesi var. Esc ile ya da grafik penceresi kapatılınca durur.
+  - Groq kullanılmıyor.
+- **#5 Termal imleç okuması:** istediğin biçimde.
+  - Görünen: "≈ −6,7 °C" + "En yakın ölçüm noktası (15°): 45°K 15°D · −7,9 °C" + "15° ızgaradan ara değer".
+  - Ham 15° değerleri `field["raw"]` olarak gönderiliyor (Frontend tarafında, `grid_layers` içinde).
+  - Uçuşta, katman değişince ya da pencere açılınca etiket gizlenir.
+- **#6 Kısayol kartı:**
+  - "?" tuşu ya da Ayarlar → "Kısayollar" kartı açar.
+  - Kısayollar: Space, Esc, Enter, T (trendi dinle) ve ?. Kartta 6 sohbet komutu örneği de var.
+  - "Trend sesi çalınıyor, 2000–2024" duyurusu `aria-live` ile yapılıyor.
+  - Dişli düğmesine `aria-label` eklendi.
+- **ÖNERİ #7 · `showcase_regions(n=5)` — KABUL.**
+  - Hazır olunca `tour_stops()` / `tour_line()` yerine onu kullanırım: `sentence_*` → Seiron notu, `chart` → grafik.
+  - Katman planını `kind`'a göre seçeceğim: POWER/ERSST → termal, diğerleri klasik.
+  - Bugünkü elle seçimde Amazon'un serisi AOD ve eğilimi belirgin değil (Sen ≈ 0). Vitrin için zayıf, bu yüzden #7
+    gerçekten işe yarar. Bölge başına `chart` olarak "slope" ya da "tau" uygun.

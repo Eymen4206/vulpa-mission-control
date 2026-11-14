@@ -124,6 +124,35 @@ def L(tr: str, en: str) -> str:
     return en if lang() == "en" else tr
 
 
+THEMES = ("dark", "light")
+
+
+def theme() -> str:
+    """Etkin tema: 'dark' (VULPA'nın kömür grisi cam görünümü) ya da 'light' (aynı oranlar, açık zemin)."""
+    try:
+        value = st.session_state.get("theme", "dark")
+    except Exception:
+        value = "dark"
+    return value if value in THEMES else "dark"
+
+
+def bound(widget, state_key: str, **kwargs):
+    """Kalıcı bir durum anahtarına bağlı widget çizer.
+
+    Streamlit, bir widget'ın anahtarını o çalıştırmada çizilmediyse siler. Ayarlar modalı kapalıyken dil, tema ve
+    Groq ayarlarının kaybolmaması için widget ayrı bir anahtar (w_<ad>) kullanır, değeri on_change ile kalıcı
+    anahtara yazılır ve her çizimden önce kalıcı anahtardan yüklenir.
+    """
+    wkey = f"w_{state_key}"
+    if state_key in st.session_state:
+        st.session_state[wkey] = st.session_state[state_key]
+
+    def sync() -> None:
+        st.session_state[state_key] = st.session_state[wkey]
+
+    return widget(key=wkey, on_change=sync, **kwargs)
+
+
 def sel_year() -> int:
     """Seçili tarihsel yıl; 0 = canlı veri."""
     try:
@@ -2239,9 +2268,10 @@ div:has(> .st-key-loading_overlay:not(:has([data-testid="stSpinner"]))) { displa
   padding: .32rem .75rem; cursor: pointer; backdrop-filter: blur(14px); white-space: nowrap; line-height: 1.2; }
 .vp-credits-btn:hover, .vp-credits-btn:focus-visible { border-color: var(--orange); color: #fff7ed;
   box-shadow: 0 0 14px rgba(249,115,22,.35); outline: none; }
+.st-key-credits .vp-credits { display: none !important; }   /* görünen kopya gövdede (bkz. JS) */
 .st-key-credits, div:has(> .st-key-credits) { position: absolute !important; width: 0 !important; height: 0 !important;
   margin: 0 !important; padding: 0 !important; }
-.vp-credits { position: fixed; inset: 0; z-index: 3000; display: flex; justify-content: center;
+.vp-credits { position: fixed; inset: 0; z-index: 2147483000; display: flex; justify-content: center;
   background: rgba(12,10,9,.55); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   transform: translateY(-100%); visibility: hidden;
   transition: transform .8s cubic-bezier(.22,.8,.24,1), visibility 0s linear .8s; }
@@ -2277,6 +2307,21 @@ html.vp-credits-open .vp-credits { transform: translateY(0); visibility: visible
   color: #d6d3d1; background: rgba(249,115,22,.07); border: 1px solid var(--line); }
 .m-right { display: inline-flex; align-items: center; gap: .45rem; }
 @media (max-width: 640px) { .vp-credits-panel { padding: 18px 16px 32px; } .vp-credits-title { font-size: 1.35rem; } }
+/* ── Ayarlar: dişli düğmesi ve modal bölümleri ─────────────────────────────── */
+.st-key-gear button { width: 34px; height: 34px; min-height: 34px !important; padding: 0 !important; border-radius: 50% !important;
+  background: rgba(28,25,23,.62) !important; border: 1px solid var(--line-strong) !important; backdrop-filter: blur(14px);
+  color: #fed7aa !important; }
+.st-key-gear button:hover { border-color: var(--orange) !important; color: var(--orange) !important;
+  box-shadow: 0 0 14px rgba(249,115,22,.35); }
+.st-key-gear button span[data-testid="stIconMaterial"] { font-size: 1.15rem; }
+.set-sec { display: flex; align-items: center; gap: .45rem; font-size: .74rem; font-weight: 600; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--orange); margin: .9rem 0 .35rem; padding-top: .55rem;
+  border-top: 1px solid var(--line); }
+.set-sec:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+.set-lbl { font-size: .78rem; color: #d6d3d1; margin: .35rem 0 .15rem; }
+.set-about { display: flex; align-items: center; gap: .6rem; font-size: .78rem; color: var(--muted); }
+div[role="dialog"]:has(.set-sec) { background: rgba(20,17,15,.92); backdrop-filter: blur(14px);
+  border: 1px solid var(--line-strong); }
 </style>
 """
 
@@ -2385,7 +2430,7 @@ div:has(> .st-key-seiron_msgs) { height: 100% !important; min-height: 0 !importa
 .seiron-name { font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 1.12rem; color: var(--text); }
 .seiron-name span { color: var(--orange); }
 .seiron-name { display: flex; align-items: center; gap: .45rem; }
-.seiron-name svg { flex: none; filter: drop-shadow(0 0 6px rgba(249,115,22,.45)); }
+.seiron-name svg, .seiron-name img { flex: none; filter: drop-shadow(0 0 6px rgba(249,115,22,.45)); }
 .seiron-mode { font-size: .7rem; color: var(--muted); }
 .st-key-left_panel [data-testid="stCaptionContainer"] p { font-size: .68rem !important; }
 .st-key-suggestions button { border-radius: 999px !important; border: 1px solid var(--line-strong) !important;
@@ -2460,7 +2505,7 @@ div:has(> .stHtml .globe-ctl), .stHtml:has(.globe-ctl) { position: static !impor
 .seiron-name { font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 1.08rem; color: var(--text); }
 .seiron-name span { color: var(--orange); }
 .seiron-name { display: flex; align-items: center; gap: .45rem; }
-.seiron-name svg { flex: none; filter: drop-shadow(0 0 6px rgba(249,115,22,.45)); }
+.seiron-name svg, .seiron-name img { flex: none; filter: drop-shadow(0 0 6px rgba(249,115,22,.45)); }
 .seiron-mode { font-size: .7rem; color: var(--muted); }
 .st-key-suggestions button { border-radius: 999px !important; border: 1px solid var(--line-strong) !important;
   background: rgba(249,115,22,.06) !important; color: #fed7aa !important; min-height: 1.7rem !important; }
@@ -2504,46 +2549,27 @@ VULPA_LOGO = """
 """
 
 
-# Seiron amblemi: referans baykuş (kulak tüyleri, iri gözler, V gaga) VULPA kurduyla aynı dilde yeniden çizildi:
-# keskin poligonlar, kristal turuncu fasetler, gözlerin üstünü kesen çatık kaş (ciddi, gülümsemeyen ifade).
-SEIRON_LOGO = """
-<svg viewBox="0 0 120 120" width="{size}" height="{size}" role="img" aria-label="Seiron baykuş amblemi">
-  <defs>
-    <linearGradient id="sg{uid}" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#fed7aa"/><stop offset=".3" stop-color="#fb923c"/>
-      <stop offset=".65" stop-color="#ea580c"/><stop offset="1" stop-color="#7c2d12"/>
-    </linearGradient>
-    <filter id="sf{uid}" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="1.3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-  </defs>
-  <path d="M16 6 L42 30 L60 25 L78 30 L104 6 L101 44 L110 62 L102 84 L86 102 L60 115 L34 102 L18 84 L10 62 L19 44 Z"
-        fill="url(#sg{uid})" stroke="#fed7aa" stroke-opacity=".45" stroke-width=".8" stroke-linejoin="miter"/>
-  <path d="M60 25 L50 39 L60 43 Z M42 30 L50 39 L36 41 Z M78 30 L70 39 L84 41 Z" fill="#fff7ed" opacity=".28"/>
-  <path d="M19 44 L10 62 L22 60 Z M101 44 L110 62 L98 60 Z M18 84 L34 102 L30 86 Z M102 84 L86 102 L90 86 Z"
-        fill="#1c1917" opacity=".3"/>
-  <path d="M22 50 L42 40 L60 47 L78 40 L98 50 L99 68 L85 84 L60 92 L35 84 L21 68 Z" fill="#1c1917" opacity=".62"/>
-  <path d="M25 64 L42 47 L58 64 L42 81 Z M62 64 L78 47 L95 64 L78 81 Z" fill="#0c0a09"/>
-  <path d="M31 64 L42 53 L53 64 L42 75 Z M67 64 L78 53 L89 64 L78 75 Z" fill="#fde68a" filter="url(#sf{uid})"/>
-  <path d="M37.5 64 L42 59.5 L46.5 64 L42 68.5 Z M73.5 64 L78 59.5 L82.5 64 L78 68.5 Z" fill="#0c0a09"/>
-  <path d="M20 47 L56 58 L60 64 L64 58 L100 47 L99 54 L65 64 L60 71 L55 64 L21 54 Z" fill="#0c0a09" opacity=".95"/>
-  <path d="M55 72 L65 72 L60 91 Z" fill="#0c0a09"/>
-  <path d="M60 72 L65 72 L60 91 Z" fill="#fdba74" opacity=".35"/>
-  <path d="M38 94 L60 102 L82 94 L60 107 Z" fill="#431407" opacity=".45"/>
-</svg>
-"""
-
-
-def seiron_logo(size: int, uid: str) -> str:
-    return SEIRON_LOGO.replace("{size}", str(size)).replace("{uid}", uid)
+# Seiron amblemi: proje sahibinin gönderdiği geometrik baykuş çizimi; şekli birebir korunur, yalnızca tonlama VULPA
+# kurt amblemiyle aynı gradyana çekilmiştir (#fdba74 → #ea580c → #7c2d12, yukarıdan aşağı). Şeffaf PNG (128×128).
+SEIRON_LOGO_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "components", "assets", "seiron_logo.png")
 
 
 @functools.lru_cache(maxsize=1)
 def seiron_avatar() -> str:
-    """Sohbet balonları için Seiron amblemi (st.chat_message avatar'ı; data URI)."""
+    """Seiron amblemi (data URI). Sohbet balonu avatarı ve başlık görseli olarak kullanılır."""
     import base64
-    svg = seiron_logo(64, "av").strip().replace('width="64" height="64" ', 'width="64" height="64" xmlns="http://www.w3.org/2000/svg" ')
-    return "data:image/svg+xml;base64," + base64.b64encode(svg.encode("utf-8")).decode("ascii")
+    try:
+        with open(SEIRON_LOGO_PATH, "rb") as fh:
+            return "data:image/png;base64," + base64.b64encode(fh.read()).decode("ascii")
+    except OSError:   # görsel yoksa arayüz çökmesin
+        return "🦉"
+
+
+def seiron_logo(size: int, uid: str = "") -> str:
+    src = seiron_avatar()
+    if not src.startswith("data:"):
+        return src
+    return f"<img class='seiron-logo' src='{src}' width='{size}' height='{size}' alt='Seiron'>"
 
 
 def logo(size: int, uid: str) -> str:
@@ -2794,9 +2820,25 @@ GLOBE_CONTROLLER_JS = """
       const t = e.target;
       if (t.closest && t.closest(".vp-credits-btn")) {
         e.preventDefault();
-        const panel = document.querySelector(".vp-credits-panel");
-        if (panel) panel.scrollTop = 0;
-        root.classList.add("vp-credits-open");
+        // Uygulama içindeki panel, transform taşıyan ana kabın yığın bağlamında kalır ve Streamlit modallarının
+        // (Ayarlar) altında görünür. Bu yüzden güncel içeriğin bir kopyası doğrudan belge gövdesine eklenir;
+        // Streamlit'in kendi düğümlerine dokunulmaz. Kopya kapalı konumda eklenir, sınıf bir sonraki karede
+        // açılır ki iniş animasyonu oynasın.
+        document.querySelectorAll("body > .vp-credits").forEach(function(n) { n.remove(); });
+        const src = document.querySelector(".st-key-credits .vp-credits");
+        if (src) {
+          const copy = src.cloneNode(true);
+          copy.removeAttribute("id");
+          document.body.appendChild(copy);
+          // Streamlit modalı açıkken gövdedeki öğeleri "inert" yapar (tıklama/kaydırma kapanır); kopya için kaldırılır.
+          copy.inert = false;
+          new MutationObserver(function() { if (copy.inert) copy.inert = false; })
+            .observe(copy, {attributes: true, attributeFilter: ["inert"]});
+          const panel = copy.querySelector(".vp-credits-panel");
+          if (panel) panel.scrollTop = 0;
+          void copy.offsetHeight;
+        }
+        requestAnimationFrame(function() { root.classList.add("vp-credits-open"); });
       } else if (isOpen() && t.closest && (t.closest(".vp-credits-close") || t.classList.contains("vp-credits")
                                           || t.classList.contains("vp-credits-panel"))) {
         close();                                   // kapatma düğmesi ya da kartların dışındaki boş alan
@@ -3057,6 +3099,19 @@ GLOBE_CONTROLLER_JS = """
           }
           gd.setAttribute("data-layer", T.layer);
         }
+        if (gd.__vpTheme !== (T.theme || "dark")) {               // tema: küre renkleri yerinde değişir
+          gd.__vpTheme = T.theme || "dark";
+          const light = gd.__vpTheme === "light";
+          await P().relayout(gd, light ? {
+            "geo.oceancolor": "#efe9e2", "geo.landcolor": "#fbf8f4", "geo.countrycolor": "rgba(194,65,12,0.22)",
+            "geo.coastlinecolor": "rgba(234,88,12,0.65)", "geo.lataxis.gridcolor": "rgba(234,88,12,0.10)",
+            "geo.lonaxis.gridcolor": "rgba(234,88,12,0.10)", "hoverlabel.bgcolor": "#ffffff",
+            "hoverlabel.font.color": "#1c1917"} : {
+            "geo.oceancolor": "#15110e", "geo.landcolor": "#2b231d", "geo.countrycolor": "rgba(251,191,36,0.13)",
+            "geo.coastlinecolor": "rgba(249,115,22,0.5)", "geo.lataxis.gridcolor": "rgba(249,115,22,0.06)",
+            "geo.lonaxis.gridcolor": "rgba(249,115,22,0.06)", "hoverlabel.bgcolor": "#1c1917",
+            "hoverlabel.font.color": "#f5f5f4"});
+        }
         if (T.layer !== "classic") await sizeField(gd);
         tag(gd);
       }
@@ -3087,7 +3142,7 @@ def globe_controller(city: str, cam: dict, layer: str) -> None:
     target = {"nonce": f"{city}|{camera_key(cam)}", "camera": cam, "index": CITY_NAMES.index(city),
               "count": len(CITY_NAMES), "name": rname(city), "lon0": spec.lon, "lat0": spec.lat, "lang": lang(),
               "layer": layer, "visibility": layer_visibility(layer), "data": layer_payload(),
-              "zoom": [MIN_SCALE, MAX_SCALE]}
+              "zoom": [MIN_SCALE, MAX_SCALE], "theme": theme()}
     # Streamlit st.html içeriğini DOMPurify ile temizler; metninde "<b>" gibi etiket benzeri parçalar bulunan
     # <script> öğelerini tamamen siler. Bu yüzden JSON içindeki "<" karakterleri < olarak kaçırılır
     # (JavaScript için anlamı aynıdır).
@@ -3157,7 +3212,7 @@ def build_chart(df: pd.DataFrame, spec: Region, r: dict) -> go.Figure:
     n_month, n_roll, n_sen, n_proj = (("Monthly", "12-month mean", "Sen slope", "2034 projection") if lang() == "en"
                                       else ("Aylık veri", "12 ay ortalama", "Sen eğilimi", "2034 projeksiyonu"))
     fig.add_trace(go.Scatter(x=df["Tarih"], y=values, name=n_month, mode="lines",
-                             line={"color": "rgba(214,211,209,0.38)", "width": 1},
+                             line={"color": "rgba(68,64,60,0.35)" if theme() == "light" else "rgba(214,211,209,0.38)", "width": 1},
                              hovertemplate=hv + f"<extra>{n_month}</extra>"))
     fig.add_trace(go.Scatter(x=df["Tarih"], y=rolling, name=n_roll, mode="lines",
                              line={"color": AMBER, "width": 2}, hovertemplate=hv + f"<extra>{n_roll}</extra>"))
@@ -3176,10 +3231,11 @@ def build_chart(df: pd.DataFrame, spec: Region, r: dict) -> go.Figure:
             "tickfont": {"size": 9, "color": MUTED}}
     fig.update_layout(
         height=230, hovermode="x unified", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-        font={"family": "Inter, sans-serif", "color": "#d6d3d1", "size": 10},
+        font={"family": "Inter, sans-serif", "color": "#44403c" if theme() == "light" else "#d6d3d1", "size": 10},
         margin={"l": 36, "r": 6, "t": 26, "b": 22},
         legend={"orientation": "h", "yanchor": "bottom", "y": 1.0, "x": 0, "font": {"size": 9, "color": MUTED}},
-        hoverlabel={"bgcolor": "#1c1917", "bordercolor": ORANGE, "font": {"color": TEXT, "size": 11}},
+        hoverlabel={"bgcolor": "#ffffff" if theme() == "light" else "#1c1917", "bordercolor": ORANGE,
+                    "font": {"color": "#1c1917" if theme() == "light" else TEXT, "size": 11}},
         xaxis=axis, yaxis=axis,
     )
     return fig
@@ -3194,6 +3250,7 @@ def start_system() -> None:
 
 def render_splash() -> None:
     st.markdown(SPLASH_CSS, unsafe_allow_html=True)
+    theme_css(SPLASH_CSS)
     with st.container(key="splash"):
         html_block(f"""
         <div class="splash-logo"><div class="ring"></div><div class="ring r2"></div>{logo(92, "s")}</div>
@@ -3244,8 +3301,8 @@ def year_label(y: int) -> str:
 
 def render_lang_control() -> None:
     """TR / EN dil seçici (anında uygulanır)."""
-    st.segmented_control(L("Dil", "Language"), list(LANGS), key="lang", required=True, format_func=LANGS.get,
-                         label_visibility="collapsed")
+    bound(st.segmented_control, "lang", label=L("Dil", "Language"), options=list(LANGS), required=True,
+          format_func=LANGS.get, label_visibility="collapsed")
 
 
 def month_label(m: int) -> str:
@@ -3327,10 +3384,174 @@ def render_credits() -> None:
         """)
 
 
+def open_settings() -> None:
+    st.session_state["settings_open"] = True
+
+
+def close_settings() -> None:
+    st.session_state["settings_open"] = False
+
+
+def render_gear() -> None:
+    """Sağ üstteki dişli: tüm ayarlar (tema, dil, Seiron AI, Credits) tek bir modalda."""
+    with st.container(key="gear", width="content"):
+        st.button(":material/settings:", key="gear_btn", on_click=open_settings, help=L("Ayarlar", "Settings"))
+
+
+def _settings_body() -> None:
+    key, source = resolve_api_key()
+    st.markdown(f"<div class='set-sec'>{L('Görünüm', 'Appearance')}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='set-lbl'>🌙 {L('Tema', 'Theme')} ☀️</div>", unsafe_allow_html=True)
+    bound(st.segmented_control, "theme", label=L("Tema", "Theme"), options=list(THEMES), required=True,
+          format_func=lambda t: L("🌙 Karanlık", "🌙 Dark") if t == "dark" else L("☀️ Aydınlık", "☀️ Light"),
+          label_visibility="collapsed")
+    st.markdown(f"<div class='set-lbl'>🌐 {L('Dil', 'Language')}</div>", unsafe_allow_html=True)
+    with st.container(key="lang_ctl", width="content"):
+        render_lang_control()
+
+    st.markdown(f"<div class='set-sec'>{seiron_logo(18, 'st')} Seiron AI</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='set-lbl'>{L('Groq API anahtarı', 'Groq API key')}</div>", unsafe_allow_html=True)
+    bound(st.text_input, "groq_key_input", label="Groq API", type="password", placeholder="gsk_…",
+          label_visibility="collapsed",
+          help=L("Anahtar yalnızca bu oturumda kullanılır.", "The key is used only in this session."))
+    st.caption(L(f"Anahtar etkin · kaynak: {source}", f"Key active · source: {source}") if key else
+               L("Anahtar yok; Seiron yerel analiz motoruyla yanıt verir.",
+                 "No key; Seiron answers with the local analysis engine."))
+    st.markdown(f"<div class='set-lbl'>{L('Model', 'Model')}</div>", unsafe_allow_html=True)
+    if st.session_state.get("groq_model") not in (GROQ_MODEL, GROQ_FALLBACK_MODEL):
+        st.session_state["groq_model"] = GROQ_MODEL
+    bound(st.selectbox, "groq_model", label="Model", options=[GROQ_MODEL, GROQ_FALLBACK_MODEL],
+          label_visibility="collapsed")
+
+    st.markdown(f"<div class='set-sec'>{L('Hakkında', 'About')}</div>", unsafe_allow_html=True)
+    html_block(f"<div class='set-about'>{credits_button()}<span>{L('Veri kaynakları ve atıflar', 'Data sources & attributions')}"
+               f"</span></div>")
+    # Dil ya da tema değiştiyse tüm sayfa yeniden çizilir (modal açık kalır: settings_open bayrağı).
+    if st.session_state.get("_applied") != (lang(), theme()):
+        st.rerun()
+
+
+def render_settings() -> None:
+    """Ayarlar modalı. Açık kaldığı sürece her tam çalıştırmada yeniden açılır; kapatınca bayrak iner."""
+    st.session_state["_applied"] = (lang(), theme())
+    if st.session_state.get("settings_open"):
+        st.dialog(L("Ayarlar", "Settings"), width="medium", on_dismiss=close_settings)(_settings_body)()
+
+
+# ── Aydınlık tema ────────────────────────────────────────────────────────────────────────────────────────
+# Koyu CSS'ten otomatik türetilir: yalnızca renk bildirimleri, özelliğin türüne göre açık karşılığına çevrilir
+# (cam arka planlar → beyaz cam, açık metinler → koyu taş tonları). Turuncu vurgu ve tüm ölçüler aynen kalır.
+_LIGHT_TEXT = {"#fed7aa": "#c2410c", "#fff7ed": "#1c1917", "#f5f5f4": "#1c1917", "#e7e5e4": "#292524",
+               "#d6d3d1": "#44403c", "#a8a29e": "#78716c", "#fde68a": "#b45309", "#fdba74": "#ea580c",
+               "#d9f99d": "#4d7c0f", "#fff": "#1c1917", "#ffffff": "#1c1917", "#fef3c7": "#92400e"}
+_LIGHT_BG = {"#0c0a09": "#ffffff", "#1c1917": "#ffffff", "#15110e": "#f4efe9", "#292524": "#f5f5f4"}
+_DARK_RGBA = re.compile(r"rgba\(\s*(?:28\s*,\s*25\s*,\s*23|12\s*,\s*10\s*,\s*9)\s*,\s*([.\d]+)\s*\)")
+_HEX = re.compile(r"#[0-9a-fA-F]{3,6}\b")
+
+
+def _light_decl(prop: str, value: str) -> str:
+    prop = prop.strip().lower()
+    if prop.startswith("background") or prop in ("box-shadow",):
+        value = _DARK_RGBA.sub(lambda m: f"rgba(255,255,255,{min(0.92, float(m.group(1)) + 0.12):.2f})", value)
+        return _HEX.sub(lambda m: _LIGHT_BG.get(m.group(0).lower(), m.group(0)), value)
+    if prop in ("color", "-webkit-text-fill-color", "fill", "caret-color"):
+        return _HEX.sub(lambda m: _LIGHT_TEXT.get(m.group(0).lower(), m.group(0)), value)
+    if prop.startswith("border") or prop == "outline":
+        return _DARK_RGBA.sub(lambda m: f"rgba(120,113,108,{m.group(1)})", value)
+    return value
+
+
+def _light_rules(css: str) -> str:
+    body = re.sub(r"/\*.*?\*/", "", css.replace("<style>", "").replace("</style>", ""), flags=re.S)
+    out, i, n = [], 0, len(body)
+    while i < n:
+        j = body.find("{", i)
+        if j < 0:
+            break
+        head = body[i:j].strip()
+        depth, k = 1, j + 1
+        while k < n and depth:
+            depth += {"{": 1, "}": -1}.get(body[k], 0)
+            k += 1
+        inner = body[j + 1:k - 1]
+        i = k
+        if head.startswith("@keyframes") or head.startswith("@import") or head.startswith("@font-face"):
+            continue
+        if head.startswith("@media") or head.startswith("@supports"):
+            sub = _light_rules(inner)
+            if sub:
+                out.append(f"{head} {{ {sub} }}")
+            continue
+        decls = []
+        for d in inner.split(";"):
+            if ":" not in d:
+                continue
+            prop, value = d.split(":", 1)
+            value = value.replace("!important", "").strip()
+            new = _light_decl(prop, value)
+            if new != value:
+                decls.append(f"{prop.strip()}: {new} !important")
+        if decls:
+            out.append(f"{head} {{ {'; '.join(decls)} }}")
+    return "\n".join(out)
+
+
+LIGHT_FIXED = """
+:root { --bg: #f6f3ef; --glass: rgba(255,255,255,.66); --line: rgba(234,88,12,.24); --line-strong: rgba(234,88,12,.45);
+  --text: #1c1917; --muted: #6b625b; }
+.stApp { background-color: var(--bg) !important; color: var(--text) !important;
+  background-image: radial-gradient(ellipse 60% 55% at 50% 55%, rgba(249,115,22,0.10), transparent 70%) !important; }
+[data-testid="stMarkdownContainer"], [data-testid="stCaptionContainer"], [data-testid="stWidgetLabel"] p,
+[data-testid="stChatMessage"] p, [data-testid="stChatMessage"] li, label, .stApp p { color: var(--text); }
+[data-testid="stCaptionContainer"] p { color: var(--muted) !important; }
+.brand .word, .m-brand .word, .splash .word, .vp-word { background-image: linear-gradient(180deg, #fb923c, #ea580c 55%, #9a3412) !important; }
+/* Streamlit bileşenleri (config.toml koyu temasını kullanır) */
+[data-baseweb="select"] > div, [data-baseweb="input"], [data-baseweb="input"] input, [data-baseweb="base-input"],
+[data-testid="stTextInput"] input, [data-testid="stChatInput"] > div, [data-testid="stChatInput"] textarea {
+  background-color: rgba(255,255,255,.85) !important; color: #1c1917 !important; border-color: rgba(234,88,12,.3) !important; }
+[data-baseweb="select"] svg, [data-testid="stChatInput"] button svg { color: #78716c !important; fill: #78716c !important; }
+[data-testid="stChatInput"] textarea::placeholder, [data-baseweb="input"] input::placeholder { color: #a8a29e !important; }
+[data-baseweb="popover"] ul, [data-baseweb="menu"], [role="listbox"] { background-color: #ffffff !important; }
+[role="option"] { color: #1c1917 !important; }
+[role="option"]:hover, [role="option"][aria-selected="true"] { background-color: rgba(249,115,22,.12) !important; }
+[data-testid="stDialog"] div:has(> [role="dialog"]), [data-testid="stDialog"] [role="dialog"] {
+  background-color: rgba(255,255,255,.94) !important; color: #1c1917 !important; }
+[data-testid="stDialog"] div:has(> [role="dialog"]) { border: 1px solid rgba(234,88,12,.28) !important;
+  box-shadow: 0 18px 50px rgba(28,25,23,.18) !important; }
+[data-testid="stDialog"] p, [data-testid="stDialog"] button[aria-label="Close"] svg { color: #1c1917 !important; }
+[data-testid="stSelectbox"] [role="group"], [data-testid="stSelectbox"] div:has(> input),
+[data-testid="stTextInputRootElement"], [data-testid="stTextInputField"], [data-testid="stTextInputRootElement"] input {
+  background-color: rgba(255,255,255,.88) !important; color: #1c1917 !important; }
+[data-testid="stTextInputRootElement"] button svg { color: #78716c !important; }
+[data-testid="stSelectbox"] [role="group"] *, [data-testid="stSelectbox"] div:has(> input) * { color: #1c1917 !important; }
+[data-testid="stSelectbox"] [role="group"] svg, [data-testid="stSelectbox"] div:has(> input) svg { color: #78716c !important; }
+[data-testid="stTextInputRootElement"], [data-testid="stSelectbox"] [role="group"],
+[data-testid="stSelectbox"] div:has(> input) { border-color: rgba(234,88,12,.3) !important; }
+[data-testid="stDialog"] [data-testid="stButtonGroup"] button { background-color: rgba(255,255,255,.85) !important;
+  color: #1c1917 !important; border-color: rgba(234,88,12,.3) !important; }
+[data-testid="stDialog"] [data-testid="stButtonGroup"] button[aria-checked="true"] {
+  background-color: rgba(249,115,22,.16) !important; border-color: var(--orange) !important; }
+[data-testid="stExpander"] summary, [data-testid="stExpander"] summary p { color: #1c1917 !important; }
+.stButton > button, [data-testid="stBaseButton-secondary"] { background-color: rgba(255,255,255,.7) !important;
+  color: #1c1917 !important; border-color: rgba(234,88,12,.3) !important; }
+[data-testid="stTabs"] button p { color: #44403c !important; }
+[data-testid="stTabs"] button[aria-selected="true"] p { color: #c2410c !important; }
+.stApp hr { border-color: rgba(234,88,12,.2) !important; }
+"""
+
+
+def theme_css(*blocks: str) -> None:
+    """Aydınlık temada, sayfanın CSS bloklarından türetilmiş açık renk kurallarını en sona ekler."""
+    if theme() != "light":
+        return
+    css = "\n".join(_light_rules(b) for b in (BASE_CSS, *blocks)) + LIGHT_FIXED
+    st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
+
+
 def render_topbar() -> None:
     with st.container(key="topbar"):
         # Geçmiş bir yılda ay/gün seçicileri de görünür: tarih sütunu genişler, bant (ticker) daralır.
-        widths = [1.3, 2.55, 1.3, 1.52, 1.07] if sel_year() else [1.3, 3.65, 1.3, 0.72, 1.07]
+        widths = [1.3, 3.1, 1.3, 1.52, 0.52] if sel_year() else [1.3, 4.2, 1.3, 0.72, 0.52]
         c1, c2, c3, c4, c5 = st.columns(widths, vertical_alignment="center", gap="small")
         with c1:
             html_block(f"""
@@ -3348,9 +3569,7 @@ def render_topbar() -> None:
             render_year_control()
         with c5, st.container(key="top_right", horizontal=True, gap="small", vertical_alignment="center",
                               horizontal_alignment="right"):
-            with st.container(key="lang_ctl", width="content"):
-                render_lang_control()
-            html_block(credits_button())
+            render_gear()
 
 
 SUGGESTIONS = ("Eğilim anlamlı mı?", "Hava şu an nasıl?", "Beni Amazon Havzası'na götür")
@@ -3452,21 +3671,10 @@ def render_seiron(city: str, mobile: bool = False) -> None:
     key, source = resolve_api_key()
 
     with st.container(key="mobile_seiron" if mobile else "left_panel"):
-        head_l, head_r = st.columns([3, 1.3], vertical_alignment="center")
-        with head_l:
-            html_block(f"""
-            <div class="seiron-name">{seiron_logo(28, "hd")}<span>Seiron</span></div>
-            <div class="seiron-mode">{(L('Groq destekli', 'Groq-powered') if key else L('Yerel analiz motoru', 'Local analysis engine'))} · {L('iklim, hava ve ekosistem uzmanı', 'climate, weather & ecosystem expert')}</div>
-            """)
-        with head_r, st.popover(L("Ayarlar", "Settings"), width="stretch"):
-            st.markdown(L("**Groq API anahtarı**", "**Groq API key**"))
-            st.text_input("Groq API", key="groq_key_input", type="password", placeholder="gsk_…",
-                          label_visibility="collapsed",
-                          help=L("Anahtar yalnızca bu oturumda kullanılır.", "The key is used only in this session."))
-            st.caption(L(f"Anahtar etkin · kaynak: {source}", f"Key active · source: {source}") if key else
-                       L("Anahtar yok; Seiron yerel analiz motoruyla yanıt verir.",
-                         "No key; Seiron answers with the local analysis engine."))
-            st.selectbox("Model", [GROQ_MODEL, GROQ_FALLBACK_MODEL], key="groq_model")
+        html_block(f"""
+        <div class="seiron-name">{seiron_logo(28, "hd")}<span>Seiron</span></div>
+        <div class="seiron-mode">{(L('Groq destekli', 'Groq-powered') if key else L('Yerel analiz motoru', 'Local analysis engine'))} · {L('iklim, hava ve ekosistem uzmanı', 'climate, weather & ecosystem expert')}</div>
+        """)
         if not mobile:
             render_qr_module()
 
@@ -3674,6 +3882,7 @@ def preload_time_data() -> None:
 
 def render_mission_control() -> None:
     st.markdown(APP_CSS, unsafe_allow_html=True)
+    theme_css(APP_CSS)
     process_globe_selection()  # widget'lar çizilmeden önce: bölge değişikliği güvenle uygulanabilir
     city = init_city()
     preload_time_data()
@@ -3697,6 +3906,7 @@ def render_mission_control() -> None:
     with left:
         render_seiron(city)
     chat_autoscroll()
+    render_settings()
 
 
 MOBILE_UA = re.compile(r"Mobi|Android|iPhone|iPod|Windows Phone|Opera Mini", re.IGNORECASE)
@@ -3716,13 +3926,14 @@ def is_mobile() -> bool:
 def render_mobile() -> None:
     """Mini VULPA — telefonlar için sekmeli görünüm: 3D Küre · Seiron AI · Telemetri & QR."""
     st.markdown(MOBILE_CSS, unsafe_allow_html=True)
+    theme_css(MOBILE_CSS)
     process_globe_selection()
     city = init_city()
     preload_time_data()
     wx = fetch_weather()
     html_block(f"""
     <div class="m-head"><div class="m-brand">{logo(30, "m")}<span class="word">VULPA</span></div>
-    <span class="m-right"><span class="live">{time_label(wx)}</span>{credits_button()}</span></div>
+    <span class="m-right"><span class="live">{time_label(wx)}</span></span></div>
     {ticker_html()}
     """)
     render_credits()
@@ -3730,8 +3941,7 @@ def render_mobile() -> None:
                  format_func=lambda n: f"◎  {rname(n)} — {rarea(REGIONS[n])}")
     with st.container(key="m_controls", horizontal=True, gap="small", vertical_alignment="center"):
         render_year_control()
-        with st.container(key="lang_ctl", width="content"):
-            render_lang_control()
+        render_gear()
     tab_globe, tab_ai, tab_data = st.tabs([L("🌍 3D Küre", "🌍 3D Globe"), "🦉 Seiron AI",
                                            L("📊 Telemetri & QR", "📊 Telemetry & QR")])
     with tab_globe:
@@ -3758,6 +3968,7 @@ def render_mobile() -> None:
             city_details(city)
         render_qr_module(expanded=True)
     chat_autoscroll()
+    render_settings()
 
 
 def main() -> None:

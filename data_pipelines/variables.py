@@ -303,6 +303,13 @@ def analyze_values(values, start_year: int, unit: str = "", name: str = "") -> d
     res = mk.seasonal_test(a, period=12)
     per_year = float(res.slope)
     annual = a.reshape(years_n, 12).mean(axis=1)
+    sen_basis = "seasonal"
+    if per_year == 0.0:
+        # Kaba hassasiyetli verilerde (ör. NASA POWER toprak nemi 2 ondalık) aylar arası farkların medyanı tam 0'a
+        # yuvarlanabilir; yıllık ortalamalar daha ince çözünürlüklüdür. Sen eğimi bu durumda yıllık seriden alınır.
+        alt = float(mk.original_test(annual).slope)
+        if alt != 0.0:
+            per_year, sen_basis = alt, "annual"
     ci_low, ci_high = _sen_ci(annual)
     clim = a.reshape(years_n, 12).mean(axis=0)
     anom = a - np.tile(clim, years_n)                        # mevsimden arındırılmış (aylık anomali)
@@ -329,7 +336,7 @@ def analyze_values(values, start_year: int, unit: str = "", name: str = "") -> d
     return {"n": n, "years": years_n, "start_year": start_year, "end_year": start_year + years_n - 1,
             "mk": {"trend": res.trend, "p": float(res.p), "z": float(res.z), "tau": float(res.Tau), "significant": sig_mk},
             "sen": {"per_year": per_year, "per_decade": dec, "ci_low": ci_low * 10, "ci_high": ci_high * 10,
-                    "ci_unit": "per_decade"},
+                    "ci_unit": "per_decade", "basis": sen_basis},
             "ttest": {"slope_per_decade": float(lr.slope) * 10, "t": float(t_val), "p": p_t, "significant": sig_t,
                       "n_eff": round(n_eff, 1), "rho1": round(rho, 3)},
             # Aynı karar: ikisi de anlamlı (ve aynı yönde) ya da ikisi de anlamsız

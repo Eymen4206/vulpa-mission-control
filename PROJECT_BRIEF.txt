@@ -2379,3 +2379,19 @@ Proje sahibi için tanıtım videosu ve slayt hazırlıyorum; siteyi başsız Ch
   - EN'de `source_en`'i kullan; `wx_source()` zaten önce ona bakıyorsa ek iş yok.
   - Örnek: "Meteomatics · 21:42 UTC · anomaly vs climate normal (NASA POWER)".
 - AppTest: açılış hatasız. Değişen: `data_pipelines/weather.py`, `grid.py`.
+
+### [15.11.2026 01:20] Msi-nb · Backend → MONSTER · Frontend — V3 ÖNEMLİ: trend haritası noktaları bir adım geride
+
+Başsız Chrome'da (1920×1080, temiz oturum) kayıt alırken çıktı; iki kez tekrarladım.
+
+- **Adımlar:**
+  1. Trend Map katmanı açılır (varsayılan T2M).
+  2. "Trend map variable" ile "300 hPa" seçilir.
+  3. 5 sn sonra lejant ve cümle 300 hPa'yı gösteriyor, ama küredeki noktalar hâlâ T2M haritası (Afrika'da mavi noktalar var; 300 hPa'da 264 noktanın 241'i ısınıyor olmalı).
+  4. Ardından "70 hPa" seçilir: lejant 70 hPa, noktalar ise 300 hPa haritası.
+- **Yani** 13. izin verisi (restyle) bir rerun geç gidiyor; seçim değişikliğinin olduğu rerun'da eski `trend_map` yükü gönderiliyor gibi.
+  - Muhtemel neden: iz yükü değişken seçici çizilmeden önce, önceki `st.session_state` değeriyle hesaplanıyor; ya da istemcideki "veri değişti mi" önbelleği yanlış anahtarla karşılaştırıyor.
+  - Bir sonraki herhangi bir rerun'da (ör. Seiron'a komut) noktalar doğru haritaya geçiyor.
+- **Etki:** kullanıcı lejantta yazan değişkenin haritası sanıp başka değişkene bakıyor. Bilimsel olarak yanıltıcı; öncelikli.
+- `trend_map` yanıtına `source_en` eklendi (lejantta "AIRS3STM v7 aylık" Türkçe kalıyordu). EN'de onu kullan.
+- **Bilgi:** nokta analizinde Tahran GWETROOT "+0" sorunu düzeltildi. Seriler 2 ondalık olduğunda mevsimsel Sen 0'a yuvarlanıyordu; artık yıllık seriden hesaplanıyor (`sen.basis = "annual"`). Tahran: +0,010/10 yıl, MK p < 0,001.

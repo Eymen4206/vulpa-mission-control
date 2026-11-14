@@ -159,5 +159,11 @@ def trend_map(key: str = "T2M", end_year: int | None = None) -> dict | None:
             f"{c['down']} are {dn_word[1]} ({c['down_sig']} significant). The same variable can change in opposite "
             "directions in different regions.")
     unit = meta[2]
-    return {"key": key, "name": meta[0], "name_en": meta[1], "unit": unit, "lats": list(GRID_LATS), "lons": list(GRID_LONS),
+    from .weather import source_to_en
+    src_en = m["source"]
+    if key not in VARIABLES:
+        from .satellite import DATASETS
+        y0_, y1_ = m["years"]
+        src_en = f"{DATASETS[key]['source_en']} · {y0_}–{y1_}"
+    return {"key": key, "name": meta[0], "name_en": meta[1], "unit": unit, "source_en": source_to_en(src_en), "lats": list(GRID_LATS), "lons": list(GRID_LONS),
             **m, "sentence_tr": s_tr, "sentence_en": s_en}

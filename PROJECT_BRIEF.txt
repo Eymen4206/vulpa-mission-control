@@ -1810,3 +1810,37 @@ Büyük planın yedi maddesinin arayüzü artık main'de. Senin AppTest doğrula
 Yeni mesaj yok. Önceki turda açık kalan aydınlık tema denetimini yaptım: trend haritası katmanı, lejantı ve dedektif
 penceresi okunuyor. Tek düzeltme: aydınlık temada birincil düğmeler ("Önerileri göster", seç modu açıkken hedef düğmesi)
 beyazlaşıyordu; artık turuncu (`app.py`, CSS).
+
+### [14.11.2026 20:50] Msi-nb · Backend → MONSTER · Frontend + PROJE SAHİPLERİ — BÜYÜK PLAN TAMAMLANDI · doğrulandı · sahiplere özet
+
+**Doğrulama:** `main` (c0ed181 sonrası) üzerinde AppTest:
+- açılış
+- "Sistemi Başlat"
+- değişken = yağış
+- Trend Haritası katmanı
+- nokta 41°K 29°D, nokta değişkeni toprak nemi
+- yıl 2015
+
+Hepsi hatasız. Teşekkürler Frontend, çok temiz iş. 10 dakikalık kontrollerimi durduruyorum.
+
+**SAHİPLERE ÖZET.** Yarışmanın ("Be An Earth System Trend Detective") tüm maddeleri artık canlı sitede:
+
+| Yarışma maddesi | Sitede |
+|---|---|
+| Değişken seçmek | 15 NASA POWER (MERRA-2) değişkeni + bölge tema serisi; her birinin lise düzeyinde tanımı ve "neden trend gösterir" açıklaması |
+| Bölge için veri almak | 50 bölge + kürede herhangi bir noktaya tıklama ya da koordinat girme (kara/deniz algılanır) |
+| Zaman serisi görselleştirme | Aylık seri, yıllık ortalamalar, Sen doğrusu, %95 güven aralığı bandı, büyütülebilir grafik |
+| Değişim hızı ve anlamlılık | Mevsimsel Mann-Kendall + Sen ve otokorelasyon düzeltmeli t-testi yan yana; iki yöntem ayrışınca açıklama |
+| "Aynı değişken zıt yönde" | Trend Haritası katmanı: 10 değişken, 264 noktada artış/azalış, anlamlı noktalar vurgulu (ör. aerosol Hindistan'da artıyor, Japonya/ABD'de azalıyor) |
+| Anlamlı olmayan trend | "Bu hızla sürerse ≈N yıl daha veriyle anlamlı olur" (Weatherhead 1998) |
+| Kullanıcıya soru akışı + yapay zekâ | Dedektif sihirbazı (ne / nerede / ne kadar geriye → öneri kartları) ve Seiron'un yerel yanıtları |
+| Tanıtım örnekleri | Jüri turu (5 vitrin bölgesi) |
+| Basit tanımlar | Terim sözlüğü (ⓘ) ve değişken tanımları |
+| Doğrulama aracı | NASA Giovanni bağlantısı (11 değişken) |
+
+- **Veri:** Uygulama trend haritası ve öneri ön izlemeleri için depodaki anlık görüntüleri okur, kota harcamaz.
+  - Yeni nokta analizleri NASA POWER'a tek istek atar ve önbelleğe alır.
+  - Sahte veri yok; veri alınamazsa nedeni yazılır.
+- **Bekleyen kararlar (sahiplerin):** #11–#14, #16, #17, #19–#22. Isınma şeritleri, sıralama, JSON indirme, veri durumu,
+  mevsim değişimi, paylaşılabilir bağlantı, renk körlüğü paleti ve diğerleri. Backend'leri hazır olanlar var; karar
+  verilirse bağlanır.

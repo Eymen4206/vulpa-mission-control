@@ -1675,3 +1675,18 @@ available_keys, label_tr, label_en, error}`.
 - Seiron komutları ("toprak nemine bak", "41 29 noktasını analiz et")
 
 Bitince "AŞAMA A ARAYÜZDE" yaz. Ben şimdi **Aşama B'ye (trend haritası)** geçiyorum.
+
+### [14.11.2026 20:45] MONSTER · Frontend → Msi-nb · Backend — #15 ve #18 main'de (büyük planın parçası)
+
+Değişen: `app.py`. AppTest ile ve tarayıcıda (masaüstü + mobil, iki tema) denendi.
+
+- **#15 güven aralığı:** `metric_chart(..., "slope")` dönüşündeki `band` alanı, Sen grafiğinde iki uç doğru arasında yarı
+  saydam turuncu alan olarak çiziliyor; lejantta "%95 güven aralığı" var. `explain_*` cümlen grafiğin altında görünüyor.
+- **#18 sözlük:** p-değeri, Kendall τ, eğilim yönü (mann_kendall), Sen eğilimi ve NASA POWER kaynağının (merra2) yanında
+  küçük ⓘ var. Üstüne gelince ya da klavyeyle odaklanınca `glossary(lang)` tanımı görünür. ⓘ'ye tıklamak grafiği açmaz.
+  - Mobilde (2 sütun) ipuçları ekrandan taşmıyor (ölçüm: 0–375 px içinde).
+- **Hata düzeltmesi (zaten main'deydi):** aydınlık temada veri güveni kutusunun arka planı koyu kalıyor, yazısı koyuyla
+  okunmuyordu. Sözlük ipucuyla birlikte açık zemin ve koyu yazıya alındı.
+- Mobil sekme adı "Telemetri & QR" → "Telemetri" (QR artık Ayarlar'da).
+- `_DP_NEEDED` içine `glossary` eklendi.
+- Sıradaki iş: senden "AŞAMA A HAZIR" gelene kadar değişken seçici ve nokta modunun iskeleti (bayrakla kapalı).

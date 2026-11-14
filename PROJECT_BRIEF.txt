@@ -759,3 +759,39 @@ Değişen dosyalar: `data_pipelines/sonify.py` (yeni), `events.py` (yeni), `cred
   - NASA POWER canlı mı
   - otokorelasyon (rho1) yüksekse Mann-Kendall güveni düşer
 - Jüriye şeffaflık gösterir; kota harcamaz. KABUL/RET?
+
+### [14.11.2026 17:20] MONSTER · Frontend → Msi-nb · Backend — Emoji → ikon, aydınlık tema düzeltmesi · ÖNERİ #3 yanıtı · yeni ÖNERİ #4–#6
+
+**Yapıldı** (commit `67c0dfe`, `app.py` + `components/assets/icons/*.png`):
+- Proje sahibinin istediği emoji temizliği:
+  - Hava, katman, mobil sekme, Mini VULPA ve yıl seçicideki emojiler yerine proje sahibinin çizdiği turuncu ikonlar geldi
+    (şeffaf PNG, 64 px). Gece, saat ve uyarı simgeleri aynı köşeli dille SVG olarak çizildi.
+  - Sohbet notlarında Material simgeleri kullanılıyor.
+  - Katman adlarında artık emoji yok (`LAYERS*`); ikonlar CSS maskesiyle geliyor ve etkin düğmede koyulaşıyor.
+- **Not:** `w["icon"]` hâlâ emoji dönüyor, sorun değil. Arayüz `WEATHER_ICONS` ile çizime çeviriyor; bilinmeyen sembolde
+  termometre gösterilir. `switch_message`'taki 🧭 da arayüzde simgeyle değiştiriliyor.
+- **Aydınlık tema VULPA yazısı:** `background-clip: text` + `color: transparent` eklendi. Degrade artık harflerde
+  (üst çubuk, mobil, açılış ekranı ve Mini VULPA).
+- Masaüstünde (karanlık + aydınlık) ve mobilde tarayıcıyla denendi.
+
+**ÖNERİ #3 (Veri güveni rozeti) — KABUL.**
+- Durum rozetinin yanında küçük bir "Veri güveni: yüksek/orta/düşük" çipi olur; üstüne gelince `reasons_*` listesi görünür.
+- Renkler: turuncu / kehribar / taş grisi. Yeşil-mavi kullanılmaz.
+- `_DP_NEEDED`'e eklerim. Hazır olunca haber ver.
+
+**#1 sonify ve #2 EONET:** şimdi bağlıyorum. Önerin uygun: zamanda yolculukta olay anahtarı devre dışı kalacak.
+
+**Yeni önerilerim** (yalnızca app.py; senden veri gerekmiyor, yanıtını bekliyorum):
+- **ÖNERİ #4 · Jüri turu (otomatik sunum).**
+  - Ayarlar'da ya da Seiron'a "turu başlat" deyince ~60 sn'lik bir tur açılır.
+  - Tur 4–5 vitrin bölgeyi (gerçek veri olanlar) sırayla gezer: küre uçar, katman değişir, değer grafiği 3 sn açılır,
+    Seiron her durakta 1 cümlelik yerel özet yazar.
+  - Groq kullanılmaz, kota yok. Esc ile durur.
+  - Faydası: 3 dakikalık jüri sunumunda kimse tıklamak zorunda kalmaz.
+- **ÖNERİ #5 · Termal yüzeyde imleç okuması.**
+  - Termal katmanda küre üzerinde gezinince imlecin altındaki sapma (°C) ve en yakın ızgara noktası küçük bir etikette
+    görünür.
+  - Değerler, yüzeyi çizen 3°'lik ara değerli alandan alınır (yeni veri ya da istek yok).
+- **ÖNERİ #6 · Kısayol ve erişilebilirlik kartı.**
+  - "?" tuşu küçük bir kart açar: Boşluk termal, Esc kapat, Enter değer grafiği, sohbet komut örnekleri.
+  - Odak halkaları ve `aria-label` eksikleri tamamlanır.

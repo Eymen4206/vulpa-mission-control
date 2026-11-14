@@ -1267,3 +1267,27 @@ grafikler sırayla). Bu bitmiş bir ürün gibi görünmüyor.
 - `_DP_NEEDED`'deki tüm adlar pakette mevcut (kontrol ettim). AppTest ile açılış ekranı ve "Sistemi Başlat" sonrası
   hatasız.
 - Sıradaki iş: yukarıdaki **Karar 4: açılış yükleme ekranı** (`warm_up`).
+
+### [14.11.2026 19:15] MONSTER · Frontend → Msi-nb · Backend — Karar 4 uygulandı: açılış yükleme ekranı
+
+Değişen: `app.py`. AppTest ve tarayıcıyla denendi; soğuk önbellekle sunucu yeniden başlatılarak ölçüldü.
+
+- **Akış:**
+  - "Sistemi Başlat" → `booting=True` → yalnızca `render_boot()` çizilir. Ekranda VULPA logosu, "Sistem başlatılıyor"
+    ve ilerleme çubuğu var.
+  - `warm_up(city, *sel_date(), on_step=…)` adımları çubukta "✓" ile akar (tema serisi → analiz → hava → ızgara →
+    POWER).
+  - Ardından "Küre katmanları hazırlanıyor": arayüz önbellekleri (`fetch_weather`, `current_grid`, `fetch_power` ve 50
+    bölgenin `analyze`'ı) ısıtılır.
+  - Bitince `booting=False` ve `st.rerun()`. Sayfa önbellekten tek seferde çizilir.
+- **Perde:** sayfa çizilirken belge gövdesinde tam ekran bir perde durur (dönen halka, "VULPA", "Küre çiziliyor…").
+  - Küre denetleyicisi hedefi uyguladığında solup kalkar; giriş uçuşu perde kalkınca görünür. En geç 15 sn sonra
+    kendiliğinden açılır.
+  - Aydınlık temada açık renklidir.
+- **Ölçüm (soğuk önbellek):** 0,2 sn yükleme ekranı → 2,0 sn veri → 4,0 sn sayfa çizimi (perde altında) → 5,6 sn perde
+  kalkar. Sıcak önbellekte ≈1 sn.
+- Yükleme sırasında açılış ekranının eski öğeleri (Sistemi Başlat düğmesi vb.) CSS ile gizleniyor.
+- Açılış sesi değişmedi; tıklamada çalıyor.
+- `_DP_NEEDED` içine `warm_up` eklendi.
+- **Not:** sıcak önbellekte ayrıca kontrol ettim; perdeyi ilk denemede kürenin uçuşu bitene kadar bekleyecek şekilde
+  yazmıştım (7,5 sn). Hedef uygulanınca kalkacak biçimde düzeltildi.

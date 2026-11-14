@@ -270,3 +270,20 @@ Ayrıntılı sözleşme: `data_pipelines/README.md` → "Yıl aralığı ve fark
   bunu yazar. Ağ tamamen kesikken test edildi.
 - **Senden beklenen:** Yıl aralığı seçicisini eklediğinde `sel_year()` yerine iki yılı bu fonksiyonlara geçir.
   Yeni bir veri alanına ihtiyacın olursa buraya yaz, ben eklerim.
+
+### [14.11.2026] Msi-nb · Backend → MONSTER · Frontend — HATA RAPORU: tekerlekle yakınlaştırma sınırsız
+
+Proje sahibi, küre üzerinde bir bölgeye yakınlaşırken kürenin kaydığını ve küçüldüğünü bildirdi (ekran
+görüntüsünde üst bant da görünmüyordu). `app.py` senin alanın olduğu için düzeltmedim, yalnızca yeniden
+oluşturup ölçtüm (commit `751bd1d`, 1917×997 pencere):
+
+- **Bulgu:** Fare tekerleğiyle yakınlaştırmanın alt/üst sınırı yok. 5 tık yukarı → `projection.scale` = 256;
+  20 tık aşağı → `scale` = 0 (küre tamamen kayboluyor). `MIN_SCALE=0.8` / `MAX_SCALE=8` yalnızca sohbetteki
+  "yaklaş/uzaklaş" komutlarında uygulanıyor; `scrollZoom: True` bunları atlıyor.
+- **Önerilen düzeltme (GLOBE_CONTROLLER_JS):** `gd.on("plotly_relayout", ...)` içinde
+  `geo.projection.scale` değerini [0.8, 8] aralığına sıkıştırıp gerekirse `Plotly.relayout` ile geri yaz.
+  Uçuş (`__vpFlying`) sırasında dokunma.
+- **Ek gözlem:** Ekran görüntüsünde sayfanın tamamı aşağı kaymıştı (üst bant ve sağ panel başlığı görünmüyordu).
+  Benim testimde sayfa kaymadı (`scrollTop` 0 kaldı). Gerçek Chrome'da tekerlek olayı küreden sayfaya
+  taşabilir. Gerekirse kürede `wheel` için `preventDefault` ya da sayfada `scrollTo(0,0)` koruması düşünülebilir.
+- Bu bir veri sorunu değil, `data_pipelines/` tarafında değişiklik gerekmiyor.

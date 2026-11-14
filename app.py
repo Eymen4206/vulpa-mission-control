@@ -2438,6 +2438,16 @@ html.vp-keys-open body > .vp-keys { opacity: 1; pointer-events: auto; }
 .st-key-events_ctl { margin: 0 auto .25rem; padding: .1rem .7rem; border-radius: 999px; background: rgba(28,25,23,.62);
   backdrop-filter: blur(14px); border: 1px solid var(--line); }
 .st-key-events_ctl label p { font-size: .72rem !important; color: #e7e5e4; white-space: nowrap; }
+/* Karar 7 · anahtar: ray (kapalı taş grisi, açık turuncu) + beyaz topuz, kapsülde dikey ortalı */
+.st-key-events_ctl label { align-items: center !important; }
+.st-key-events_ctl label > span + div { display: flex !important; align-items: center !important; flex: none;
+  width: 32px !important; height: 18px !important; padding: 0 3px !important; border-radius: 999px !important;
+  background-color: #57534e !important; border: none !important; transition: background-color .2s; }
+.st-key-events_ctl label > span + div > div { width: 12px !important; height: 12px !important; border-radius: 50% !important;
+  background-color: #ffffff !important; box-shadow: 0 1px 3px rgba(0,0,0,.35); transition: transform .2s; transform: translateX(0); }
+.st-key-events_ctl label:has(input:checked) > span + div { background-color: #f97316 !important; }
+.st-key-events_ctl label:has(input:checked) > span + div > div { transform: translateX(14px); }
+.st-key-events_ctl label:has(input:disabled) { opacity: .55; }
 div[role="dialog"]:has(.mc-sub) { background: rgba(20,17,15,.92); backdrop-filter: blur(14px);
   border: 1px solid var(--line-strong); }
 [data-testid="stDialog"]:has(.mc-sub) { backdrop-filter: blur(6px); }
@@ -3743,18 +3753,35 @@ BOOT_STEPS = {"series": ("Bölgesel tema serisi", "Regional theme series"),
               "power": ("NASA POWER uzun vadeli iklim", "NASA POWER long-term climate")}
 
 
+def needs_time_load() -> bool:
+    """Seçili tarih için veri henüz bu oturumda yüklenmedi mi? (Karar 8: zaman değişimi yükleme ekranıyla yapılır.)"""
+    return st.session_state.get("_loaded_date") != sel_date()
+
+
 def render_boot() -> None:
     """Karar 4 · Açılış yükleme ekranı. "Sistemi Başlat"tan sonra yalnızca bu ekran çizilir; veri data_pipelines.warm_up
     ile paralel çekilir (bekleme en yavaş kaynak kadar), ardından kürenin katmanları ve 50 bölgenin analizi hazırlanır.
     Bitince sayfa önbellekten tek seferde çizilir; kürenin ilk çizimi bitene dek üstte bir perde kalır (boot_veil)."""
     st.markdown(SPLASH_CSS, unsafe_allow_html=True)
     theme_css(SPLASH_CSS)
+    # Bu çalıştırmada widget çizilmez; Streamlit çizilmeyen widget'ların durumunu siler. Seçimler kalıcı tutulur.
+    for k in ("city", "year", "month", "layer"):
+        if k in st.session_state:
+            st.session_state[k] = st.session_state[k]
     city = init_city()
+    first = st.session_state.get("booting", False)
+    year, month, _ = sel_date()
+    if first:
+        head, sub = L("Sistem başlatılıyor", "Starting the system"), L("veriler hazırlanıyor", "preparing data")
+    else:
+        when = (f"{month_label(month)} {year}" if month else L(f"{year} sene ortalaması", f"{year} year average")) if year \
+            else L("canlı veri", "live data")
+        head, sub = L("Zaman değiştiriliyor", "Changing time"), L(f"{when} hazırlanıyor", f"preparing {when}")
     with st.container(key="splash"):
         html_block(f"""
         <div class="splash-logo"><div class="ring"></div><div class="ring r2"></div>{logo(92, "b")}</div>
         <div class="splash-word">VULPA</div>
-        <div class="splash-sub"><b>{L('Sistem başlatılıyor', 'Starting the system')}</b> · {L('veriler hazırlanıyor', 'preparing data')}</div>
+        <div class="splash-sub"><b>{head}</b> · {sub}</div>
         """)
         with st.container(key="boot_prog"):
             bar = st.progress(0.02, text=L("Bağlantılar kuruluyor…", "Connecting…"))
@@ -3790,14 +3817,15 @@ def render_boot() -> None:
 # yumuşakça solar. Etiket benzeri metin içermez (DOMPurify).
 BOOT_VEIL_JS = """
 (function() {
-  if (document.getElementById("vp-veil")) return;
+  const old = document.getElementById("vp-veil");
+  if (old) old.remove();
   const v = document.createElement("div");
   v.id = "vp-veil";
   if ("__THEME__" === "light") v.className = "light";
   const ring = document.createElement("div"); ring.className = "vp-veil-ring";
   const word = document.createElement("div"); word.className = "vp-veil-word"; word.textContent = "VULPA";
   const sub = document.createElement("div"); sub.className = "vp-veil-sub";
-  sub.textContent = document.documentElement.lang === "en" ? "Rendering the globe…" : "Küre çiziliyor…";
+  sub.textContent = "__LANG__" === "en" ? "Rendering the globe…" : "Küre çiziliyor…";
   v.appendChild(ring); v.appendChild(word); v.appendChild(sub);
   document.body.appendChild(v);
   const t0 = Date.now();
@@ -3807,7 +3835,11 @@ BOOT_VEIL_JS = """
   };
   (function wait() {
     const gd = document.querySelector(".st-key-globe_panel .js-plotly-plot");
-    const ready = gd && gd.__vulpaNonce && gd._fullLayout;   // hedef uygulandı: giriş uçuşu perde kalkınca görünür
+    const T = window.__vulpaTarget || {};
+    const ready = gd && gd.__vulpaNonce && gd._fullLayout                 // hedef uygulandı (giriş uçuşu perde kalkınca görünür)
+      && T.theme === "__THEME__" && T.lang === "__LANG__"                // yeni tema/dil sayfaya ulaştı
+      && (gd.__vpTheme === "__THEME__" || (!__STRICT__ && gd.__vpTheme === undefined))
+      && !document.querySelector("[data-stale='true']") && Date.now() - t0 > 450;
     if (ready || Date.now() - t0 > 15000) { setTimeout(done, ready ? 250 : 0); return; }
     setTimeout(wait, 120);
   })();
@@ -3816,9 +3848,12 @@ BOOT_VEIL_JS = """
 
 
 def boot_veil() -> None:
-    if st.session_state.pop("_boot_veil", False):
+    reason = st.session_state.pop("_boot_veil", False)
+    if reason:
         with st.container(key="fx_veil"):
-            st.html(f"<script>{BOOT_VEIL_JS.replace('__THEME__', theme())}</script>", unsafe_allow_javascript=True)
+            js = (BOOT_VEIL_JS.replace("__THEME__", theme()).replace("__LANG__", lang())
+                  .replace("__STRICT__", "true" if reason == "theme" else "false"))
+            st.html(f"<script>{js}</script>", unsafe_allow_javascript=True)
 
 
 def render_splash() -> None:
@@ -4023,6 +4058,7 @@ def _settings_body() -> None:
         st.rerun(scope="app")
     # Dil ya da tema değiştiyse tüm sayfa yeniden çizilir (modal açık kalır: settings_open bayrağı).
     if st.session_state.get("_applied") != (lang(), theme()):
+        st.session_state["_boot_veil"] = "theme"   # Karar 8: sayfa (ve küre renkleri) yeniden boyanırken perde
         st.rerun()
 
 
@@ -4383,6 +4419,9 @@ def _light_rules(css: str) -> str:
 
 
 LIGHT_FIXED = """
+.st-key-events_ctl label > span + div { background-color: #a8a29e !important; }
+.st-key-events_ctl label:has(input:checked) > span + div { background-color: #f97316 !important; }
+.st-key-events_ctl label p { color: #292524 !important; }
 :root { --bg: #f6f3ef; --glass: rgba(255,255,255,.66); --line: rgba(234,88,12,.24); --line-strong: rgba(234,88,12,.45);
   --text: #1c1917; --muted: #6b625b; }
 .stApp { background-color: var(--bg) !important; color: var(--text) !important;
@@ -4528,6 +4567,7 @@ def apply_ui_command(text: str, city: str) -> dict:
     if cmd.get("lang") in LANGS and cmd["lang"] != lang():
         st.session_state["lang"] = cmd["lang"]
         st.session_state["_lang_by_chat"] = True   # yeniden "Merhaba" deme; komut notu yeterli
+        st.session_state["_boot_veil"] = True      # Karar 8: dil değişiminde sayfa perde altında yeniden çizilir
     if cmd.get("panel") in ("credits_open", "credits_close"):
         st.session_state["_credits_cmd"] = {"open": cmd["panel"] == "credits_open",
                                             "n": st.session_state.get("_cmd_n", 0) + 1}
@@ -5087,7 +5127,7 @@ def main() -> None:
     if not st.session_state.get("started"):
         render_splash()
         return
-    if st.session_state.get("booting"):
+    if st.session_state.get("booting") or needs_time_load():
         render_boot()
         return
     boot_veil()

@@ -526,3 +526,56 @@ Değişen dosya: yalnızca `app.py` (commit `5ba7b7d`).
 - `app.py` artık gereken adlardan biri eksikse paketi diskten taze yüklüyor. Yeni bir ad eklediğinde sunucuyu yeniden
   başlatmak gerekmiyor.
 - **Rica:** `app.py`'nin kullanacağı yeni bir ad eklersen burada adını yaz. Ben de `_DP_NEEDED` listesine eklerim.
+
+### [14.11.2026] Msi-nb · Backend → MONSTER · Frontend — Seiron site kontrolü + değer grafikleri (proje sahibinin istekleri)
+
+Proje sahibi üç şey istedi. Backend tarafı hazır. Arayüz bağlantısı senin alanında, aşağıda adım adım yazdım.
+Değişen dosyalar: `data_pipelines/commands.py` (yeni), `data_pipelines/charts.py` (yeni), `__init__.py`, `README.md`.
+**`_DP_NEEDED` listesine eklenecek yeni adlar:** `parse_ui_command`, `switch_message`, `time_text`, `metric_chart`,
+`ALLOWED_ACTIONS`, `METRICS`.
+
+**1) Seiron her bölge değişiminde "Merhaba" diyor; yalnızca bir kez desin.**
+- Şu an `ensure_greeting` her `(city, lang)` değişiminde `greeting(city)` ekliyor.
+- İstenen: oturumda yalnızca ilk açılışta (ve dil değişiminde) tam karşılama.
+- Sonraki bölge geçişlerinde kısa not: `switch_message(city, lang(), *sel_date()[:2])`.
+  - Örnek: "🧭 Şu an **İber Platosu** bölgesine bakıyoruz · İber Sıcak Hava Dalgaları · Mart 2019."
+  - `month` için `sel_date()[1] or 0` ver.
+
+**2) Seiron sitenin tüm kontrolüne sahip olsun: hareket, mod, zaman, dil ve paneller. Yönetici yetkisi olmasın.**
+- Bölge, zoom ve katman zaten sende (`detect_navigation` / `detect_zoom` / `detect_layer`).
+- Eksikleri `parse_ui_command(text, sel_year(), month, lang())` çözüyor. `submit_question` içinde (widget'lardan önce):
+  - `year` None değilse `st.session_state["year"] = year`; 0 canlı veri demektir.
+  - `month` None değilse `st.session_state["month"] = month`; 0 sene ortalaması demektir.
+  - `lang` gelirse `st.session_state["lang"]`.
+  - `panel == "credits_open"` / `"credits_close"`: Credits panelini aç ya da kapat (JS tarafın).
+  - `reset_view`: kamerayı bölgenin varsayılan görünümüne döndür.
+  - `chart`: aşağıdaki grafik penceresini o metrikle aç.
+  - `notes`: Seiron'un yanıtının başına ekle (ör. "2030 için arşiv verisi yok…").
+  - `denied` True ise ret notunu göster ve dil modeline gönderme.
+- Komut tek başına geldiyse (`is_ui_command_only`) Groq'a gitmeden "🕰️ Zaman: Mart 2019" gibi bir not yeterli.
+  `time_text(year, month, lang)` metni verir.
+- Örnek komutlar:
+  - "2019'a git", "15 Mart 2019 termal analizi aç" (yıl + ay + katman tek cümlede)
+  - "canlıya dön", "sene ortalamasına geç", "bir yıl geri", "sonraki ay", "5 yıl önce"
+  - "ingilizceye geç", "credits aç", "kendall grafiğini göster"
+- Sorular ("2034 projeksiyonu nedir?", "Hava şu an nasıl?") hiçbir şeyi değiştirmez; test ettim.
+- Groq sistem istemine şunu eklersen iyi olur: "Arayüzü yalnızca zaman, bölge, yakınlaştırma, katman, dil, Credits ve
+  grafik komutlarıyla yönetebilirsin; anahtar, ayar, önbellek, dosya gibi yönetici işlemleri yapamazsın."
+- Öneriler (`SUGGESTIONS`) arasına "2015'e git" gibi bir zaman komutu eklenebilir.
+
+**3) Sağ paneldeki değerlere tıklanınca ekranın ortasında grafik açılsın.**
+- İstenen davranış:
+  - Pencere ekranın ortasında, sağ üstte kapatma (✕) tuşuyla açılsın.
+  - Örnek: Kendall τ değerine tıklanınca Kendall grafiği gelsin.
+  - Credits panelindeki bulanık arka plan bu pencere için de uygun olur.
+- Veri `metric_chart(city, metric)` içinden gelir; şema README'de. Fact kutuları ve karşılık gelen metrikler:
+
+| Fact kutusu | metric | Grafik |
+|---|---|---|
+| Kendall τ | `"tau"` | 12 ayın τ çubukları ve mevsimsel τ çizgisi |
+| p-değeri | `"p"` | Normal dağılım, z işareti, ±1,96 sınırı, gölgeli p alanı |
+| Eğilim yönü / Sen eğilimi / On yıllık | `"slope"` | Yıllık ortalamalar, Sen doğrusu, 2034'e kesikli uzatım |
+| NASA POWER sıcaklık eğilimi | `"power_t"` | Yıllık sıcaklık ve Sen doğrusu; `metric_chart(city, "power_t", *power_window())` |
+
+- Her dönüşte `explain_tr` / `explain_en` var; grafiğin altında 1–2 cümle olarak gösterilebilir.
+- Risk değeri senin rapor motorundan geldiği için grafiği yok. İstersen kutuyu tıklanamaz bırakabilirsin.

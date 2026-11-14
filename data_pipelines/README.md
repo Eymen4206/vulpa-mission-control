@@ -327,3 +327,51 @@ Ortak ek alanlar: `"annual": True`, `"date": "YYYY"`, `"time": "YYYY"`, `"month"
 - **`anomaly_kind` yeni değeri:** `"annual"` → arayüz etiketi "1991–2020 ortalamasına göre yıllık sapma"
   (EN: "Annual deviation from 1991–2020 mean").
 - **Yenilemek için** (yeni bir yıl tamamlandığında): `.venv\Scripts\python -m data_pipelines.refresh_annual` (~3 dk).
+
+## Seiron arayüz komutları ve grafik penceresi (14.11.2026)
+
+### `parse_ui_command(text, year=0, month=0, lang="tr", years=None) -> dict` (commands.py)
+Sohbet metninden **zaman, dil, Credits, görünüm ve grafik** komutlarını çözer. Bölge, yakınlaştırma ve katman
+algılama app.py'de kalır. Ağ isteği yapmaz ve istisna fırlatmaz.
+
+- **Girdi:** arayüzün o anki durumu (`year` 0 = canlı, `month` 0 = sene ortalaması).
+- **Dönüş:** `{"matched", "denied", "year", "month", "day", "lang", "panel", "chart", "reset_view", "notes"}`.
+  - `None` olan alanlara dokunulmaz.
+  - `year` 0 ise canlı veri demektir; `month` 0 ise sene ortalaması.
+  - `panel` değerleri: `"credits_open"` / `"credits_close"`.
+  - `chart`, aşağıdaki `metric_chart` anahtarlarından biridir.
+  - `notes`, seçili dilde kısa açıklamalardır (ör. aralık dışı yıl).
+- **Örnekler:**
+  - "2019'a git", "Mart 2015'e götür", "15 Mart 2019 termal aç" (gün bilgi olarak döner; arayüz ayın 15'ini kullanır)
+  - "canlıya dön", "sene ortalamasına geç"
+  - "bir yıl geri", "sonraki ay", "geçen yıl", "5 yıl önce"
+  - "ingilizceye geç", "credits aç/kapat", "görünümü sıfırla"
+  - "kendall grafiğini göster", "p değeri grafiği", "sıcaklık eğilimi grafiğini aç"
+- **Değiştirmeyenler:** soru cümleleri ("2034 projeksiyonu nedir?", "Hava şu an nasıl?") ve "açıkla" gibi sözcükler
+  hiçbir şeyi değiştirmez.
+- **Güvenlik:** yalnızca `ALLOWED_ACTIONS` = year, month, lang, panel, chart, reset_view üretilir. Anahtar, şifre,
+  önbellek, dosya, ayar ve kod istekleri `denied=True` ve bir ret notu döner. Seiron'un yönetici yetkisi yoktur.
+
+### `switch_message(city, lang="tr", year=0, month=0) -> str`
+İlk karşılamadan sonraki bölge geçişlerinde kullanılan kısa nottur; yeniden "Merhaba" demez.
+Örnek: "🧭 Şu an **İber Platosu** bölgesine bakıyoruz · İber Sıcak Hava Dalgaları · Mart 2019."
+`time_text(year, month, lang)` seçili zamanın kısa adını verir.
+
+### `metric_chart(region, metric, y0=None, y1=None) -> dict | None` (charts.py)
+Sağ paneldeki bir değere tıklanınca açılan pencere için çizime hazır veri döndürür. Değerler panelle aynı hesaptan gelir.
+
+| metric | Grafik |
+|---|---|
+| `"tau"` (Kendall τ) | 12 takvim ayının τ çubukları ve mevsimsel τ çizgisi |
+| `"p"` (p-değeri / z) | Eğilim yoksa beklenen normal dağılım, z işareti, ±1,96 sınırı, gölgeli p alanı |
+| `"slope"` (Sen eğilimi, on yıllık, yön, projeksiyon) | Yıllık ortalamalar, Sen doğrusu ve 2034'e kesikli uzatım |
+| `"power_t"` (NASA POWER sıcaklık eğilimi, y0–y1) | Yıllık ortalama sıcaklık ve Sen doğrusu |
+
+Takma adlar: `z`, `kendall`, `direction`, `decade`, `projection`, `sen`.
+
+Şema:
+- `kind` (bar / density / line)
+- `title_tr/en`, `x_label_*`, `y_label_*`
+- `traces`: her biri `[{name_tr, name_en, x, y, style: bar|line|dash|marker|area}]`; tau'da ayrıca `x_en` ve `hover`
+- `marks`: `[{axis: x|y, value, label_tr, label_en}]` referans çizgileri
+- `value`, `unit`, `explain_tr/en`

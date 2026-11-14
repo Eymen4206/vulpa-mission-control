@@ -16,6 +16,8 @@ from .credits import CREDITS, data_credits
 from .annual import _fetch_grid_annual, _fetch_weather_annual
 from .climatology import climatology_anomaly, expected_temp, grid_normals, normal_values, region_normals
 from .series import analyze, build_series, synthetic_series
+from .commands import ALLOWED_ACTIONS, parse_ui_command, switch_message, time_text
+from .charts import METRICS, metric_chart
 from .weather import (
     DELTA_FIELDS, MM_SYMBOLS, WEATHER_CODES, _fallback_weather, _fetch_historical_weather, _fetch_live_weather,
     _fetch_weather, _fetch_weather_range, _merge_mm, _open_meteo_cities, describe_code, describe_symbol,
@@ -40,6 +42,8 @@ __all__ = [
     "_fetch_weather_annual", "_fetch_grid_annual",
     # iklim normalleri (NASA POWER) — gerçekçi yedek ve "iklim normaline göre sapma"
     "region_normals", "normal_values", "expected_temp", "grid_normals", "climatology_anomaly",
+    # Seiron arayüz komutları (zaman, dil, Credits, grafik) ve grafik penceresi verisi
+    "parse_ui_command", "switch_message", "time_text", "ALLOWED_ACTIONS", "metric_chart", "METRICS",
     # küresel ızgara
     "_fetch_live_grid", "_fetch_historical_grid", "_fetch_grid", "_fallback_grid",
     # NASA POWER

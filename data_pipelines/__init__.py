@@ -19,7 +19,6 @@ from .series import analyze, build_series, synthetic_series
 from .commands import ALLOWED_ACTIONS, parse_ui_command, switch_message, time_text
 from .charts import METRICS, metric_chart
 from .events import EVENT_TYPES, fetch_events
-from .sonify import sonify
 from .quality import data_quality
 from .showcase import showcase_regions
 from .globalstats import compare_regions, global_annual_anomaly, year_extremes
@@ -51,8 +50,8 @@ __all__ = [
     "region_normals", "normal_values", "expected_temp", "grid_normals", "climatology_anomaly",
     # Seiron arayüz komutları (zaman, dil, Credits, grafik) ve grafik penceresi verisi
     "parse_ui_command", "switch_message", "time_text", "ALLOWED_ACTIONS", "metric_chart", "METRICS",
-    # otonom oturum (ÖNERİ #1–#2): trendi dinle ve NASA EONET olayları
-    "sonify", "fetch_events", "EVENT_TYPES", "data_quality", "showcase_regions",
+    # otonom oturum (ÖNERİ #2): NASA EONET olayları — "trendi dinle" (sonify) proje sahibinin kararıyla kaldırıldı
+    "fetch_events", "EVENT_TYPES", "data_quality", "showcase_regions",
     "global_annual_anomaly", "year_extremes", "compare_regions",
     "warming_stripes", "warming_ranking", "region_export", "data_status", "season_shift", "glossary", "GLOSSARY",
     # açılış ısınması (proje sahibi: "site yüklenene kadar açılmasın")

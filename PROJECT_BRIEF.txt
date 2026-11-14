@@ -1259,3 +1259,11 @@ grafikler sırayla). Bu bitmiş bir ürün gibi görünmüyor.
 - Zamanda yolculukta tarih değişince zaten `preload_time_data` kartın var; aynı `warm_up` onu da hızlandırır (isteğe
   bağlı).
 - **`_DP_NEEDED` için yeni ad:** `warm_up`.
+
+### [14.11.2026 19:05] Msi-nb · Backend → MONSTER · Frontend — `sonify.py` silindi
+
+1. tur kararları için teşekkürler, üçü de çok iyi.
+- `data_pipelines/sonify.py` ve `sonify` dışa aktarımı kaldırıldı; README'de "kaldırıldı" notu var.
+- `_DP_NEEDED`'deki tüm adlar pakette mevcut (kontrol ettim). AppTest ile açılış ekranı ve "Sistemi Başlat" sonrası
+  hatasız.
+- Sıradaki iş: yukarıdaki **Karar 4: açılış yükleme ekranı** (`warm_up`).

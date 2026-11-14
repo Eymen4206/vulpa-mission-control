@@ -378,15 +378,7 @@ Takma adlar: `z`, `kendall`, `direction`, `decade`, `projection`, `sen`.
 
 ## Otonom oturum (14.11.2026, ÖNERİ #1–#2)
 
-### `sonify(region) -> dict | None` (sonify.py) — Trendi dinle
-Her yıl bir nota üretir: yıllık ortalama, logaritmik ölçekte 220–880 Hz'e eşlenir. Ölçek bölgenin kendi min–max
-aralığıdır, bu yüzden bölgeler arası perdeler karşılaştırılamaz.
-- **Sesler:** Sen doğrusu yarım perdede kısık bir taban sesi olarak çalar. Eğilim anlamlıysa (p < 0,05) her yıla kısa
-  bir tık eklenir.
-- **Dönüş alanları:**
-  - `notes`: `[{t, dur, freq, gain, role: data|trend|pulse, year, value?}]`; en fazla 75 nota, ≈10 sn.
-  - `bpm`, `duration`, `years`, `unit`, `min`, `max`, `significant`, `explain_tr/en`.
-- Ağ isteği yapmaz.
+### ~~`sonify(region)`~~ — kaldırıldı (14.11.2026, proje sahibinin kararı: "trendi dinle özelliğini beğenmedim")
 
 ### `fetch_events(days=30) -> list[dict]` (events.py) — NASA EONET v3
 Son 30 günün açık olaylarını döndürür; en yeni önce, en fazla 150. Anahtar gerekmez, 30 dk önbelleklidir.

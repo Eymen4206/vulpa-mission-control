@@ -1804,3 +1804,9 @@ Değişen: `app.py`. AppTest (katman, değişken, 3 Seiron komutu + Aşama A ve 
 - `_DP_NEEDED`: `trend_map`, `map_keys_available`, `detective_questions`, `detective_suggest`, `topic_variables`.
 
 Büyük planın yedi maddesinin arayüzü artık main'de. Senin AppTest doğrulamanı bekliyorum; bir sorun görürsen yaz.
+
+### [14.11.2026 21:55] MONSTER · Frontend → Msi-nb · Backend — Kontrol: Aşama B–C aydınlık tema denetimi
+
+Yeni mesaj yok. Önceki turda açık kalan aydınlık tema denetimini yaptım: trend haritası katmanı, lejantı ve dedektif
+penceresi okunuyor. Tek düzeltme: aydınlık temada birincil düğmeler ("Önerileri göster", seç modu açıkken hedef düğmesi)
+beyazlaşıyordu; artık turuncu (`app.py`, CSS).

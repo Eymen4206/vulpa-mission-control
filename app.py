@@ -69,7 +69,8 @@ _DP_NEEDED = ("CITY_NAMES", "END", "GRID_LATS", "GRID_LONS", "LAST_FULL_YEAR", "
               "parse_ui_command", "switch_message", "time_text", "metric_chart", "ALLOWED_ACTIONS", "METRICS",
               "fetch_events", "EVENT_TYPES", "data_quality",
               "showcase_regions", "global_annual_anomaly", "year_extremes", "compare_regions", "warm_up",
-              "glossary", "variable_catalog", "variable_analysis", "describe_point", "trend_tests")
+              "glossary", "variable_catalog", "variable_analysis", "describe_point", "trend_tests",
+              "trend_map", "map_keys_available", "detective_questions", "detective_suggest", "topic_variables")
 if not all(hasattr(_dp, _n) for _n in _DP_NEEDED):
     for _m in [m for m in sys.modules if m == "data_pipelines" or m.startswith("data_pipelines.")]:
         del sys.modules[_m]
@@ -80,7 +81,7 @@ from data_pipelines import (  # noqa: E402
     REAL_SOURCES, series_meta, data_credits,
     parse_ui_command, switch_message, time_text, metric_chart, fetch_events, data_quality,
     showcase_regions, year_extremes, compare_regions, warm_up, glossary, variable_catalog, variable_analysis,
-    describe_point, trend_tests,
+    describe_point, trend_tests, trend_map, map_keys_available, detective_questions, detective_suggest, topic_variables,
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1507,6 +1508,8 @@ LAYER_WORDS = {
                 "thermal", "heat map", "heatmap", "temperature map", "anomaly map"),
     "wind": ("rüzgar", "rüzgâr", "basınç", "hava dalga", "dalga haritas", "izobar", "wind", "pressure", "isobar",
              "weather wave"),
+    "trend": ("trend harita", "trend katman", "eğilim harita", "nerede art", "nerede azal", "trend map",
+              "where is it increasing", "where is it decreasing"),
     "classic": ("klasik", "normal harita", "varsayılan", "sade harita", "standart harita", "classic", "default map",
                 "standard map", "normal map"),
 }
@@ -1524,7 +1527,9 @@ def detect_layer(text: str) -> str | None:
         return None
     if any(w in q for w in ("katmanı kapat", "katmanları kapat", "haritayı sıfırla", "reset map", "turn off layer")):
         return "classic"
-    for layer in ("classic", "thermal", "wind"):
+    for layer in ("trend", "classic", "thermal", "wind"):
+        if layer == "trend" and not FEATURE_TRENDMAP:
+            continue
         if any(w in q for w in LAYER_WORDS[layer]):
             return layer
     return None
@@ -1921,6 +1926,14 @@ def resolve_api_key() -> tuple[str, str]:
 
 def layer_summary(layer: str) -> str:
     """Katman değişikliğine canlı/arşiv veriye dayalı kısa açıklama (seçili dilde)."""
+    if layer == "trend":
+        m = trend_data()
+        if m:
+            return L("Trend haritası açık: 15°'lik ızgaranın her noktasında 2001–2025 yıllık serisinin on yıllık değişimi "
+                     "(Mann-Kendall + Sen). Iri ve dolu noktalar anlamlı. ",
+                     "Trend map is on: the per-decade change of the 2001–2025 annual series at every 15° grid point "
+                     "(Mann-Kendall + Sen). Large solid dots are significant. ") + m["sentence_en" if lang() == "en" else "sentence_tr"]
+        return L("Trend haritası açık.", "Trend map is on.")
     wx = fetch_weather()
     data, ex = wx["data"], weather_extremes()
     src = wx["source"]
@@ -2361,6 +2374,15 @@ div[role="dialog"]:has(.set-sec) { background: rgba(20,17,15,.92); backdrop-filt
   linear-gradient(to top, var(--orange) 0 100%) right bottom / 2px 70% no-repeat; transition: opacity .18s; }
 .fact.clk:hover::after, .pw-main.clk:hover::after { opacity: 1; }
 .st-key-metric_btns, .st-key-yx_btns { display: none !important; }
+/* Aşama B · trend haritası seçicisi ve lejantı */
+.st-key-tm_ctl { margin: 0 auto .25rem; }
+.st-key-tm_ctl [data-baseweb="select"] > div, .st-key-tm_ctl [role="group"] { min-height: 1.9rem; font-size: .74rem; }
+.legend-bar.legend-trend { white-space: normal; max-width: min(640px, 92vw); }
+/* Aşama C · dedektif */
+.dt-intro { font-size: .8rem; color: #d6d3d1; margin-bottom: .3rem; }
+.dt-card { display: flex; flex-direction: column; gap: .2rem; padding: .45rem .6rem; margin: .35rem 0 .2rem; border-radius: 10px;
+  border: 1px solid rgba(249,115,22,.22); background: rgba(249,115,22,.05); font-size: .76rem; color: #e7e5e4; }
+.dt-card b { font-weight: 600; } .dt-card span { color: var(--muted); font-size: .7rem; line-height: 1.45; }
 /* Aşama A */
 .st-key-pt_bar { margin-bottom: .4rem; }
 .st-key-pt_bar [data-testid="stTextInputRootElement"] { min-height: 2rem; }
@@ -2779,6 +2801,9 @@ _SVG_ICONS = {
     "info": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' "
             "stroke-width='2.2' stroke-linejoin='miter'><path d='M8.5 3h7L21 8.5v7L15.5 21h-7L3 15.5v-7Z'/>"
             "<path d='M12 11v6M12 7.2v1.4'/></svg>",
+    "trendup": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#f97316' "
+               "stroke-width='2.4' stroke-linejoin='miter' stroke-linecap='square'><path d='M3 17l6-6 4 4 8-8'/>"
+               "<path d='M15 7h6v6'/></svg>",
     "wave": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' "
             "stroke-width='2.2' stroke-linejoin='miter' stroke-linecap='square'><path d='M2 12h3l2-6 3 12 3-9 2 6 "
             "2-3h5'/></svg>",
@@ -2833,6 +2858,7 @@ def icon_css() -> str:
         f".st-key-layer_bar button:nth-of-type(1) p::before {{ {mask('globe')} }}",
         f".st-key-layer_bar button:nth-of-type(2) p::before {{ {mask('thermo')} }}",
         f".st-key-layer_bar button:nth-of-type(3) p::before {{ {mask('wind')} }}",
+        f".st-key-layer_bar button:nth-of-type(4) p::before {{ {mask('trendup')} }}",
         ".st-key-layer_bar button[aria-checked='true'] p::before { background-color: #1c1917; }",
         f"[role='tablist'] [data-testid='stTab'] p::before {{ {before} }}",
         f"[role='tablist'] [data-testid='stTab'][data-key='0'] p::before {{ {mask('globe')} }}",
@@ -2879,8 +2905,10 @@ def camera_key(cam: dict) -> str:
     return f"{cam['lon']:.3f}|{cam['lat']:.3f}|{cam['scale']:.3f}"
 
 
-LAYERS = {"classic": "Klasik Görünüm", "thermal": "Termal Analiz", "wind": "Basınç & Hava Dalgası"}
-LAYERS_EN = {"classic": "Classic View", "thermal": "Thermal Analysis", "wind": "Pressure & Weather Waves"}
+LAYERS = {"classic": "Klasik Görünüm", "thermal": "Termal Analiz", "wind": "Basınç & Hava Dalgası",
+          "trend": "Trend Haritası"}
+LAYERS_EN = {"classic": "Classic View", "thermal": "Thermal Analysis", "wind": "Pressure & Weather Waves",
+             "trend": "Trend Map"}
 
 
 def layer_label(key: str, short: bool = False) -> str:
@@ -2894,9 +2922,10 @@ def layer_label(key: str, short: bool = False) -> str:
 #  10 şehir basınç noktaları · 11 sürekli termal yüzey (choropleth; Plotly onu her zaman noktaların altına çizer)
 # Termalde 3 (nokta alanı) ve 5 (nabız halkaları) kapalıdır; yerlerini 11'deki sürekli yüzey alır.
 LAYER_VISIBILITY = {
-    "classic": [True, True, True, False, False, False, False, False, False, False, False, False, False],
-    "thermal": [True, True, False, False, True, False, False, False, False, False, False, True, False],
-    "wind":    [True, True, False, True, False, False, True, True, True, True, True, False, False],
+    "classic": [True, True, True, False, False, False, False, False, False, False, False, False, False, False],
+    "thermal": [True, True, False, False, True, False, False, False, False, False, False, True, False, False],
+    "wind":    [True, True, False, True, False, False, True, True, True, True, True, False, False, False],
+    "trend":   [True, True, False, False, False, False, False, False, False, False, False, False, False, True],
 }
 # Termal skala (meteorolojik gelenek): soğuk sapma mavi → camgöbeği → yeşil → sarı → turuncu → kırmızı (sıcak sapma)
 THERMAL_STOPS = ((0.0, "#1e40af"), (0.2, "#0ea5e9"), (0.4, "#4ade80"), (0.55, "#facc15"),
@@ -2984,6 +3013,10 @@ def globe_figure() -> go.Figure:
         lon=[None], lat=[None], mode="markers", hovertext=[""], hovertemplate="%{hovertext}<extra></extra>",
         marker={"size": 11, "symbol": "triangle-up", "color": ["#ef4444"],
                 "line": {"color": "rgba(12,10,9,0.9)", "width": 1}},
+        selected={"marker": {"opacity": 1}}, unselected={"marker": {"opacity": 1}}, showlegend=False, visible=False))
+    fig.add_trace(go.Scattergeo(  # 13 · Aşama B trend haritası (15° ızgara; veri denetleyiciden, değişken seçilebilir)
+        lon=[None], lat=[None], mode="markers", hovertext=[""], hovertemplate="%{hovertext}<extra></extra>",
+        marker={"size": 8, "color": ["#f97316"], "line": {"color": "rgba(12,10,9,0.7)", "width": 0.6}},
         selected={"marker": {"opacity": 1}}, unselected={"marker": {"opacity": 1}}, showlegend=False, visible=False))
     fig.update_geos(
         projection_type="orthographic",
@@ -3538,6 +3571,12 @@ GLOBE_CONTROLLER_JS = """
       } else if (!gd.__vpFlying) {
         if (gd.__vulpaLabel !== T.name) { gd.__vulpaLabel = T.name; await applySelection(gd, T); }
         if (gd.__vulpaData !== T.data.nonce) { gd.__vulpaData = T.data.nonce; await applyData(gd, T.data); }
+        const TM = T.trend;   // Aşama B · trend haritası (iz 13)
+        if (TM && gd.data.length > 13 && gd.__vpTrend !== TM.nonce) {
+          gd.__vpTrend = TM.nonce;
+          await P().restyle(gd, {lon: [TM.lon], lat: [TM.lat], hovertext: [TM.hover], "marker.color": [TM.color],
+                                 "marker.size": [TM.size], "marker.opacity": [TM.opacity]}, [13]);
+        }
         const E = T.events;
         if (E && gd.data.length > 12 && gd.__vpEvents !== E.nonce) {
           gd.__vpEvents = E.nonce;
@@ -3601,6 +3640,59 @@ EVENT_STYLE = {"wildfire": ("triangle-up", "#ef4444"), "volcano": ("triangle-up"
                "temperature": ("star", "#f97316"), "earthquake": ("x", "#fb923c"), "landslide": ("x", "#a16207")}
 
 
+def trend_key() -> str:
+    keys = safe(map_keys_available) or ["T2M"]
+    k = st.session_state.get("tm_key", "T2M")
+    return k if k in keys else keys[0]
+
+
+def trend_data() -> dict | None:
+    return safe(trend_map, trend_key(), end_year_arg()) if FEATURE_TRENDMAP else None
+
+
+def trend_payload() -> dict | None:
+    """Aşama B · trend haritası noktaları (yalnızca katman açıkken gönderilir). Anlamlı → iri ve dolu, anlamsız →
+    küçük ve soluk; renk on yıllık değişim / vmax (ıraksak, termal paletle aynı)."""
+    if st.session_state.get("layer") != "trend":
+        return None
+    m = trend_data()
+    if not m:
+        return None
+    import numpy as np
+    vmax = float(m.get("vmax") or 1.0) or 1.0
+    unit, en = m.get("unit", ""), lang() == "en"
+    dec = L("10 yıl", "decade")
+    lon, lat, col, size, op, hov = [], [], [], [], [], []
+    for i, la in enumerate(m["lats"]):
+        for j, lo in enumerate(m["lons"]):
+            if not bool(m["valid"][i][j]):
+                continue
+            v, pv, sig = float(m["per_decade"][i][j]), float(m["p"][i][j]), bool(m["significant"][i][j])
+            if not np.isfinite(v):
+                continue
+            lon.append(float(lo)); lat.append(float(la))
+            col.append(blend(THERMAL_STOPS, (max(-1.0, min(1.0, v / vmax)) + 1) / 2))
+            size.append(15 if sig else 7); op.append(0.95 if sig else 0.42)
+            hov.append(f"<b>{v:+.3g} {html.escape(unit)}/{dec}</b><br>p = {format_p(pv)} · "
+                       f"{L('anlamlı', 'significant') if sig else L('anlamsız', 'not significant')}"
+                       f"<br>{abs(la):.0f}°{L('K', 'N') if la >= 0 else L('G', 'S')} {abs(lo):.0f}°"
+                       f"{L('D', 'E') if lo >= 0 else L('B', 'W')}")
+    return {"nonce": f"{m['key']}|{end_year_arg()}|{lang()}", "lon": lon, "lat": lat, "color": col, "size": size,
+            "opacity": op, "hover": hov}
+
+
+def render_trend_picker() -> None:
+    keys = safe(map_keys_available) or []
+    if not keys:
+        return
+    cat = {v["key"]: v for v in var_catalog()}
+    if st.session_state.get("tm_key") not in keys:
+        st.session_state["tm_key"] = "T2M" if "T2M" in keys else keys[0]
+    with st.container(key="tm_ctl", width="content"):
+        bound(st.selectbox, "tm_key", label=L("Trend haritası değişkeni", "Trend map variable"), options=keys,
+              format_func=lambda k: (cat.get(k) or {}).get("name", k), label_visibility="collapsed")
+
+
 def events_active(layer: str | None = None) -> bool:
     layer = layer or st.session_state.get("layer", "classic")
     return bool(st.session_state.get("events_on")) and layer == "classic" and not sel_year()
@@ -3634,7 +3726,7 @@ def globe_controller(city: str, cam: dict, layer: str) -> None:
               "layer": layer, "visibility": layer_visibility(layer), "data": layer_payload(),
               "zoom": [MIN_SCALE, MAX_SCALE], "theme": theme(),
               "credits": st.session_state.pop("_credits_cmd", None), "sound": sound_on(),
-              "events": events_payload(), "pick": bool(st.session_state.get("pick"))}
+              "events": events_payload(), "pick": bool(st.session_state.get("pick")), "trend": trend_payload()}
     pt = st.session_state.get("point") if FEATURE_POINT else None
     if pt:   # nokta modu: seçili halka/etiket ve kamera noktaya
         target.update({"lon0": pt["lon"], "lat0": pt["lat"], "index": -1,
@@ -3667,6 +3759,16 @@ def layer_legend(layer: str) -> str:
         return (f"<div class='legend-bar'><span>−8 °C</span><i class='lg-thermal'></i><span>+8 °C</span>"
                 f"<em>{anomaly_phrase(fetch_grid().get('anomaly_kind'))}{span} · "
                 f"{html.escape(src)}</em></div>")
+    if layer == "trend":
+        m = trend_data()
+        if not m:
+            return (f"<div class='legend-bar legend-warn'><span>{inline_svg('warn', 14)}</span>"
+                    f"<em>{L('Trend haritası verisi alınamadı.', 'Trend map data unavailable.')}</em></div>")
+        vm, u = float(m.get("vmax") or 0), html.escape(m.get("unit", ""))
+        return (f"<div class='legend-bar legend-trend'><span>−{vm:.2g}</span><i class='lg-thermal'></i><span>+{vm:.2g} {u}</span>"
+                f"<em>{L('on yılda değişim · iri ve dolu = anlamlı (p < 0,05), küçük ve soluk = anlamsız',
+                         'change per decade · large & solid = significant (p < 0.05), small & faint = not significant')}"
+                f"<br>{html.escape(m['sentence_en' if lang() == 'en' else 'sentence_tr'])} · {html.escape(m.get('source', ''))}</em></div>")
     if layer == "wind":
         ex = weather_extremes()
         windy = ex["windiest"]
@@ -3681,8 +3783,8 @@ def layer_legend(layer: str) -> str:
     return ""
 
 
-LAYERS_SHORT = {"classic": "Klasik", "thermal": "Termal", "wind": "Basınç & Dalga"}
-LAYERS_SHORT_EN = {"classic": "Classic", "thermal": "Thermal", "wind": "Pressure & Waves"}
+LAYERS_SHORT = {"classic": "Klasik", "thermal": "Termal", "wind": "Basınç & Dalga", "trend": "Trend"}
+LAYERS_SHORT_EN = {"classic": "Classic", "thermal": "Thermal", "wind": "Pressure & Waves", "trend": "Trend"}
 
 
 def render_layer_bar(compact: bool = False) -> None:
@@ -3691,6 +3793,8 @@ def render_layer_bar(compact: bool = False) -> None:
         legend = layer_legend(st.session_state.get("layer", "classic"))
         if legend:
             html_block(legend)
+        if st.session_state.get("layer") == "trend" and FEATURE_TRENDMAP:
+            render_trend_picker()
         if st.session_state.get("layer", "classic") == "classic":
             with st.container(key="events_ctl", width="content"):
                 hist = bool(sel_year())
@@ -3702,7 +3806,8 @@ def render_layer_bar(compact: bool = False) -> None:
                                  "Open natural events of the last 30 days (wildfires, storms, ice, volcanoes…). Events "
                                  "are live; disabled during time travel." if hist else
                                  "Open natural events of the last 30 days (wildfires, storms, ice, volcanoes…), NASA EONET v3."))
-        st.segmented_control(L("Harita katmanı", "Map layer"), list(LAYERS), key="layer", required=True,
+        st.segmented_control(L("Harita katmanı", "Map layer"),
+                             [k for k in LAYERS if k != "trend" or FEATURE_TRENDMAP], key="layer", required=True,
                              format_func=lambda k: layer_label(k, short=compact), label_visibility="collapsed")
 
 
@@ -3844,7 +3949,7 @@ def render_boot() -> None:
     st.markdown(SPLASH_CSS, unsafe_allow_html=True)
     theme_css(SPLASH_CSS)
     # Bu çalıştırmada widget çizilmez; Streamlit çizilmeyen widget'ların durumunu siler. Seçimler kalıcı tutulur.
-    for k in ("city", "year", "month", "layer", "var_key", "pt_var"):
+    for k in ("city", "year", "month", "layer", "var_key", "pt_var"):   # (tm_key / dt_*: bound ile kalıcı)
         if k in st.session_state:
             st.session_state[k] = st.session_state[k]
     city = init_city()
@@ -4126,6 +4231,11 @@ def _settings_body() -> None:
     html_block(f"<div class='set-about'><button class='vp-credits-btn vp-keys-btn' type='button'>{inline_svg('keys', 13)} "
                f"{L('Kısayollar', 'Shortcuts')} <kbd>?</kbd></button><span>{L('Klavye ve sohbet komutları', 'Keyboard & chat commands')}"
                f"</span></div>")
+    if FEATURE_DETECTIVE and st.button(L("Dedektif ol: ne inceleyeyim?", "Be a detective: what should I study?"),
+                                       key="dt_open_set", icon=":material/psychology_alt:", width="stretch"):
+        st.session_state["settings_open"] = False
+        open_detective()
+        st.rerun(scope="app")
     # Modal bir fragment olarak çalışır; geri çağırma yalnızca modalı yeniden çizerdi. Bu yüzden tıklamada tur başlatılır
     # ve tüm uygulama açıkça yeniden çalıştırılır (bölge, katman ve küre hedefi hemen uygulansın).
     if st.button(L("Jüri turunu başlat", "Start the jury tour"), key="tour_start_btn", icon=":material/slideshow:",
@@ -4460,6 +4570,86 @@ def render_keys_card() -> None:
         """)
 
 
+def open_detective() -> None:
+    st.session_state["detective_open"] = True
+    st.session_state.pop("dt_result", None)
+
+
+def close_detective() -> None:
+    st.session_state["detective_open"] = False
+
+
+def go_suggestion(region: str, key: str) -> None:
+    """Öneri kartı: bölgeye uç, değişkeni seç, sihirbazı kapat."""
+    st.session_state["city"] = region
+    st.session_state["var_key"] = key
+    st.session_state.pop("point", None)
+    st.session_state["detective_open"] = False
+
+
+def _detective_body() -> None:
+    qs = safe(detective_questions, lang()) or []
+    if not qs:
+        st.caption(L("Sorular yüklenemedi.", "Questions unavailable."))
+        return
+    st.markdown(f"<div class='dt-intro'>{L('Üç kısa soru; sana uygun bölge ve değişkenleri, gerçek eğilimleriyle önereyim.', 'Three short questions; I will suggest regions and variables with their real trends.')}</div>",
+                unsafe_allow_html=True)
+    answers = {}
+    for q in qs:
+        opts = [o["value"] for o in q["options"]]
+        labels = {o["value"]: o["label"] for o in q["options"]}
+        sk = f"dt_{q['id']}"
+        if st.session_state.get(sk) not in opts:
+            st.session_state[sk] = opts[-1] if q["id"] == "period" else opts[0]
+        st.markdown(f"<div class='set-lbl'>{html.escape(q['question'])}</div>", unsafe_allow_html=True)
+        bound(st.pills, sk, label=q["question"], options=opts, format_func=lambda v, lb=labels: lb.get(v, v),
+              selection_mode="single", label_visibility="collapsed")
+        answers[q["id"]] = st.session_state.get(sk) or opts[0]
+    if st.button(L("Önerileri göster", "Show suggestions"), key="dt_go", type="primary", icon=":material/search:",
+                 width="stretch"):
+        st.session_state["dt_result"] = answers
+    res = st.session_state.get("dt_result")
+    if not res:
+        return
+    if res.get("place") == "globe":
+        tv = safe(topic_variables, res.get("topic", "unsure"), lang()) or []
+        st.markdown(f"<div class='set-sec'>{L('Kürede kendin seç', 'Pick on the globe yourself')}</div>", unsafe_allow_html=True)
+        for v in tv[:4]:
+            st.markdown(f"<div class='dt-card'><b>{html.escape(v['name'])}</b><span>{html.escape(v['why'])}</span></div>",
+                        unsafe_allow_html=True)
+        if tv and st.button(L("Kürede nokta seçmeye başla", "Start picking a point on the globe"), key="dt_pick",
+                            icon=":material/my_location:", width="stretch"):
+            st.session_state["pt_var"] = tv[0]["key"]
+            st.session_state["pick"] = True
+            st.session_state["detective_open"] = False
+            st.rerun(scope="app")
+        return
+    sug = safe(detective_suggest, res, lang(), 4) or []
+    if not sug:
+        st.caption(L("Bu seçimlere uyan öneri bulunamadı; başka bir yer ya da konu dene.",
+                     "No suggestion matches; try another place or topic."))
+        return
+    st.markdown(f"<div class='set-sec'>{L('Önerilerim', 'My suggestions')}</div>", unsafe_allow_html=True)
+    for i, sg in enumerate(sug):
+        pv = sg.get("preview") or {}
+        ok = "✓" if pv.get("significant") else "·"
+        st.markdown(f"<div class='dt-card'><b>{html.escape(sg['sentence'])} {ok}</b>"
+                    f"<span>{html.escape(sg.get('reason', ''))}</span></div>", unsafe_allow_html=True)
+        if st.button(L(f"İncele: {rname(sg['region'])}", f"Investigate: {rname(sg['region'])}"), key=f"dt_s{i}",
+                     icon=":material/travel_explore:"):
+            go_suggestion(sg["region"], sg["key"])
+            st.rerun(scope="app")
+
+
+def render_detective() -> None:
+    """Aşama C · Dedektif sihirbazı (Ayarlar, Seiron önerisi ve "dedektif ol" komutuyla açılır)."""
+    if not FEATURE_DETECTIVE or not st.session_state.get("detective_open"):
+        return
+    if st.session_state.get("settings_open") or st.session_state.get("chart_metric"):
+        return
+    st.dialog(L("İklim dedektifi", "Climate detective"), width="medium", on_dismiss=close_detective)(_detective_body)()
+
+
 def render_settings() -> None:
     """Ayarlar modalı. Açık kaldığı sürece her tam çalıştırmada yeniden açılır; kapatınca bayrak iner."""
     st.session_state["_applied"] = (lang(), theme())
@@ -4677,6 +4867,42 @@ def _word_in(q: str, w: str) -> bool:
     return re.search(r"(?<![\wçğıöşü])" + re.escape(w), q) is not None
 
 
+DT_WORDS = ("dedektif", "detective", "ne incele", "neyi incele", "ne araştır", "neyi araştır", "what should i stud",
+            "what should i investigate", "what to investigate", "what to study")
+DT_TOPICS = {"warming": ("ısın", "sıcak", "warm", "heat"), "water": ("yağış", "kurak", "su ", "water", "rain", "drought"),
+             "air": ("hava kirli", "aerosol", "toz", "air quality", "pollution", "dust"),
+             "ice": ("buz", "kar ", "ice", "snow"), "land": ("toprak", "bitki", "soil", "vegetation", "land")}
+DT_PLACES = {"desert": ("çöl", "desert"), "rainforest": ("yağmur orman", "rainforest", "tropik orman"),
+             "city": ("şehir", "kent", "city", "urban"), "coast": ("kıyı", "haliç", "coast", "estuar"),
+             "polar": ("kutup", "arktik", "antarktik", "polar", "arctic"), "mountain": ("dağ", "mountain"),
+             "agriculture": ("tarım", "ova", "farm", "agricultur"), "ocean": ("okyanus", "deniz", "ocean", "sea"),
+             "savanna": ("savan",), "taiga": ("tayga", "taiga", "boreal")}
+
+
+def detective_command(text: str) -> dict | None:
+    """'Dedektif ol' → sihirbazı açar. 'Çölde neyi incelemeliyim?' → yerel öneri yanıtı (detective_suggest)."""
+    if not FEATURE_DETECTIVE:
+        return None
+    q = tr_lower(text) + " "
+    if not any(w in q for w in DT_WORDS):
+        return None
+    place = next((k for k, ws in DT_PLACES.items() if any(w in q for w in ws)), None)
+    topic = next((k for k, ws in DT_TOPICS.items() if any(w in q for w in ws)), "unsure")
+    if not place:
+        open_detective()
+        return {"matched": True, "notes": [], "ui": chat_icon("psychology_alt") + " "
+                + L("Dedektif sihirbazı açıldı.", "Detective wizard opened.")}
+    sug = safe(detective_suggest, {"topic": topic, "place": place, "period": "25"}, lang(), 3) or []
+    if not sug:
+        return None
+    lines = "\n".join(f"- {s_['sentence']} {'✓' if (s_.get('preview') or {}).get('significant') else ''}" for s_ in sug)
+    return {"matched": True, "notes": [], "local": L("Şunları incelemeni öneririm (2001–2025, gerçek NASA POWER verisi):",
+                                                     "I suggest investigating (2001–2025, real NASA POWER data):")
+            + "\n\n" + lines + "\n\n" + L("Bir bölgeye gitmek için adını yazabilir ya da \"dedektif ol\" diyerek sihirbazı açabilirsin.",
+                                               "Type a region name to go there, or say \"be a detective\" to open the wizard."),
+            "source": L("Yerel analiz · dedektif önerileri", "Local analysis · detective suggestions")}
+
+
 def var_or_point_command(text: str) -> dict | None:
     """Değişken ya da nokta komutu ise uygular ve arayüz notunu döndürür; değilse None (soru cümleleri dokunulmaz)."""
     q = tr_lower(text)
@@ -4776,6 +5002,10 @@ def submit_question(text: str) -> None:
     local = local_answer(text, current)
     if local:   # sayısal yerel yanıt: gezinme ve dil modeli yok
         st.session_state["pending"] = {"q": text, "nav": None, "zoom": 0, "scale": None, "layer": None, "cmd": local}
+        return
+    dt = detective_command(text)
+    if dt:
+        st.session_state["pending"] = {"q": text, "nav": None, "zoom": 0, "scale": None, "layer": None, "cmd": dt}
         return
     vp = var_or_point_command(text)
     if vp:
@@ -5034,6 +5264,8 @@ def gl(key: str) -> str:
 # ── Aşama A · değişken seçimi, nokta analizi, yöntem karşılaştırması (büyük plan madde 1, 2, 5, 6, 7) ──────────
 FEATURE_VARIABLES = True    # değişken seçici + yöntem karşılaştırması + "kaç yıl" + Giovanni
 FEATURE_POINT = True        # kürede / koordinatla herhangi bir noktayı analiz
+FEATURE_TRENDMAP = True     # Aşama B · "nerede artıyor, nerede azalıyor" trend haritası katmanı
+FEATURE_DETECTIVE = True    # Aşama C · 3 soruluk dedektif sihirbazı
 
 
 def var_catalog() -> list[dict]:
@@ -5468,6 +5700,7 @@ def render_mission_control() -> None:
     chat_autoscroll()
     render_settings()
     render_metric_dialog(city)
+    render_detective()
     render_keys_card()
     tour_runner()
 
@@ -5537,6 +5770,7 @@ def render_mobile() -> None:
     chat_autoscroll()
     render_settings()
     render_metric_dialog(city)
+    render_detective()
     render_keys_card()
     tour_runner()
 

@@ -1976,3 +1976,67 @@ Değişen: `app.py`. Rapor metinleri 11 bölgede TR/EN doğrudan çağrıyla tar
 **Not:** uzun süredir açık olan bir Streamlit sunucusu `analyze` önbelleğinde eski sentetik seriyi tutabiliyor. Test
 sunucumda Akdeniz'in Sen eğimi yeniden başlatmadan önce +0,23/yıl görünüyordu, sonra doğru değer +0,0005/yıl. Canlı
 site her gönderimde yeniden dağıtıldığı için etkilenmez; yerel sunucuyu yeniden başlatmak yeterli.
+
+### [14.11.2026 22:10] MONSTER · Frontend → Msi-nb · Backend — TAM BUG TESTİ SONUÇLARI (proje sahibinin isteği) · birlikte çözüyoruz
+
+Proje sahibinin sözleri: "sitedeki her şeyi baştan sona eksiksiz bir şekilde bug testine tabi tut ve bulduğun her şeyi
+backend'e bildir ve bildirdikten sonra beraber çözmeye başlayın".
+
+**Kapsam:**
+- **AppTest:**
+  - 50 bölge × 2 dil (100 çalıştırma)
+  - zaman: canlı, 3 yıl × 4 ay
+  - 4 katman ve trend haritasının 10 değişkeni
+  - 15 değişken + tema serisi
+  - 6 grafik penceresi
+  - 10 nokta girdisi: kara, deniz, iki kutup, tarih çizgisi, geçersiz girdiler
+  - 35 sohbet komutu: uç girdiler dahil (boş, 400 karakter, `<script>`, 1900/2099)
+- **Tarayıcı:** masaüstü açılış, yıl değişimi, dil değişimi, konsol hataları.
+
+**Temiz çıkanlar:**
+- 100 bölge çalıştırmasında istisna, "nan/None" ya da uyarı yok.
+- Katmanlar, değişkenler, grafik pencereleri ve zaman seçimleri hatasız.
+- Credits sorunsuz.
+- `<script>` girdisi metin olarak kalıyor.
+
+#### FRONTEND bulguları (ben düzeltiyorum)
+- **F1 · KRİTİK · Seiron yerel motoru çöküyor.**
+  - Aşama A–C'de eklediğim `local_answer(text, city)` fonksiyonu, Seiron'un mevcut yerel analiz motorunu
+    (`local_answer(question, city, navigated)`) aynı adla gölgeledi.
+  - Groq yanıt vermeyince ya da anahtar yokken yerel motora düşen her soru çöküyor: `TypeError: local_answer() takes 2
+    positional arguments but 3 were given`.
+  - Testte çökenler: "Eğilim anlamlı mı?" (önerilerden biri), "en hızlı ısınan bölge hangisi?", "Take me to Greenland",
+    "?", "2099'a git", 400 karakter. Canlı sitede anahtar yoksa ya da Groq sınırı dolarsa çok görünür.
+  - Çözüm: benim fonksiyonumu yeniden adlandırmak (`numeric_answer`). Hemen yapıyorum.
+- **F2 · YÜKSEK · Tarayıcıda sonsuz hata döngüsü.**
+  - Kürenin uçuşunu izleyen saniyelik zamanlayıcı, küre DOM'dan kaldırılınca (yeniden bağlanma, yükleme ekranı)
+    durmuyor ve her saniye `Cannot read properties of undefined (reading 'geo')` atıyor.
+  - Uzun açık kalan bir sekmede 20.000'den fazla konsol hatası birikti (CPU ve bellek). Zamanlayıcıya küre-var-mı
+    kontrolü ekliyorum.
+- **F3 · ORTA · Dil değişince seçiciler eski dilde kalıyor.** Üst çubukta bölge ("◎ Marmara Havzası") ve ay ("Sene
+  Ortalaması") seçicileri İngilizceye geçmiyor; AppTest'te bu durum hataya yol açıyor. Dile duyarlı widget anahtarıyla
+  çözeceğim.
+- **F4 · DÜŞÜK · Seiron gezinme notunu tekrar ediyor.** "Beni Sahra Çölü'ne götür" yanıtında model, arayüz notunu
+  ":material/public: Küre Sahra…" biçiminde yeniden yazıyor. Yankı süzgecini genişletiyorum.
+- **F5 · DÜŞÜK · Ay seçici etiketi kesiliyor.** Üst çubukta "Sene Ortalaması" sığmıyor.
+- **F6 · DÜŞÜK · Hava kartında tekrar.** Sene ortalamasında "Sene ortalaması" iki kez yazıyor.
+- **F7 · DÜŞÜK · EN arayüzde Türkçe etiket.** Hava kartında "Sene ortalaması" Türkçe kalıyor (`WEATHER_EN`'e ekliyorum).
+- **F8 · Bilinen:** mobilde "kürede seç" düğmesi ile küre ayrı sekmelerde; nokta modunda Seiron bölge bağlamıyla
+  yanıtlıyor. Sona bırakıyorum.
+
+#### BACKEND bulguları (senden rica)
+- **B1 · Güney kutbu:** `variable_analysis(-89.9, 45, "T2M")` ve `"AOD_55"` → "Değişken bu noktada sabit (ör. hiç kar
+  yok); trend hesaplanamaz."
+  - Kutupta sıcaklık sabit olamaz. NASA POWER kutup satırında eksik ya da dolgu değeri mi dönüyor?
+  - Gerekirse enlemi ±89,5'e sıkıştır ya da "kutup noktası desteklenmiyor" neden metni dön.
+  - (89,9°K, 0° normal çalışıyor.)
+- **B2 · Antarktika neden metni:** aynı noktada GWETROOT için "Bu değişken bu noktada yok (ör. denizde toprak nemi ya da
+  buharlaşma)" deniyor, oysa nokta kara ve buz. Kara/buz/deniz ayrımına göre ayrı bir metin olsun.
+- **B3 · Yıllık hava çevirisi:** `_fetch_weather_annual(year)` → `source` "NASA POWER (MERRA-2) · 2016 sene ortalaması ·
+  sapma: 1991–2020 normaline göre" ve her bölgede `label` "Sene ortalaması" yalnızca Türkçe.
+  - EN arayüzde Türkçe görünüyor. `source_en` (ve gerekirse `label_en`) ekleyebilir misin? Gelince bağlarım; o zamana
+    kadar `label` için arayüzde çeviri tablosu kullanacağım.
+- **B4 · Soru:** "1900'e git" → `parse_ui_command` en eski yıla (2006) sabitliyor ve not düşüyor. Bilinçli bir davranışsa
+  sorun yok; onaylar mısın?
+
+Önce F1 ve F2'yi düzeltip main'e gönderiyorum, ardından F3–F7. B1–B4 için yanıtını bekliyorum.

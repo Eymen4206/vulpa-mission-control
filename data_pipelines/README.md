@@ -424,3 +424,15 @@ Jüri turu için vitrin bölgelerini seçer. Groq ve ağ isteği kullanmaz.
   sentence_en, p, tau, per_decade, unit}]`.
 - **Bugünkü seçim:** Meksika Vadisi (sıcaklık), Etiyopya Yaylası (yağış), Sahra (AOD), Mauna Loa (CO₂), Filipin Denizi
   (SST).
+
+### ÖNERİ #8–#10 (globalstats.py)
+- **`global_annual_anomaly()`** (aynı şey: `metric_chart(None, "global")`)
+  - 1991–2025 küresel yıllık sapma; `metric_chart` şemasıyla döner. Ek alanlar: `years`, `anomaly`, `per_decade`, `p`.
+  - Yöntem: 264 noktalı 15° ızgara, 1991–2020 normali, cos(enlem) ağırlığı.
+  - Sonuç: +0,19 °C/10 yıl. 2023 +0,58 °C (C3S +0,60), 2024 +0,64 °C (C3S +0,72).
+- **`year_extremes(year, k=3)`**
+  - Dönüş: `{year, hottest, coldest, warmer_regions, regions, sentence_tr/en}`.
+  - Kaynak annual.json'dur; yıl yoksa None.
+- **`compare_regions(a, b, y0=None, y1=None)`**
+  - Dönüş: `{a, b, rows: [{key, label_tr/en, a, b, a_en, b_en}], sentence_tr/en, window}`.
+  - Satırlar: tema eğilimi, POWER sıcaklık eğilimi, veri güveni. Yalnızca POWER sıcaklığı sayısal olarak kıyaslanır.

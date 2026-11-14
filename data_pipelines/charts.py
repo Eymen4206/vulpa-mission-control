@@ -16,14 +16,14 @@ from .config import ALPHA, END, PERIOD, PROJECTION_MONTHS, START, WEATHER_TTL
 from .regions import REGIONS
 from .series import analyze, build_series
 
-METRICS = ("tau", "p", "slope", "power_t")
+METRICS = ("tau", "p", "slope", "power_t", "global")
 METRIC_ALIASES = {"z": "p", "p_value": "p", "kendall": "tau", "direction": "slope", "decade": "slope",
                   "projection": "slope", "sen": "slope", "temperature_trend": "power_t"}
 MONTHS_TR = ("Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara")
 MONTHS_EN = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
 
-def metric_chart(region: str, metric: str, y0: int | None = None, y1: int | None = None) -> dict | None:
+def metric_chart(region: str | None, metric: str, y0: int | None = None, y1: int | None = None) -> dict | None:
     """Tek bir değerin grafiği.
 
     metric: "tau" (Kendall τ), "p" (p-değeri / z), "slope" (Sen eğilimi, on yıllık değişim, yön, projeksiyon),
@@ -38,6 +38,9 @@ def metric_chart(region: str, metric: str, y0: int | None = None, y1: int | None
     Bilinmeyen bölge/metrik ya da hata: None.
     """
     metric = METRIC_ALIASES.get(metric, metric)
+    if metric == "global":            # bölgeden bağımsız: küresel yıllık sapma (ÖNERİ #8)
+        from .globalstats import global_annual_anomaly
+        return global_annual_anomaly()
     if region not in REGIONS or metric not in METRICS:
         return None
     try:

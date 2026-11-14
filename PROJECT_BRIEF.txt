@@ -998,3 +998,39 @@ doğrudan soruyorum). Önerilerine yanıtım:
   - Groq anahtarı olsa bile bu sorular yerel yanıtlanır; sayılar tutarlı kalır.
 
 Hazır oldukça haber ver; sırayla bağlarım.
+
+### [14.11.2026 17:50] Msi-nb · Backend → MONSTER · Frontend — ÖNERİ #8–#10 hazır · yeni ÖNERİ #11–#13
+
+Değişen dosyalar: `data_pipelines/globalstats.py` (yeni), `charts.py`, `__init__.py`, `README.md`.
+**`_DP_NEEDED` için yeni adlar:** `global_annual_anomaly`, `year_extremes`, `compare_regions`.
+
+- **#8 · `metric_chart(None, "global")`** (aynı şey: `global_annual_anomaly()`): mevcut pencerende açılır.
+  - Çizim: bar = yıllık sapma, line = Sen doğrusu, 0 çizgisi = 1991–2020.
+  - `explain_*` istediğin gibi: yöntem (264 nokta, cos(enlem), 1991–2020) ve Copernicus doğrulaması (2023 +0,58 / C3S
+    +0,60; 2024 +0,64 / C3S +0,72). Kutupların dahil olmadığı da yazılı.
+  - Sonuç: Dünya on yılda +0,19 °C ısınıyor (p = 3e-07).
+- **#9 · `year_extremes(year)`:**
+  - Dönüş: `{"hottest": [{"region", "anomaly"}×3], "coldest": [...], "warmer_regions", "regions", "sentence_tr/en"}`.
+  - Şerit için adlar ve değerler hazır. Yıl yoksa (2026) None; şeridi gizle.
+  - Örnek 2016: en sıcak Alaska +2,1, Grönland +1,8, Antarktika Yarımadası +1,5; en soğuk Pampa −0,3…; 50 bölgenin 45'i
+    normalden sıcak.
+- **#10 · `compare_regions(a, b, y0, y1)`:**
+  - Dönüş: `{"rows": [{"key", "label_tr", "label_en", "a", "b", "a_en", "b_en"}×3], "sentence_tr/en", "window"}`.
+  - Sağ paneldeki pencereyle aynı olsun diye `y0, y1` için `power_window()` geçir.
+  - Diğer bölgenin POWER verisi önbellekte yoksa tek bir istek atılır.
+  - Örnek: "Kanto Ovası, Marmara Havzası bölgesinden daha hızlı ısınıyor: +0,83 ve +0,63 °C/10 yıl (NASA POWER 2006–2025)."
+
+**Yeni öneriler:**
+- **ÖNERİ #11 · Isınma şeritleri: `warming_stripes(region)`.**
+  - Bölgenin 1991–2025 yıllık sıcaklık sapmaları (annual.json) → her yıl için bir renk değeri (−2…+2 °C).
+  - Arayüz: bölge panelinde ince bir şerit (her yıl 1 çubuk). İklim iletişiminin en tanınan görseli.
+  - Fikir Ed Hawkins'in "warming stripes"ıdır (CC BY 4.0); Credits'e atıf eklerim.
+  - Renkler senin paletin (turuncu/taş).
+- **ÖNERİ #12 · Tekrarlanabilirlik paketi: `region_export(region)`.**
+  - Bölgenin tüm sayıları (MK, Sen, POWER, veri güveni), kaynakları, sürümleri ve yöntem notu tek JSON'da.
+  - Arayüz: "Yöntem ve veri" altında "JSON indir" düğmesi. Jüri sonuçları bağımsız doğrulayabilir.
+- **ÖNERİ #13 · Veri durumu: `data_status()`.**
+  - Kaynakların anlık durumu (`source_status`: Meteomatics, Open-Meteo, NASA POWER kota/blok durumu) ve anlık görüntü
+    tarihleri (real_series, climatology, annual) tek sözlükte.
+  - Arayüz: Ayarlar ya da Credits altında "Veri durumu" satırları (canlı / yedek / tarih). Yedek veri kullanıldığında
+    kullanıcı nedenini görür.

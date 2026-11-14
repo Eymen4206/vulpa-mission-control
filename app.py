@@ -67,7 +67,8 @@ _DP_NEEDED = ("CITY_NAMES", "END", "GRID_LATS", "GRID_LONS", "LAST_FULL_YEAR", "
               "PROJECTION_MONTHS", "REGION_LIST", "REGIONS", "START", "WEATHER_TTL", "Region", "_fetch_grid",
               "_fetch_power", "_fetch_weather", "analyze", "build_series", "REAL_SOURCES", "series_meta", "data_credits",
               "parse_ui_command", "switch_message", "time_text", "metric_chart", "ALLOWED_ACTIONS", "METRICS",
-              "sonify", "fetch_events", "EVENT_TYPES", "data_quality")
+              "sonify", "fetch_events", "EVENT_TYPES", "data_quality",
+              "showcase_regions")
 if not all(hasattr(_dp, _n) for _n in _DP_NEEDED):
     for _m in [m for m in sys.modules if m == "data_pipelines" or m.startswith("data_pipelines.")]:
         del sys.modules[_m]
@@ -77,6 +78,7 @@ from data_pipelines import (  # noqa: E402
     REGIONS, START, WEATHER_TTL, Region, _fetch_grid, _fetch_power, _fetch_weather, analyze, build_series,
     REAL_SOURCES, series_meta, data_credits,
     parse_ui_command, switch_message, time_text, metric_chart, sonify, fetch_events, data_quality,
+    showcase_regions,
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -3940,6 +3942,16 @@ TOUR_WORDS = ("turu başlat", "jüri turu", "tura başla", "sunumu başlat", "st
               "start the presentation")
 
 
+def tour_showcase() -> list[dict]:
+    """ÖNERİ #7 · Backend'in vitrin bölgeleri (gerçek seri, p < 0,05, farklı veri aileleri ve kıtalar). Her biri hazır
+    katman, grafik ve tek cümlelik özetle gelir. Alınamazsa boş liste: tur elle seçime (tour_stops) döner."""
+    try:
+        items = showcase_regions(len(TOUR_PLAN)) or []
+    except Exception:
+        items = []
+    return [it for it in items if it.get("region") in REGIONS]
+
+
 def tour_stops() -> list[str]:
     def good(c: str) -> bool:
         try:
@@ -3965,22 +3977,25 @@ def tour_line(city: str) -> str:
 
 
 def start_tour() -> None:
-    stops = tour_stops()
+    show = tour_showcase()
+    stops = [it["region"] for it in show] or tour_stops()
     if not stops:
         return
     history = st.session_state.setdefault("chat", [])
-    st.session_state["tour"] = {"stops": stops, "step": 0, "next": 0.0,
+    st.session_state["tour"] = {"stops": stops, "step": 0, "next": 0.0, "show": {it["region"]: it for it in show},
                                 "restore": (st.session_state.get("year", 0), st.session_state.get("month", 0),
                                             st.session_state.get("layer", "classic"))}
     st.session_state["year"] = 0          # tur canlı veride kalır
     st.session_state["chart_metric"] = None
     history.append({"role": "assistant", "source": L("Jüri turu · otomatik sunum", "Jury tour · automatic presentation"),
                     "content": chat_icon("slideshow") + " " + L(
-                        f"Bu bir **otomatik sunum**: {len(stops)} bölgede veri güveni yüksek, gerçek gözlem serilerini "
-                        "sırayla gezeceğim; her durakta katman değişir ve bir değer grafiği açılır. Esc ya da "
+                        f"Bu bir **otomatik sunum**: anlamlı eğilim gösteren {len(stops)} gerçek gözlem serisini (farklı "
+                        "veri türleri ve kıtalar) sırayla gezeceğim; her durakta katman değişir ve bir değer grafiği "
+                        "açılır. Her durağın veri güveni sağ panelde görünür. Esc ya da "
                         "\"Durdur\" ile turu bitirebilirsiniz.",
-                        f"This is an **automatic presentation**: I will visit {len(stops)} regions with high data "
-                        "confidence and observed series; at each stop the layer changes and a value chart opens. Press "
+                        f"This is an **automatic presentation**: I will visit {len(stops)} observed series with "
+                        "significant trends (different data types and continents); at each stop the layer changes and a "
+                        "value chart opens. Each stop's data confidence is shown in the right panel. Press "
                         "Esc or \"Stop\" to end the tour.")})
     tour_advance()
 
@@ -4016,6 +4031,10 @@ def tour_advance() -> None:
         return
     city = t["stops"][stop_i]
     layer, metric = TOUR_PLAN[stop_i % len(TOUR_PLAN)]
+    item = (t.get("show") or {}).get(city)
+    if item:   # Backend vitrini: katman, grafik ve sayıya dayalı cümle hazır gelir
+        layer = item.get("layer") if item.get("layer") in LAYERS else layer
+        metric = item.get("chart") if item.get("chart") in METRIC_KEYS else metric
     if phase == 0:
         st.session_state["city"] = city
         st.session_state["_nav_by_chat"] = city        # bölge geçiş notu yerine tur notu
@@ -4025,7 +4044,9 @@ def tour_advance() -> None:
         st.session_state.setdefault("chat", []).append(
             {"role": "assistant", "source": L(f"Jüri turu · {stop_i + 1}/{len(t['stops'])}",
                                               f"Jury tour · {stop_i + 1}/{len(t['stops'])}"),
-             "content": chat_icon("travel_explore") + " " + tour_line(city) + " " + L("Katman: ", "Layer: ")
+             "content": chat_icon("travel_explore") + " "
+                        + ((item.get("sentence_en" if lang() == "en" else "sentence_tr") if item else None) or tour_line(city))
+                        + " " + L("Katman: ", "Layer: ")
                         + f"**{layer_label(layer)}**."})
     elif phase == 1:
         st.session_state["chart_metric"] = metric

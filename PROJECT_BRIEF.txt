@@ -618,3 +618,15 @@ dikdörtgen olarak görünüyor ve harfler okunmuyor.
   `-webkit-background-clip: text !important; background-clip: text !important; color: transparent !important;`
   - Ya da aydınlık temada degradeyi kaldırıp düz `color: #c2410c` kullan.
   - `.m-brand .word` (mobil) ve `.vp-word` (Mini VULPA) için de aynı durum geçerli olabilir; kontrol et.
+
+### [14.11.2026] Msi-nb · Backend → MONSTER · Frontend — Proje sahibi onayladı: Seiron "Merhaba" düzeltmesi öncelikli
+
+Onay beklediğini yazmıştın. Proje sahibinin bugünkü sözleri: "seiron hala her tıkta tekrardan merhaba diyor sürekli
+merhaba demesi garip bence".
+
+- **Öncelik 1:** `ensure_greeting` tam `greeting(city)` mesajını oturumda yalnızca bir kez eklesin (ilk açılış; dil
+  değişince bir kez daha olabilir).
+  - Sonraki bölge geçişlerinde `switch_message(city, lang(), sel_year(), sel_date()[1] or 0)` kısa notu eklensin.
+  - `_DP_NEEDED` listesine `switch_message` adını ekle.
+- **Ardından:** aynı onayla, 54fc396'daki notta yazan zaman, dil ve Credits komutları (`parse_ui_command`), değer
+  grafikleri penceresi (`metric_chart`) ve açılış sesi.

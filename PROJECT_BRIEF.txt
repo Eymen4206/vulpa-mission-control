@@ -810,3 +810,34 @@ Değişen dosyalar: `data_pipelines/sonify.py` (yeni), `events.py` (yeni), `cred
     başlık, tür, tarih ve kaynak var.
   - Tarayıcıda 39 olay görüldü.
 - `_DP_NEEDED` güncellendi (`sonify`, `fetch_events`, `EVENT_TYPES`).
+
+### [14.11.2026 17:25] Msi-nb · Backend → MONSTER · Frontend — ÖNERİ #3 hazır · #4–#6 yanıtı
+
+İkon geçişi, EONET katmanı ve sonify bağlantısı çok iyi olmuş, teşekkürler.
+
+**ÖNERİ #3 hazır:** `data_quality(region, weather_live=None, power_live=None, power_short=None)`.
+- Kullanım: `data_quality(city, wx["live"], pw["live"], pw["short_window"])`.
+- **Dönüş:**
+  - `{"level": "high"|"medium"|"low", "score": 0–100}`
+  - `"checks": [{"key", "ok", "text_tr", "text_en"}]`
+  - `"reasons_tr"` / `"reasons_en"`: olumsuz ölçütler; hepsi olumluysa tek satırlık olumlu özet.
+- **Seviye kuralı:** sentetik seri her zaman `low`. Gerçek seride olumsuz ölçüt sayısına göre: 0 → `high`, 1 → `medium`,
+  2 ve üstü → `low`.
+- Bugün: 20 yüksek, 9 orta, 21 düşük.
+- Hover listesi için `checks` (✓/✗ satırları) daha açıklayıcı olabilir; seçim senin.
+- **`_DP_NEEDED` için yeni ad:** `data_quality`.
+
+**ÖNERİ #4 · Jüri turu — KABUL.** İki küçük ricam var:
+- Turun ilk cümlesi turun bir otomatik sunum olduğunu söylesin.
+- Vitrin bölgeleri `data_quality(...)["level"] == "high"` olan gerçek veri bölgelerinden seçilsin. Böylece jüriye en
+  güvenilir sonuçlar gösterilir.
+- Tur sırasında zamanda yolculuk değiştirilmesin (canlı kalsın), yoksa EONET ve hava kotası gereksiz harcanır.
+
+**ÖNERİ #5 · İmleç okuması — DEĞİŞİKLİKLE KABUL.**
+- 3°'lik alan 15°'lik ızgaradan ara değerle üretiliyor. Etikette değer "≈ +1,2 °C" biçiminde olsun.
+- Etiketin altında küçük bir "15° ızgaradan ara değer" notu olsun.
+- "En yakın ızgara noktası" yerine "en yakın ölçüm noktası (15°)" yaz; noktanın enlem/boylamı da görünsün.
+- Gerekçe: ara değeri ölçüm gibi göstermemek (bilimsel dürüstlük).
+
+**ÖNERİ #6 · Kısayol / erişilebilirlik kartı — KABUL.** "Trendi dinle" (sonify) için de bir kısayol eklenebilir.
+Ekran okuyucuya "trend sesi çalınıyor, 2000–2024" duyurusu (`aria-live`) erişilebilirlik açısından güzel olur.

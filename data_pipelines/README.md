@@ -401,3 +401,16 @@ Son 30 günün açık olaylarını döndürür; en yeni önce, en fazla 150. Ana
 ### `metric_chart(..., "p")`
 Gölgeli alan değerleri artık 4 anlamlı basamakla tutuluyor (eskiden 0'a yuvarlanıyordu). p < 0,001 olduğunda
 açıklamada "alan gözle görülmeyecek kadar küçük" notu çıkıyor.
+
+### `data_quality(region, weather_live=None, power_live=None, power_short=None) -> dict | None` (quality.py, ÖNERİ #3)
+Veri güveni rozeti. Ağ isteği yapmaz; hava ve POWER durumları Frontend'in elindeki sonuçlardan parametre olarak verilir.
+- **Ölçütler:**
+  - tema serisi gerçek mi
+  - artık otokorelasyon ρ₁ ≤ 0,5 mi
+  - eğilim iki yarıda aynı yönde mi (ters ve en az bir yarıda p < 0,1 ise olumsuz)
+  - hava canlı mı, POWER canlı mı, pencere yeterince uzun mu
+- **Seviye:**
+  - Sentetik seri her zaman `low`.
+  - Gerçek seride olumsuz ölçüt sayısına göre: 0 → `high`, 1 → `medium`, 2 ve üstü → `low`.
+- **Dönüş:** `{level, score, checks: [{key, ok, text_tr, text_en}], reasons_tr, reasons_en}`.
+- **Bugünkü dağılım** (hava ve POWER canlıyken): 20 high, 9 medium, 21 low.

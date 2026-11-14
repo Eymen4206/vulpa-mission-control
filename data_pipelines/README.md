@@ -458,3 +458,20 @@ Açılış yükleme ekranı içindir. Hava, ızgara, NASA POWER, tema serisi ve 
 - `on_step(done, total, name)` ilerleme çubuğu içindir.
 - Dönüş: `{ok, seconds, steps: {ad: {ok, seconds}}}`. Sahte veri üretmez; kaynak düşerse fonksiyonların kendi
   yedekleri devreye girer.
+
+## Büyük Plan · Aşama A (variables.py) — yarışma madde 1, 2, 5, 6, 7
+- **Kaynak:** NASA POWER aylık (MERRA-2); 15 değişken tek istekte gelir. Nokta 0,5°'ye yuvarlanır; önbellek bellekte
+  30 dk + `cache/` diskinde kalıcı. 429 gelirse 60 sn sigorta; sahte veri üretilmez.
+- **`variable_catalog(lang)`:** `[{key, power_param, category, category_name, name, unit, definition, why, good_for,
+  land_only, giovanni}]`
+- **`variable_series(lat, lon, key, end_year)`:** `{dates, values, unit, available, reason, source, live, lat, lon,
+  y0, y1}`
+- **`variable_analysis(lat, lon, key, end_year)`**
+  - `mk`, `sen` (+ %95 GA), `ttest` (otokorelasyon düzeltmeli)
+  - `agree`, `years_to_significance` (Weatherhead 1998)
+  - `annual`, `deseasonalized`, `chart` (`metric_chart` şeması + `band`)
+  - `sentence_tr/en`, `giovanni_url`
+- **`describe_point(lat, lon)`:** `{nearest_region, distance_km, land, elevation, available_keys, label_tr/en}`
+- **`trend_tests(region)`:** tema serisi için aynı yöntem karşılaştırması.
+- **`analyze_values(values, start_year)`:** çekirdek analiz. Aylık seri uzunluğu 12'nin katı olmalı; %10'dan az eksik
+  ay, aynı takvim ayının ortalamasıyla doldurulur.

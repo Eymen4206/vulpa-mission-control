@@ -1599,3 +1599,79 @@ belirt".
 - Artık kontrollerde zorunlu yeni ÖNERİ yazmıyoruz. Odak büyük planda (Aşama A → B → C).
 - Bekleyen #11–#14, #16, #17, #19–#22 proje sahibinin kararına kalıyor.
 - 10 dakikalık kontroller ve aşamalar arasında onay beklememe kuralı sürüyor.
+### [14.11.2026 20:40] Msi-nb · Backend → MONSTER · Frontend — AŞAMA A HAZIR (madde 1, 2, 5, 6, 7)
+
+Önceki mesajdaki "`main`'e gönder" ifadesi kabuk hatasıyla bozuldu: yalnızca test edilmiş işleri **main**'e gönder.
+
+Değişen dosyalar: `data_pipelines/variables.py` (yeni), `__init__.py`, `README.md`. Testler: pyflakes temiz; AppTest
+açılış ve "Sistemi Başlat" sonrası hatasız; İstanbul ve okyanus noktasıyla doğrulandı.
+**`_DP_NEEDED` için yeni adlar:** `variable_catalog`, `variable_analysis`, `variable_series`, `describe_point`,
+`trend_tests`, `giovanni_url`, `VARIABLES`.
+
+**1) `variable_catalog(lang)`** → 15 değişken, kategori sırasıyla. Her öğe:
+`{key, power_param, category, category_name, name, unit, definition, why, good_for, land_only, giovanni}`.
+- **Kategoriler:**
+  - Sıcaklık: T2M, T2M_MAX, T2M_MIN, TS
+  - Su döngüsü: PRECTOTCORR, EVLAND
+  - Atmosfer: RH2M, QV2M, WS10M, CLOUD_AMT, AOD_55
+  - Enerji: ALLSKY_SFC_SW_DWN
+  - Toprak: GWETROOT, GWETTOP
+  - Kar ve buz: SNODP
+- `definition` ve `why` lise düzeyinde TR/EN; ⓘ için hazır.
+- `land_only`: True olanlar denizde yok, seçicide soluk göster.
+
+**2) `variable_analysis(lat, lon, key, end_year=None)`** — sağ panel için tek çağrı.
+- **Bölge için:** `variable_analysis(spec.lat, spec.lon, key, sel_year() or None)`.
+- **Nokta için:** tıklanan koordinat.
+- **Dönüş:**
+  - `{key, name, name_en, unit, lat, lon, period: [y0, y1], available, reason, live, source, giovanni_url}`
+  - `mk: {trend, p, z, tau, significant}`
+  - `sen: {per_year, per_decade, ci_low, ci_high}` (GA on yıllık birimde)
+  - `ttest: {slope_per_decade, t, p, significant, n_eff, rho1}`
+  - `agree`: iki yöntem aynı karara varıyor mu
+  - `years_to_significance: {years_needed, years_available, extra_years, significant_now, sentence_tr, sentence_en}`
+  - `annual: {years, values}`, `deseasonalized` (aylık anomali listesi)
+  - `chart`: `metric_chart` şeması. `traces[0]` aylık (x = "YYYY-MM"), `traces[1]` yıllık işaretler, `traces[2]` Sen
+    çizgisi, ayrıca `band` (GA). Mevcut grafik pencerende doğrudan açılır.
+  - `sentence_tr`, `sentence_en`
+- `available=False` ise yalnızca başlık alanları ve `reason` gelir (ör. "Bu değişken bu noktada yok…" ya da "NASA
+  POWER'a ulaşılamadı…"). Sahte veri yok; kutuları gizle, nedeni yaz.
+- **Performans:** bir nokta için ilk çağrı ~2,5 sn (tüm 15 değişken tek istekte), sonraki her değişken anında gelir.
+  Nokta 0,5°'ye yuvarlanır (MERRA-2 ızgarası). Önbellek: bellek 30 dk + disk kalıcı.
+  - Yükleme kartı göstermek istersen önce `point_data(lat, lon, end_year)` çağır; o tek istek, gerisi önbellekten.
+- **Dönem:** son 25 tam yıl (2001–2025); geçmiş yıl seçiliyse o yılla biten 25 yıl.
+
+**3) `describe_point(lat, lon, end_year=None)`** → `{ok, lat, lon, nearest_region, distance_km, land, elevation,
+available_keys, label_tr, label_en, error}`.
+- Örnek: "41,0°K 29,0°D · en yakın bölge Marmara Havzası (44 km)", land=True, 15 değişken.
+- Okyanus (0°, 140°B): land=False, 11 değişken.
+- `available_keys`'i seçicide etkin/soluk ayrımı için kullan.
+
+**4) Madde 5 · t-testi:** `ttest` alanı.
+- Mevsimden arındırılmış aylık anomaliler üzerinde doğrusal regresyon, otokorelasyon düzeltmeli (Santer vd. 2000).
+- **Örnekler (İstanbul):**
+  - T2M: MK p < 0,001, t p < 0,001 → agree ✓
+  - Yağış: ikisi de anlamsız → agree ✓
+  - Toprak nemi: MK anlamlı (p = 0,005), t-testi anlamsız (p = 0,42) → agree ✗. Bu gerçek bir yöntem farkı; tabloda
+    dürüstçe gösterilsin, öğretici bir örnek.
+- **Mevcut tema serileri için:** `trend_tests(region)` → aynı `mk`, `sen`, `ttest`, `agree`, `years_to_significance`.
+  "Tema serisi" seçiliyken tablo bundan gelir.
+
+**5) Madde 6:** `years_to_significance.sentence_*` (Weatherhead vd. 1998).
+- Örnek: "Bu eğilim aynı hızla sürerse yaklaşık 87 yıl daha veriyle anlamlı hale gelir (toplam ≈112 yıl…)".
+- Anlamlıysa "Eğilim zaten istatistiksel olarak anlamlı."
+- Sen eğimi 0 ise sonuç cümlesi "belirgin bir değişim göstermedi" olur.
+
+**6) Madde 7:** `giovanni_url` alanı (ayrıca `giovanni_url(key, lat, lon, y0, y1)`).
+- 11 değişkende var; T2M_MAX, T2M_MIN, RH2M ve WS10M'de None. None ise bağlantıyı gösterme.
+- Giovanni ücretsiz NASA Earthdata hesabı isteyebilir; küçük bir not koy.
+
+**Senden beklenen (Aşama A arayüzü):**
+- Değişken seçici ("Tema serisi" + 15 değişken; ⓘ tanım)
+- Nokta analizi modu (küre tıklaması + koordinat girişi + "Bölgeye dön")
+- Yöntem karşılaştırması tablosu
+- "Kaç yıl gerekir" satırı
+- Giovanni bağlantısı
+- Seiron komutları ("toprak nemine bak", "41 29 noktasını analiz et")
+
+Bitince "AŞAMA A ARAYÜZDE" yaz. Ben şimdi **Aşama B'ye (trend haritası)** geçiyorum.

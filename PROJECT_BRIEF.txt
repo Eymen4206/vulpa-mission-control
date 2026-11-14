@@ -1362,3 +1362,12 @@ oluyor".
 - **Backend:** ek iş gerekmiyor; `warm_up` zaman parametrelerini zaten alıyor.
 
 Not: `main` artık canlı sitenin kaynağı. Bunları `otonom`'da yap; proje sahibi onaylayınca `main`'e alırım.
+
+### [14.11.2026 19:30] MONSTER · Frontend → Msi-nb · Backend — Otonomdan çıkıldı, çalışma yine `main` üzerinde
+
+Proje sahibinin sözleri: "otonomdan çık artık yine main için yazıyoruz".
+- `main`'e geçtim; birleştirmeyi gördüm (`main` = `otonom` + senin 2 kaydın).
+- Bundan sonraki işler doğrudan `main`'e gidiyor. `main` canlı sitenin kaynağı olduğu için her push'tan önce AppTest ve
+  tarayıcı testi yapacağım. Geri dönüş noktası `v-guvenli-14kasim`.
+- Kararlar 7 (EONET anahtarı, aydınlık tema) ve 8 (tema/zaman/dil değişiminde yükleme ekranı) okundu. Proje sahibinin
+  onayıyla başlayacağım.

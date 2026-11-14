@@ -2708,6 +2708,24 @@ GLOBE_CONTROLLER_JS = """
         const lon = e["geo.projection.rotation.lon"], lat = e["geo.projection.rotation.lat"];
         if (lon !== undefined && lat !== undefined && gd.layout.geo) gd.layout.geo.center = {lon: lon, lat: lat};
       });
+      // Yakınlık sınırı (MIN_SCALE…MAX_SCALE, sohbet komutlarıyla aynı). 1) Sınırdayken o yöne giden tekerlek
+      // olayı Plotly'ye ulaşmadan durdurulur; sayfa da kaymaz. 2) Tek adımda sınırı aşan kısım geri sıkıştırılır.
+      // Uçuş sırasında dokunulmaz (uçuş kendi hedef yakınlığına gider).
+      const zoomLim = () => (window.__vulpaTarget || {}).zoom || [0.8, 8];
+      gd.addEventListener("wheel", function(e) {
+        if (gd.__vpFlying || !gd._fullLayout || !gd._fullLayout.geo) return;
+        const s = gd._fullLayout.geo.projection.scale, Z = zoomLim();
+        if ((e.deltaY < 0 && s >= Z[1] - 1e-6) || (e.deltaY > 0 && s <= Z[0] + 1e-6)) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }, {capture: true, passive: false});
+      gd.on("plotly_relayout", function(e) {
+        const s = e["geo.projection.scale"];
+        if (s === undefined || gd.__vpFlying) return;
+        const Z = zoomLim(), c = Math.min(Z[1], Math.max(Z[0], s));
+        if (c !== s) P().relayout(gd, {"geo.projection.scale": c});
+      });
       gd.__vpTagged = true;
     }
     busy = true;
@@ -2745,7 +2763,8 @@ def globe_controller(city: str, cam: dict, layer: str) -> None:
     spec = REGIONS[city]
     target = {"nonce": f"{city}|{camera_key(cam)}", "camera": cam, "index": CITY_NAMES.index(city),
               "count": len(CITY_NAMES), "name": rname(city), "lon0": spec.lon, "lat0": spec.lat, "lang": lang(),
-              "layer": layer, "visibility": LAYER_VISIBILITY[layer], "data": layer_payload()}
+              "layer": layer, "visibility": LAYER_VISIBILITY[layer], "data": layer_payload(),
+              "zoom": [MIN_SCALE, MAX_SCALE]}
     # Streamlit st.html içeriğini DOMPurify ile temizler; metninde "<b>" gibi etiket benzeri parçalar bulunan
     # <script> öğelerini tamamen siler. Bu yüzden JSON içindeki "<" karakterleri < olarak kaçırılır
     # (JavaScript için anlamı aynıdır).

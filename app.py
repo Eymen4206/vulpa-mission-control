@@ -832,6 +832,13 @@ def p_phrase(p: float) -> str:
     return "p < 1e-16" if p < 1e-16 else f"p = {format_p(p)}"
 
 
+def dec(text: str) -> str:
+    """Sayı metninde ondalık ayracı: TR arayüzde virgül, EN'de nokta (TR-4). Yalnızca rakam arasındaki noktalar."""
+    if lang() == "en":
+        return text
+    return re.sub(r"(?<=\d)\.(?=\d)", ",", text)
+
+
 def unit_per(unit: str, per: str = "") -> str:
     """Kutulardaki birim yazısı. Boyutsuz 0–1 ölçeği (toprak nemi) '0–1/yıl' gibi okunaksız olmasın:
     '/yıl · 0–1 ölçeği'. Diğer birimler 'birim/yıl'."""
@@ -839,6 +846,12 @@ def unit_per(unit: str, per: str = "") -> str:
         scale = L("0–1 ölçeği", "0–1 scale")
         return html.escape(f"/{per} · {scale}" if per else scale)
     return html.escape(f"{unit}/{per}" if per else unit)
+
+
+def fmt0(spec: Region, value: float, extra: int = 0) -> str:
+    """Eğim gösterimi: anlamsız derecede küçükse '0' (ör. +0.00000 yerine), değilse fmt (TR-5)."""
+    d = spec.decimals + extra
+    return "0" if abs(value) < 0.5 * 10 ** (-d) else fmt(spec, value, extra=extra)
 
 
 def fmt(spec: Region, value: float, signed: bool = True, extra: int = 0) -> str:
@@ -2208,6 +2221,11 @@ def with_mini(url: str) -> str:
     return urlunsplit((parts.scheme, parts.netloc, path, urlencode(query), ""))
 
 
+SOURCE_LABEL_EN = {"arayüz": "interface", "yapılandırma": "configuration", "Yayın adresi": "Public address",
+                   "Canlı uygulama adresi": "Live app address",
+                   "Yerel ağ · telefon aynı Wi-Fi ağında olmalı": "Local network · phone must be on the same Wi-Fi"}
+
+
 def live_app_url() -> tuple[str, str]:
     """Telefonların açabileceği gerçek uygulama adresi ve kaynağı.
 
@@ -2262,7 +2280,7 @@ def render_qr_module() -> None:
             html_block(f"""
             <div class="qr-text"><b>Mini VULPA</b><br>{L("Kamerayla okutun; mobil arayüz açılır.",
                                                         "Scan with the camera to open the mobile view.")}<br>
-            <span>{html.escape(source)}</span><br><code>{html.escape(url)}</code></div>
+            <span>{html.escape(SOURCE_LABEL_EN.get(source, source) if lang() == "en" else source)}</span><br><code>{html.escape(url)}</code></div>
             """)
 
 
@@ -3863,6 +3881,7 @@ def render_trend_picker() -> None:
         st.session_state["tm_key"] = "T2M" if "T2M" in keys else keys[0]
     with st.container(key="tm_ctl", width="content"):
         bound(st.selectbox, "tm_key", label=L("Trend haritası değişkeni", "Trend map variable"), options=keys,
+              placeholder=L("Değişken seçin", "Choose a variable"),
               format_func=lambda k: (cat.get(k) or {}).get("name", k), label_visibility="collapsed")
 
 
@@ -4233,7 +4252,7 @@ def render_splash() -> None:
                        "50 ecological regions · Meteomatics + NASA POWER · time travel") + "</div>")
 
 
-def ticker_html() -> str:
+def ticker_html(with_label: bool = True) -> str:
     wx = fetch_weather()
     arrows = {"increasing": "▲", "decreasing": "▼", "no trend": "◆"}
     items = []
@@ -4244,10 +4263,10 @@ def ticker_html() -> str:
         items.append(
             f"<span class='tk'><b>{html.escape(rname(name))}</b><span class='w'>{wx_icon(w, 14)} {round(w['temp']) + 0:.0f}°C "
             f"{html.escape(wlabel(w))}</span><i style='color:{STATUS_COLORS[status]}'>{arrows[r['trend']]}</i>"
-            f"<em>{fmt(spec, r['slope_year'], extra=1)} {html.escape(spec.unit)}/{per_year}</em></span>")
+            f"<em>{dec(fmt0(spec, r['slope_year'], extra=1))} {html.escape(L('birim', 'units') if spec.unit == '0–1' else spec.unit)}/{per_year}</em></span>")
     track = "".join(items)
-    label = time_label(wx)
-    return (f"<div style='display:flex;align-items:center;gap:.7rem'><span class='live'>{label}</span>"
+    label = f"<span class='live'>{time_label(wx)}</span>" if with_label else ""
+    return (f"<div style='display:flex;align-items:center;gap:.7rem'>{label}"
             f"<div style='flex:1;min-width:0'><div class='ticker'><div class='ticker-track'>{track}{track}</div></div></div></div>")
 
 
@@ -4280,6 +4299,7 @@ def month_label(m: int) -> str:
 def render_year_control() -> None:
     """Zamanda yolculuk: canlı veri ya da son 20 yılın bir tarihi (yıl · isteğe bağlı ay)."""
     bound(st.selectbox, "year", per_lang=True, label=L("Yıl", "Year"), options=YEAR_OPTIONS, format_func=year_label,
+          placeholder=L("Yıl seçin", "Choose a year"),
           label_visibility="collapsed",
                  help=L("Geçmiş bir yıl seçildiğinde hava, termal ve basınç katmanları o tarihe (12:00 UTC) ait arşiv "
                         "verisiyle, uzun vadeli trend ise o yılla biten 20 yıllık NASA POWER verisiyle yeniden "
@@ -4292,6 +4312,7 @@ def render_year_control() -> None:
     if not year:
         return
     bound(st.selectbox, "month", per_lang=True, label=L("Ay", "Month"), options=MONTH_OPTIONS, format_func=month_label,
+          placeholder=L("Ay seçin", "Choose a month"),
           label_visibility="collapsed")
 
 
@@ -4391,7 +4412,8 @@ def _settings_body() -> None:
     bound(st.text_input, "groq_key_input", label="Groq API", type="password", placeholder="gsk_…",
           label_visibility="collapsed",
           help=L("Anahtar yalnızca bu oturumda kullanılır.", "The key is used only in this session."))
-    st.caption(L(f"Anahtar etkin · kaynak: {source}", f"Key active · source: {source}") if key else
+    st.caption(L(f"Anahtar etkin · kaynak: {source}",
+                 f"Key active · source: {SOURCE_LABEL_EN.get(source, source)}") if key else
                L("Anahtar yok; Seiron yerel analiz motoruyla yanıt verir.",
                  "No key; Seiron answers with the local analysis engine."))
     st.markdown(f"<div class='set-lbl'>{L('Model', 'Model')}</div>", unsafe_allow_html=True)
@@ -4596,7 +4618,7 @@ def metric_data(city: str, metric: str) -> dict | None:
                 return None
             ch = dict(a["chart"])
             ch["explain_tr"], ch["explain_en"] = a.get("sentence_tr"), a.get("sentence_en")
-            ch["source"], ch["_gv"] = a.get("source"), a.get("giovanni_url")
+            ch["source"], ch["_gv"] = a.get("source_en" if lang() == "en" else "source") or a.get("source"), a.get("giovanni_url")
             return ch
         if metric == "series":   # sağ paneldeki zaman serisi grafiğinin büyük görünümü (aynı figür)
             return {"series": True, "title_tr": f"Zaman serisi · {rvar(REGIONS[city])}",
@@ -4660,6 +4682,7 @@ def metric_figure(d: dict) -> go.Figure:
     axis = dict(gridcolor=grid, zerolinecolor=grid, linecolor=grid, tickfont=dict(color=muted, size=11),
                 title_font=dict(color=muted, size=12))
     fig.update_layout(
+        separators="." + "," if en else ",.",
         height=360, margin=dict(l=56, r=18, t=36, b=46), paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter, sans-serif", color=txt), bargap=0.25,
         legend=dict(orientation="h", y=1.12, x=0, font=dict(color=txt, size=11), bgcolor="rgba(0,0,0,0)"),
@@ -4999,9 +5022,10 @@ def numeric_answer(text: str, city: str) -> dict | None:
         if len(found) >= 2 and any(w in f" {q} " for w in COMPARE_WORDS):
             c = compare_regions(found[0], found[1], *power_window())
             if c:
-                rows = "\n".join(f"| {r['label_en' if en else 'label_tr']} | {r['a_en' if en else 'a']} | "
-                                 f"{r['b_en' if en else 'b']} |" for r in c["rows"])
-                table = f"| | **{rname(c['a'])}** | **{rname(c['b'])}** |\n|---|---|---|\n{rows}"
+                # Dar Seiron sütununda 3 sütunlu tablo kelime kelime kırılıyordu (TR-1): her ölçüt tek satır
+                table = "\n".join(f"- **{r['label_en' if en else 'label_tr']}** — {rname(c['a'])}: "
+                                   f"{dec(r['a_en' if en else 'a'])} · {rname(c['b'])}: {dec(r['b_en' if en else 'b'])}"
+                                   for r in c["rows"])
                 return {"matched": True, "local": f"{c['sentence_en' if en else 'sentence_tr']}\n\n{table}",
                         "notes": [], "source": L("Yerel analiz · karşılaştırma", "Local analysis · comparison")}
         if any(w in q for w in EXTREME_WORDS):
@@ -5468,11 +5492,11 @@ def facts_block(mk: dict, sen: dict, unit: str, metric: dict, extra: str = "") -
     box = lambda m, k, v: (f"<div class='fact clk' data-metric='{m}' role='button' tabindex='0' title='{tip}'>"
                            f"<div class='k'>{k}</div><div class='v'>{v}</div></div>")
     return ("<div class='facts'>"
-            + box(metric["p"], L('p-değeri', 'p-value') + gl('p'), format_p(mk['p']))
-            + box(metric["tau"], "Kendall τ" + gl('tau'), f"{mk['tau']:+.3f}")
+            + box(metric["p"], L('p-değeri', 'p-value') + gl('p'), dec(format_p(mk['p'])))
+            + box(metric["tau"], "Kendall τ" + gl('tau'), dec(f"{mk['tau']:+.3f}"))
             + box(metric["slope"], L('Eğilim yönü', 'Direction') + gl('mann_kendall'), dir_label(mk['trend']))
-            + box(metric["slope"], L('Sen eğilimi', 'Sen slope') + gl('sen'), f"{fnum(sen['per_year'])}<small>{u}/{yr}</small>")
-            + box(metric["slope"], L('On yıllık', 'Per decade'), f"{fnum(sen['per_decade'])}<small>{u}</small>")
+            + box(metric["slope"], L('Sen eğilimi', 'Sen slope') + gl('sen'), f"{dec(fnum(sen['per_year']))}<small>{unit_per(unit, yr)}</small>")
+            + box(metric["slope"], L('On yıllık', 'Per decade'), f"{dec(fnum(sen['per_decade']))}<small>{unit_per(unit)}</small>")
             + extra + "</div>")
 
 
@@ -5484,7 +5508,7 @@ def method_table(t: dict | None, unit: str) -> str:
     mk, sen, tt = t["mk"], t.get("sen") or {}, t["ttest"]
     u = html.escape(unit)
     ok = lambda b: f"<b class='{'y' if b else 'n'}'>{'✓' if b else '✗'}</b>"
-    ci = (f"<span class='mt-ci'>%95 GA {fnum(sen.get('ci_low'))} … {fnum(sen.get('ci_high'))} {u}</span>"
+    ci = (f"<span class='mt-ci'>{L('%95 GA', '95% CI')} {dec(fnum(sen.get('ci_low')))} … {dec(fnum(sen.get('ci_high')))} {u}</span>"
           if sen.get("ci_low") is not None else "")
     agree = bool(t.get("agree"))
     verdict = (L("İki yöntem aynı sonuca varıyor", "Both methods reach the same conclusion") if agree else
@@ -5499,10 +5523,17 @@ def method_table(t: dict | None, unit: str) -> str:
                  f"{html.escape(yts['sentence_en' if lang() == 'en' else 'sentence_tr'])}</span></div>")
     return (f"<div class='mt'><div class='mt-h'>{L('Yöntem karşılaştırması', 'Method comparison')}{gl('confidence')}</div>"
             f"<table><tr><th></th><th>{L('Eğim / 10 yıl', 'Slope / decade')}</th><th>p</th><th>{L('Anlamlı', 'Signif.')}</th></tr>"
-            f"<tr><td>Mann-Kendall + Sen</td><td>{fnum(sen.get('per_decade'))} {u}</td><td>{format_p(mk['p'])}</td><td>{ok(mk.get('significant'))}</td></tr>"
+            f"<tr><td>Mann-Kendall + Sen</td><td>{dec(fnum(sen.get('per_decade')))} {u}</td><td>{dec(format_p(mk['p']))}</td><td>{ok(mk.get('significant'))}</td></tr>"
             f"<tr><td>{L('t-testi', 't-test')} <small>n<sub>eff</sub>≈{tt.get('n_eff', 0):.0f}</small></td>"
-            f"<td>{fnum(tt.get('slope_per_decade'))} {u}</td><td>{format_p(tt['p'])}</td><td>{ok(tt.get('significant'))}</td></tr>"
+            f"<td>{dec(fnum(tt.get('slope_per_decade')))} {u}</td><td>{dec(format_p(tt['p']))}</td><td>{ok(tt.get('significant'))}</td></tr>"
             f"</table>{ci}<div class='mt-agree {'ok' if agree else 'no'}'>{ok(agree)} {verdict}</div>{yline}</div>")
+
+
+def reason_text(va: dict | None) -> str:
+    """Veri yoksa nedeni (seçili dilde; Backend reason_en verir)."""
+    va = va or {}
+    r = va.get("reason_en") if lang() == "en" else va.get("reason")
+    return r or va.get("reason") or L("Bu değişken için veri alınamadı.", "No data for this variable.")
 
 
 def giovanni_link(url: str | None) -> str:
@@ -5539,6 +5570,7 @@ def render_var_picker(state_key: str, options: list[str], cat: dict, theme_name:
     with st.container(key=f"vp_{state_key}"):
         # bound: seçici çizilmeyen çalıştırmalarda da (nokta modu, yükleme ekranı) seçim kaybolmaz
         bound(st.selectbox, state_key, label=L("Analiz edilen değişken", "Variable analysed"), options=options,
+              placeholder=L("Değişken seçin", "Choose a variable"),
               format_func=lambda k: var_label(k, cat, theme_name, avail))
     key = st.session_state[state_key]
     v = cat.get(key)
@@ -5633,7 +5665,7 @@ def point_details() -> None:
     va = var_analysis(lat, lon, key)
     st.session_state["_va"] = {"lat": lat, "lon": lon, "key": key}
     if not va or not va.get("available"):
-        st.info((va or {}).get("reason") or L("Bu değişken için veri alınamadı.", "No data for this variable."))
+        st.info(reason_text(va))
         return
     unit = va.get("unit", "")
     var_metric = {"p": "var", "tau": "var", "slope": "var"}
@@ -5645,7 +5677,7 @@ def point_details() -> None:
     st.plotly_chart(var_chart_fig(va["chart"]), theme=None, width="stretch", config={"displayModeBar": False},
                     key="pt_chart")
     html_block(f"<div class='var-sent'>{html.escape(va['sentence_en' if en else 'sentence_tr'])}</div>"
-               f"<div class='pw-src'>{html.escape(va.get('source', ''))}{gl('merra2')}</div>{giovanni_link(va.get('giovanni_url'))}")
+               f"<div class='pw-src'>{html.escape(va.get('source_en' if en else 'source') or va.get('source', ''))}{gl('merra2')}</div>{giovanni_link(va.get('giovanni_url'))}")
 
 
 def go_region(name: str) -> None:
@@ -5739,7 +5771,7 @@ def city_details(city: str) -> None:
             va = var_analysis(spec.lat, spec.lon, vkey)
             st.session_state["_va"] = {"lat": spec.lat, "lon": spec.lon, "key": vkey}
             if not va or not va.get("available"):
-                st.info((va or {}).get("reason") or L("Bu değişken için veri alınamadı.", "No data for this variable."))
+                st.info(reason_text(va))
                 va = None
     en_ = lang() == "en"
     if va:
@@ -5751,11 +5783,11 @@ def city_details(city: str) -> None:
         mtab = method_table(safe(trend_tests, city), spec.unit) if FEATURE_VARIABLES else ""
     html_block(f"""
     <div class="facts" style="{'display:none' if va else ''}">
-      <div class="fact clk" data-metric="p" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('p-değeri', 'p-value')}{gl('p')}</div><div class="v">{format_p(r['p'])}</div></div>
-      <div class="fact clk" data-metric="tau" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">Kendall τ{gl('tau')}</div><div class="v">{r['Tau']:+.3f}</div></div>
+      <div class="fact clk" data-metric="p" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('p-değeri', 'p-value')}{gl('p')}</div><div class="v">{dec(format_p(r['p']))}</div></div>
+      <div class="fact clk" data-metric="tau" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">Kendall τ{gl('tau')}</div><div class="v">{dec(f"{r['Tau']:+.3f}")}</div></div>
       <div class="fact clk" data-metric="slope" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('Eğilim yönü', 'Direction')}{gl('mann_kendall')}</div><div class="v">{dir_label(r['trend'])}</div></div>
-      <div class="fact clk" data-metric="slope" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('Sen eğilimi', 'Sen slope')}{gl('sen')}</div><div class="v">{fmt(spec, r['slope_year'], extra=1)}<small>{unit_per(spec.unit, yr)}</small></div></div>
-      <div class="fact clk" data-metric="slope" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('On yıllık', 'Per decade')}</div><div class="v">{fmt(spec, r['slope_year'] * 10)}<small>{unit_per(spec.unit)}</small></div></div>
+      <div class="fact clk" data-metric="slope" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('Sen eğilimi', 'Sen slope')}{gl('sen')}</div><div class="v">{dec(fmt0(spec, r['slope_year'], extra=1))}<small>{unit_per(spec.unit, yr)}</small></div></div>
+      <div class="fact clk" data-metric="slope" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('On yıllık', 'Per decade')}</div><div class="v">{dec(fmt0(spec, r['slope_year'] * 10))}<small>{unit_per(spec.unit)}</small></div></div>
       <div class="fact"><div class="k">Risk</div><div class="v">{risk_label(rep['risk'])}<small>{rep['risk']}</small></div></div>
     </div>
     {top_facts or ''}
@@ -5777,7 +5809,7 @@ def city_details(city: str) -> None:
         st.plotly_chart(var_chart_fig(va["chart"]), theme=None, width="stretch", config={"displayModeBar": False},
                         key="var_chart")
         html_block(f"<div class='var-sent'>{html.escape(va['sentence_en' if en_ else 'sentence_tr'])}</div>"
-                   f"<div class='pw-src'>{html.escape(va.get('source', ''))}{gl('merra2')}</div>{giovanni_link(va.get('giovanni_url'))}")
+                   f"<div class='pw-src'>{html.escape(va.get('source_en' if en_ else 'source') or va.get('source', ''))}{gl('merra2')}</div>{giovanni_link(va.get('giovanni_url'))}")
     else:
         st.plotly_chart(build_chart(build_series(city), spec, r), theme=None, width="stretch",
                         config={"displayModeBar": False})
@@ -5909,7 +5941,7 @@ def render_mobile() -> None:
     html_block(f"""
     <div class="m-head"><div class="m-brand">{logo(30, "m")}<span class="word">VULPA</span></div>
     <span class="m-right"><span class="live">{time_label(wx)}</span></span></div>
-    {ticker_html()}
+    {ticker_html(with_label=False)}
     """)
     render_credits()
     bound(st.selectbox, "city", per_lang=True, label=L("Bölge", "Region"), options=CITY_NAMES, label_visibility="collapsed",

@@ -23,6 +23,7 @@ from .sonify import sonify
 from .quality import data_quality
 from .showcase import showcase_regions
 from .globalstats import compare_regions, global_annual_anomaly, year_extremes
+from .extras import GLOSSARY, data_status, glossary, region_export, season_shift, warming_ranking, warming_stripes
 from .weather import (
     DELTA_FIELDS, MM_SYMBOLS, WEATHER_CODES, _fallback_weather, _fetch_historical_weather, _fetch_live_weather,
     _fetch_weather, _fetch_weather_range, _merge_mm, _open_meteo_cities, describe_code, describe_symbol,
@@ -52,6 +53,7 @@ __all__ = [
     # otonom oturum (ÖNERİ #1–#2): trendi dinle ve NASA EONET olayları
     "sonify", "fetch_events", "EVENT_TYPES", "data_quality", "showcase_regions",
     "global_annual_anomaly", "year_extremes", "compare_regions",
+    "warming_stripes", "warming_ranking", "region_export", "data_status", "season_shift", "glossary", "GLOSSARY",
     # küresel ızgara
     "_fetch_live_grid", "_fetch_historical_grid", "_fetch_grid", "_fallback_grid",
     # NASA POWER

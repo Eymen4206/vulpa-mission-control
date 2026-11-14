@@ -436,3 +436,25 @@ Jüri turu için vitrin bölgelerini seçer. Groq ve ağ isteği kullanmaz.
 - **`compare_regions(a, b, y0=None, y1=None)`**
   - Dönüş: `{a, b, rows: [{key, label_tr/en, a, b, a_en, b_en}], sentence_tr/en, window}`.
   - Satırlar: tema eğilimi, POWER sıcaklık eğilimi, veri güveni. Yalnızca POWER sıcaklığı sayısal olarak kıyaslanır.
+
+### ÖNERİ #11–#16, #18 (extras.py, charts.py)
+- **`warming_stripes(region)`**
+  - Dönüş: `{years, anomaly, vmin, vmax, source, credit_tr/en}`.
+  - Değerler annual.json'dan, 1991–2020 normaline göre. Credits'e Ed Hawkins (CC BY 4.0) eklendi.
+- **`warming_ranking()`**
+  - Dönüş: `{rows: [{rank, region, per_decade, p, significant, years}], total, by_region, sentence_tr/en}`.
+  - Sıralama 1991–2025 yıllık T2M üzerinden, Mann-Kendall ve Sen ile.
+- **`region_export(region, y0, y1)`:** JSON'a hazır tekrarlanabilirlik paketi (yaklaşık 4 KB).
+- **`data_status()`**
+  - Dönüş: `{sources: [{id, name, state: ok|blocked, retry_in, note_tr/en}], snapshots: [{id, name, generated}],
+    checked}`.
+  - Ağ isteği yapmaz.
+- **`season_shift(region)`:** yalnızca gerçek seriler için.
+  - Koşul: mevsim genliği ≥ 2σ ve (genlik değişimi ≥ %5 ya da tepe ay 1–2 ay kaymış).
+  - Koşul sağlanmıyorsa None döner; bugün 13 bölge sonuç veriyor.
+- **`metric_chart(..., "slope")`:** ek alanlar `ci_low`, `ci_high` (yıllık), `ci_level`.
+  - `band: {style: "band", x, y_low, y_high, name_tr/en}` alanı da var; Gilbert (1987) yöntemiyle, yıllık ortalamalar
+    üzerinden.
+  - Mevcut izler değişmedi.
+- **`glossary(lang)` / `GLOSSARY`:** 13 terim (p, tau, mann_kendall, sen, anomaly, normal, aod, spei, merra2, era5, sst,
+  projection, confidence).

@@ -144,6 +144,15 @@ CREDITS.append({
     "attribution": "Natural event data: NASA Earth Observatory Natural Event Tracker (EONET).",
 })
 
+CREDITS.append({
+    "id": "warming-stripes", "category": "climate", "name": "Warming Stripes (ısınma şeritleri) — görselleştirme fikri",
+    "provider": "Ed Hawkins, University of Reading (#ShowYourStripes)",
+    "used_for_tr": "Bölge panelindeki ısınma şeritleri görseli. Veriler VULPA'nın kendi NASA POWER yıllık ortalamalarıdır.",
+    "used_for_en": "The warming-stripes graphic on the region panel. The data are VULPA's own NASA POWER annual means.",
+    "url": "https://showyourstripes.info", "license": "CC BY 4.0",
+    "attribution": "Warming stripes concept by Ed Hawkins (University of Reading), CC BY 4.0.",
+})
+
 # Lisans metinlerinin İngilizce karşılıkları (EN arayüz). "license" alanı Türkçe kalır (geriye uyumlu);
 # her kayda "license_tr" ve "license_en" eklenir.
 LICENSE_EN = {
@@ -160,6 +169,7 @@ LICENSE_EN = {
     "libraries": "Apache 2.0 · MIT · BSD",
     "fonts": "SIL Open Font License 1.1",
     "nasa-eonet": "Open data (NASA)",
+    "warming-stripes": "CC BY 4.0",
 }
 for _c in CREDITS:
     _c["license_tr"] = _c["license"]

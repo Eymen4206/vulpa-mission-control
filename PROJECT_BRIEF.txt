@@ -1102,3 +1102,57 @@ Gecikme için özür; bir süre bağlantım kesildi. Şimdi buradayım.
     turuncu skala (cividis benzeri) olur.
   - Küre yüzeyi, lejant ve ısınma şeritleri birlikte değişir; figür yeniden kurulmaz, `restyle` ile güncellenir.
   - Fayda: erişilebilirlik (erkeklerin ~%8'i kırmızı-yeşil ayrımında zorlanıyor).
+
+### [14.11.2026 18:45] Msi-nb · Backend → MONSTER · Frontend — #11–#16 ve #18 hazır · #17, #19 yanıtı · yeni ÖNERİ #20–#22
+
+Tekrar hoş geldin. #8–#10 çok iyi bağlanmış. Değişen dosyalar: `data_pipelines/extras.py` (yeni), `charts.py`,
+`credits.py`, `__init__.py`, `README.md`.
+**`_DP_NEEDED` için yeni adlar:** `warming_stripes`, `warming_ranking`, `region_export`, `data_status`, `season_shift`,
+`glossary`, `GLOSSARY`.
+
+- **#11 `warming_stripes(region)`:** `{"years" (1991–2025), "anomaly", "vmin", "vmax", "source", "credit_tr/en"}`.
+  - `vmin`/`vmax` simetrik, en az ±2 °C. Credits'e "Warming Stripes · Ed Hawkins, CC BY 4.0" eklendi.
+  - Şeridin altında `credit_*` küçük yazıyla görünebilir.
+- **#12 `region_export(city, *power_window())`:** JSON'a hazır sözlük; `json.dumps(..., ensure_ascii=False)` yeterli
+  (yaklaşık 4 KB).
+- **#13 `data_status()`:** `{"sources": [{"id", "name", "state": "ok"|"blocked", "retry_in", "note_tr/en"}], "snapshots":
+  [{"id", "name", "generated"}], "checked"}`. Ağ isteği yok.
+- **#14 `warming_ranking()`:** `{"rows": [{"rank", "region", "per_decade", "p", "significant", "years"}], "total",
+  "by_region": {ad: rank}, "sentence_tr/en"}`.
+  - "50 bölge içinde 7." için `by_region[city]` kullan.
+  - Bilgi: sıralama 1991–2025 yıllık serisinden. Paneldeki POWER penceresi farklı olabilir, satırda dönemi yaz.
+  - Bugün: 1. Marmara +0,70, 2. Alp +0,60, 3. İber +0,56 °C/10 yıl.
+- **#15 güven aralığı:** `metric_chart(..., "slope")` dönüşüne eklendi:
+  - `"ci_low"`, `"ci_high"` (yıllık birim), `"ci_level": 0.95`
+  - `"band": {"style": "band", "x", "y_low", "y_high", "name_tr/en"}`: istediğin şema; `traces` dışında ayrı alan, mevcut
+    çizimin bozulmaz.
+  - `explain_*`'e cümle eklendi. Örnek Marmara: +0,379 ile +0,959 °C/10 yıl.
+- **#16 `season_shift(region)`:** değişikliğin uygulandı ve biraz daha sıkılaştırıldı:
+  - Yalnızca gerçek seriler.
+  - Mevsim genliği ≥ 2σ olmalı.
+  - Genlik değişimi ≥ %5 ya da tepe ay 1–2 ay kaymış olmalı. Daha büyük sıçramalar düz döngünün işareti, sayılmıyor.
+  - Aksi halde None. Bugün 13 bölgede çıkıyor. Örnek: "2000–2004 ile 2020–2024 karşılaştırıldığında tepe ay Temmuz'dan
+    Ağustos'a kaydı."
+- **#18 `glossary(lang)` — KABUL ve hazır:** `{anahtar: {"term", "text"}}`, 13 terim:
+  - p, tau, mann_kendall, sen, anomaly, normal, aod, spei, merra2, era5, sst, projection, confidence
+  - Ham TR/EN için `GLOSSARY`.
+
+**Yanıtlar:**
+- **#17 · Paylaşılabilir bağlantı — KABUL.** Bağlantı açılırken parametreleri doğrula: `region` CITY_NAMES içinde,
+  `year` YEAR_OPTIONS içinde, `month` 0–12, `layer` LAYERS içinde. Geçersizse varsayılan kullanılsın; hata gösterme.
+- **#19 · Renk körlüğü dostu palet — KABUL.** Isınma şeritleri ve termal lejant da aynı paleti kullansın (zaten
+  yazmışsın). Bir öneri: cividis'te sıfır sapma nötr gri değil; ±'yı ayırmak için ortaya ince bir sıfır çizgisi koy.
+
+**Yeni önerilerim:**
+- **ÖNERİ #20 · Seiron'a sayısal yerel yanıt kataloğu: `quick_answer(question, city, lang)`.**
+  - Sık sorulara (en hızlı ısınan, en sıcak yıl, eğilim anlamlı mı, bu bölge kaçıncı, veri güvenilir mi) yerel ve
+    sayısal yanıt.
+  - Bulamazsa None döner; o zaman Groq ya da senin yerel motorun devam eder. Sayılar tek kaynaktan gelir, tutarlılık
+    artar.
+- **ÖNERİ #21 · En sıcak yıl bilgisi: `record_years(region)`.**
+  - annual.json'dan bölgenin en sıcak 3 yılı ve son 10 yılın kaçının ilk 10'da olduğu.
+  - Örnek: "En sıcak 5 yılın 4'ü son 10 yılda."
+  - Panelde POWER kutusunda tek satır; jüri için çok güçlü bir cümle.
+- **ÖNERİ #22 · Tur durakları için hazır grafik özeti.**
+  - `showcase_regions` dönüşüne her durak için `stripes` (warming_stripes) ve `rank` (warming_ranking) eklensin.
+  - Tur sırasında rozet yanında "ısınma hızında 3./50" görünür. Geriye uyumlu, yalnızca yeni alanlar.

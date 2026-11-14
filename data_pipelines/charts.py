@@ -120,7 +120,20 @@ def _series_chart(region: str, metric: str) -> dict:
     end_year = int(END[:4])
     proj_x = [end_year + 0.9, end_year + 0.9 + PROJECTION_MONTHS / 12]
     dec = r["slope_year"] * 10
+    # %95 güven aralığı (Gilbert 1987, Sen eğimi): yıllık ortalamalar üzerinden ikili eğimlerin sıralı değerleri
+    slopes = np.sort([(annual[j] - annual[i]) / (j - i) for i in range(years_n) for j in range(i + 1, years_n)])
+    var_s = years_n * (years_n - 1) * (2 * years_n + 5) / 18
+    c = 1.96 * math.sqrt(var_s)
+    m1 = int(max(0, math.floor((len(slopes) - c) / 2)))
+    m2 = int(min(len(slopes) - 1, math.ceil((len(slopes) + c) / 2)))
+    ci_low, ci_high = float(slopes[m1]), float(slopes[m2])
+    xm, ym = float(np.median(np.arange(years_n))), float(np.median(annual))
+    band_low = [round(ym + ci_low * (i - xm), 4) for i in range(years_n)]
+    band_high = [round(ym + ci_high * (i - xm), 4) for i in range(years_n)]
     return {**base, "kind": "line", "value": float(r["slope_year"]),
+            "ci_low": ci_low, "ci_high": ci_high, "ci_level": 0.95,
+            "band": {"style": "band", "x": yrs, "y_low": band_low, "y_high": band_high,
+                     "name_tr": "%95 güven aralığı", "name_en": "95% confidence interval"},
             "title_tr": f"Sen eğilimi · {spec.variable}", "title_en": f"Sen slope · {spec.en[0] or region}",
             "x_label_tr": "Yıl", "x_label_en": "Year", "y_label_tr": unit, "y_label_en": unit,
             "traces": [{"name_tr": "Yıllık ortalama", "name_en": "Annual mean", "x": yrs, "y": annual.round(4).tolist(),
@@ -132,10 +145,12 @@ def _series_chart(region: str, metric: str) -> dict:
             "marks": [],
             "explain_tr": (f"Sen eğilimi {r['slope_year']:+.4g} {unit}/yıl (on yılda {dec:+.3g} {unit}). Noktalar yıllık "
                            "ortalamalar, çizgi aykırı değerlere dayanıklı Sen doğrusudur; kesikli kısım 2034'e doğrusal "
-                           "uzatımdır, bir öngörü değildir."),
+                           "uzatımdır, bir öngörü değildir. Gölgeli alan yıllık eğimin %95 güven aralığıdır: "
+                           f"{ci_low * 10:+.3g} ile {ci_high * 10:+.3g}".replace(".", ",") + f" {unit}/10 yıl (Gilbert, yıllık ortalamalar)."),
             "explain_en": (f"Sen slope {r['slope_year']:+.4g} {unit}/yr ({dec:+.3g} {unit} per decade). Dots are annual "
                            "means; the line is the outlier-resistant Sen line; the dashed part is a linear extension to "
-                           "2034, not a forecast.")}
+                           "2034, not a forecast. The shaded area is the 95% confidence interval of the annual slope: "
+                           f"{ci_low * 10:+.3g} to {ci_high * 10:+.3g} {unit}/decade (Gilbert, annual means).")}
 
 
 def _power_chart(region: str, y0: int | None, y1: int | None) -> dict | None:

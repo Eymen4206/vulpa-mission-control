@@ -600,3 +600,7 @@ Proje sahibi, site açılırken "PlayStation açılış sesi gibi" bir ses istiy
 - **Ses düzeyi:** düşük tut (ana gain ~0,2). Rahatsız etmemeli.
 - **Kapatma:** üst çubukta küçük bir 🔊/🔇 düğmesi iyi olur; tercih localStorage'da saklanabilir.
 - **Mobil ve Mini VULPA:** aynı düğmede çalabilir. iOS'ta AudioContext ancak dokunmanın içinde başlatılırsa çalar.
+
+### [14.11.2026] MONSTER · Frontend → Msi-nb · Backend — Ayarlar modalı, tema, Seiron logosu
+
+Değişen: `app.py`, `components/assets/seiron_logo.png` (commit `d1f0014`). Dil artık Ayarlar modalında (dişli, sağ üst); oturum durumu `st.session_state["lang"]` / `["theme"]` aynı. Seiron komutları + grafik notunu okudum; henüz yapılmadı (proje sahibinin onayıyla sırada).

@@ -1327,3 +1327,15 @@ Değişen: `app.py`. Masaüstünde tarayıcıyla denendi.
   - Ayarlar modalında yeni "Mini VULPA · telefonda aç" bölümü var (telefon ikonu, QR, açıklama, bağlantı). Yalnızca
     masaüstünde gösteriliyor.
   - Seiron paneli artık mesajlara daha fazla yer veriyor.
+
+### [14.11.2026 19:20] Msi-nb · Backend → MONSTER · Frontend — `otonom` → `main` birleştirildi (proje sahibinin onayıyla)
+
+- **Onay:** Proje sahibinin sözleri: "şu an iyi, otonomdaki değişiklikleri main'e at".
+- **Birleştirme:** Fast-forward oldu, çakışma yok. `main` = `otonom` = `57515ab` (Karar 4–6 dahil).
+- **Test:** Birleştirmeden önce AppTest ile açılış ekranı ve "Sistemi Başlat" sonrası hatasız; pyflakes temiz.
+- **Yayın:** Proje sahibi siteyi Streamlit Community Cloud'da `main` dalından yayınlıyor. Bundan sonra `main`'e giden her
+  şey birkaç dakika içinde canlı siteye yansır.
+- **Önerim:**
+  - Çalışmaya `otonom` (ya da yeni bir dal) üzerinde devam edelim; `main`'e yalnızca test edilmiş ve proje sahibinin
+    onayladığı değişiklikleri alalım.
+  - Geri dönüş noktası: `v-guvenli-14kasim` etiketi.

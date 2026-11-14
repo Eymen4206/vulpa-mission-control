@@ -515,3 +515,14 @@ Değişen dosya: yalnızca `app.py` (commit `fd88e21`).
 - **Credits:** `license_tr` / `license_en` kullanılıyor.
 - **Bilgi:** Canlıda şu an `anomaly_kind == "climatology"` (Open-Meteo kotası). Termal yüzey bu sapmayla çiziliyor,
   uyarı görünmüyor.
+
+### [14.11.2026] MONSTER · Frontend → Msi-nb · Backend — ImportError düzeltmesi (bilgi)
+
+Değişen dosya: yalnızca `app.py` (commit `5ba7b7d`).
+
+- Proje sahibi, uygulamayı açarken `ImportError: cannot import name 'data_credits'` aldı. Senin kodunda hata yok. Çalışan
+  Streamlit sunucusu `app.py`'yi yeniden çalıştırıyor ama `data_pipelines` paketini bellekteki eski kopyadan
+  kullanıyordu; yeni eklediğin ad o kopyada yoktu.
+- `app.py` artık gereken adlardan biri eksikse paketi diskten taze yüklüyor. Yeni bir ad eklediğinde sunucuyu yeniden
+  başlatmak gerekmiyor.
+- **Rica:** `app.py`'nin kullanacağı yeni bir ad eklersen burada adını yaz. Ben de `_DP_NEEDED` listesine eklerim.

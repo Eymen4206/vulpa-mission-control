@@ -67,7 +67,7 @@ _DP_NEEDED = ("CITY_NAMES", "END", "GRID_LATS", "GRID_LONS", "LAST_FULL_YEAR", "
               "PROJECTION_MONTHS", "REGION_LIST", "REGIONS", "START", "WEATHER_TTL", "Region", "_fetch_grid",
               "_fetch_power", "_fetch_weather", "analyze", "build_series", "REAL_SOURCES", "series_meta", "data_credits",
               "parse_ui_command", "switch_message", "time_text", "metric_chart", "ALLOWED_ACTIONS", "METRICS",
-              "sonify", "fetch_events", "EVENT_TYPES")
+              "sonify", "fetch_events", "EVENT_TYPES", "data_quality")
 if not all(hasattr(_dp, _n) for _n in _DP_NEEDED):
     for _m in [m for m in sys.modules if m == "data_pipelines" or m.startswith("data_pipelines.")]:
         del sys.modules[_m]
@@ -76,7 +76,7 @@ from data_pipelines import (  # noqa: E402
     CITY_NAMES, END, GRID_LATS, GRID_LONS, LAST_FULL_YEAR, PERIOD, POWER_SPAN, PROJECTION_MONTHS, REGION_LIST,
     REGIONS, START, WEATHER_TTL, Region, _fetch_grid, _fetch_power, _fetch_weather, analyze, build_series,
     REAL_SOURCES, series_meta, data_credits,
-    parse_ui_command, switch_message, time_text, metric_chart, sonify, fetch_events,
+    parse_ui_command, switch_message, time_text, metric_chart, sonify, fetch_events, data_quality,
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1105,6 +1105,10 @@ def grid_layers(year: int, stamp: str, month: int | None = None, day: int | None
     surface = np.clip(_smooth_sample(g["anomaly"], c_lat, c_lon), -12, 12)
     field["z"] = np.round(surface, 1).tolist()
     field["zgrid"] = cell_meta
+    # İmleç okuması (ÖNERİ #5): en yakın 15°'lik ölçüm noktasının ham değeri (ara değer değil)
+    raw = np.asarray(g["anomaly"], dtype=float)
+    field["raw"] = [[None if not np.isfinite(v) else round(float(v), 1) for v in row] for row in raw]
+    field["rawLat"], field["rawLon"] = GRID_LATS.tolist(), GRID_LONS.tolist()
     # 2) İzobarlar: 4 hPa aralıklı basınç eğrileri
     pres, p_lats, p_lons = _resample(g["pressure"], FIELD_STEP)
     lo_lvl = int(np.floor(pres.min() / ISOBAR_STEP) * ISOBAR_STEP)
@@ -2337,6 +2341,61 @@ div[role="dialog"]:has(.set-sec) { background: rgba(20,17,15,.92); backdrop-filt
   linear-gradient(to top, var(--orange) 0 100%) right bottom / 2px 70% no-repeat; transition: opacity .18s; }
 .fact.clk:hover::after, .pw-main.clk:hover::after { opacity: 1; }
 .st-key-metric_btns { display: none !important; }
+/* ÖNERİ #3 · Veri güveni rozeti */
+.badge-row { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; }
+.dq { position: relative; display: inline-flex; align-items: center; gap: .3rem; margin-top: .6rem; font-size: .7rem;
+  padding: .2rem .6rem; border-radius: 999px; border: 1px solid var(--dqc); color: var(--dqc); cursor: help;
+  background: color-mix(in srgb, var(--dqc) 9%, transparent); outline: none; }
+.dq b { font-weight: 700; }
+.dq-high { --dqc: #f97316; } .dq-medium { --dqc: #fbbf24; } .dq-low { --dqc: #a8a29e; }
+.dq-tip { display: none; position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; width: 270px; padding: .6rem .7rem;
+  border-radius: 12px; background: rgba(20,17,15,.96); backdrop-filter: blur(14px); border: 1px solid var(--line-strong);
+  box-shadow: 0 12px 30px rgba(0,0,0,.45); color: #e7e5e4; font-size: .72rem; line-height: 1.45; cursor: default; }
+.dq:hover .dq-tip, .dq:focus .dq-tip, .dq:focus-within .dq-tip { display: block; }
+.dq:focus-visible { box-shadow: 0 0 0 2px var(--orange); }
+.dq-tip .dq-h { display: block; font-weight: 700; color: var(--orange); margin-bottom: .3rem; }
+.dq-tip ul { margin: 0; padding: 0; list-style: none; }
+.dq-tip li { display: flex; gap: .4rem; margin: .18rem 0; }
+.dq-tip li b { flex: none; width: .9rem; }
+.dq-tip li.ok b { color: #f97316; } .dq-tip li.no b { color: #a8a29e; } .dq-tip li.no { color: #a8a29e; }
+/* ÖNERİ #5 · Termal imleç okuması */
+.vp-readout { position: fixed; z-index: 1000; pointer-events: none; display: none; flex-direction: column; gap: .12rem;
+  padding: .4rem .6rem; border-radius: 10px; background: rgba(20,17,15,.9); backdrop-filter: blur(14px);
+  border: 1px solid var(--line-strong, rgba(249,115,22,.35)); color: #e7e5e4; font: 400 .7rem 'Inter', sans-serif;
+  box-shadow: 0 8px 22px rgba(0,0,0,.4); max-width: 260px; }
+.vp-readout.on { display: flex; }
+.vp-readout .v { font: 600 1rem 'Space Grotesk', sans-serif; color: #fff7ed; }
+.vp-readout .s b { color: #fdba74; }
+.vp-readout .n { color: #a8a29e; font-size: .64rem; font-style: italic; }
+/* ÖNERİ #6 · Kısayol kartı, ekran okuyucu */
+.vp-sr { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.st-key-keys_card .vp-keys { display: none; }
+body > .vp-keys { position: fixed; inset: 0; z-index: 2147483000; display: flex; align-items: center; justify-content: center;
+  background: rgba(12,10,9,.45); backdrop-filter: blur(6px); opacity: 0; pointer-events: none; transition: opacity .2s; }
+html.vp-keys-open body > .vp-keys { opacity: 1; pointer-events: auto; }
+.vp-keys-panel { width: min(460px, calc(100vw - 32px)); padding: 16px 18px; border-radius: 16px; background: rgba(20,17,15,.95);
+  border: 1px solid rgba(249,115,22,.35); box-shadow: 0 20px 50px rgba(0,0,0,.5); color: #e7e5e4; font: 400 .8rem 'Inter', sans-serif; }
+.vp-keys-head { display: flex; align-items: center; gap: .5rem; color: #f97316; margin-bottom: .6rem; }
+.vp-keys-head b { color: #fff7ed; font: 600 1rem 'Space Grotesk', sans-serif; }
+.vp-keys-close { margin-left: auto; background: transparent; border: 1px solid rgba(249,115,22,.35); color: #fed7aa;
+  border-radius: 999px; padding: .15rem .55rem; cursor: pointer; font-size: .72rem; }
+.vp-keys-close:hover, .vp-keys-close:focus-visible { border-color: #f97316; color: #f97316; outline: none; }
+.vp-keys .r { display: flex; align-items: baseline; gap: .7rem; padding: .3rem 0; border-top: 1px solid rgba(249,115,22,.1); }
+.vp-keys kbd { flex: none; min-width: 3.4rem; text-align: center; font: 600 .7rem 'Inter', sans-serif; color: #fdba74;
+  padding: .12rem .4rem; border-radius: 6px; border: 1px solid rgba(249,115,22,.35); background: rgba(249,115,22,.08); }
+.vp-keys-close kbd { min-width: 0; }
+.vp-keys-sub { margin: .7rem 0 .35rem; font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; color: #f97316; }
+.vp-keys-cmds { display: flex; flex-wrap: wrap; gap: .35rem; }
+.vp-keys-cmds .c { padding: .15rem .55rem; border-radius: 999px; border: 1px solid rgba(249,115,22,.25); font-size: .72rem; color: #d6d3d1; }
+.vp-keys-btn kbd { font-size: .62rem; padding: 0 .3rem; border-radius: 4px; border: 1px solid currentColor; margin-left: .2rem; }
+/* ÖNERİ #4 · Jüri turu çubuğu */
+.st-key-tour_bar { position: fixed !important; top: 54px; left: 50%; transform: translateX(-50%); z-index: 1000; width: auto !important;
+  padding: .25rem .35rem .25rem .8rem; border-radius: 999px; background: rgba(28,25,23,.85); backdrop-filter: blur(14px);
+  border: 1px solid var(--orange); box-shadow: 0 0 18px rgba(249,115,22,.3); }
+.st-key-tour_bar .tour-t { font-size: .76rem; color: #e7e5e4; white-space: nowrap; }
+.st-key-tour_bar .tour-t b { color: var(--orange); }
+.st-key-tour_bar [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
+.st-key-tour_bar button { min-height: 1.8rem !important; padding: .1rem .7rem !important; border-radius: 999px !important; }
 .vp-sonify { display: inline-flex; align-items: center; gap: .35rem; margin-left: .5rem; padding: .12rem .55rem;
   border-radius: 999px; border: 1px solid var(--line-strong); background: rgba(249,115,22,.08); color: var(--orange);
   font: 600 .64rem 'Inter', sans-serif; letter-spacing: .04em; cursor: pointer; vertical-align: middle;
@@ -2621,6 +2680,12 @@ _SVG_ICONS = {
     "clock": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' "
              "stroke-width='2.2' stroke-linejoin='miter'><path d='M8.5 3h7L21 8.5v7L15.5 21h-7L3 15.5v-7Z'/>"
              "<path d='M12 7v5.5l3.5 2'/></svg>",
+    "shield": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' "
+              "stroke-width='2.2' stroke-linejoin='miter'><path d='M12 2 20 5v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5Z'/>"
+              "<path d='m8.5 12 2.5 2.5 4.5-5'/></svg>",
+    "keys": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' "
+            "stroke-width='2' stroke-linejoin='miter'><path d='M2 6h20v12H2Z'/><path d='M6 10h1M10 10h1M14 10h1M18 10h0"
+            "M7 14h10'/></svg>",
     "wave": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' "
             "stroke-width='2.2' stroke-linejoin='miter' stroke-linecap='square'><path d='M2 12h3l2-6 3 12 3-9 2 6 "
             "2-3h5'/></svg>",
@@ -2978,6 +3043,11 @@ GLOBE_CONTROLLER_JS = """
         }
       });
       btn.classList.add("playing");
+      const yrs = data.notes.filter(function(n) { return n.role === "data"; }).map(function(n) { return n.year; });
+      if (window.__vpAnnounce && yrs.length) {
+        window.__vpAnnounce(((window.__vulpaTarget || {}).lang === "en" ? "Trend sound playing, " : "Trend sesi çalınıyor, ")
+                            + yrs[0] + "–" + yrs[yrs.length - 1]);
+      }
       const stop = function() {
         timers.forEach(clearTimeout);
         try { out.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.05); setTimeout(function() { out.disconnect(); }, 300); } catch (e) {}
@@ -3128,6 +3198,7 @@ GLOBE_CONTROLLER_JS = """
   }
   async function applyData(gd, D) {
     const f = D.field, t = D.thermal, w = D.wind, c = D.centers, p = D.pressure;
+    gd.__vpField = f;
     await P().restyle(gd, {lon: [f.lon], lat: [f.lat], "marker.color": [T_layer() === "wind" ? f.pcolor : f.color]}, [3]);
     await P().restyle(gd, {"marker.color": [t.color], "marker.size": [t.size], hovertext: [t.hover]}, [4]);
     await P().restyle(gd, {"marker.size": [t.ring], "marker.color": [t.fill], "marker.line.color": [t.color]}, [5]);
@@ -3203,6 +3274,112 @@ GLOBE_CONTROLLER_JS = """
       if (notify) gd.emit("plotly_deselect", null);
     } finally { gd.__vpClearing = false; }
   }
+  // ÖNERİ #5 · Termal imleç okuması: Termal katmanda, imlecin altındaki noktanın 3°'lik ara değerli sapması (≈) ve
+  // en yakın 15°'lik ölçüm noktasının değeri. Ara değer ölçüm gibi gösterilmez (bilimsel dürüstlük).
+  if (!window.__vpReadout) {
+    window.__vpReadout = true;
+    const box = document.createElement("div");
+    box.className = "vp-readout"; box.setAttribute("aria-hidden", "true");
+    document.body.appendChild(box);
+    const hide = function() { box.classList.remove("on"); };
+    const fmt = (v) => (v > 0 ? "+" : v < 0 ? "−" : "±") + Math.abs(v).toFixed(1).replace(".", (window.__vulpaTarget || {}).lang === "en" ? "." : ",");
+    const deg = function(v, pos, neg) { return Math.abs(v).toFixed(0) + "°" + (v >= 0 ? pos : neg); };
+    document.addEventListener("mousemove", function(e) {
+      const T = window.__vulpaTarget || {}, gd = plot();
+      if (!gd || T.layer !== "thermal" || !T.visibility || !T.visibility[11] || e.buttons || gd.__vpFlying
+          || !gd.contains(e.target) || !gd.__vpField || !gd.__vpField.z) { hide(); return; }
+      const sp = gd._fullLayout.geo._subplot, svg = gd.querySelector(".main-svg");
+      if (!sp || !sp.projection || !svg) { hide(); return; }
+      const r = svg.getBoundingClientRect();
+      const ll = sp.projection.invert([e.clientX - r.left, e.clientY - r.top]);
+      if (!ll || !isFinite(ll[0]) || !isFinite(ll[1])) { hide(); return; }
+      const rot = gd._fullLayout.geo.projection.rotation, rad = Math.PI / 180;
+      const cosc = Math.sin(rot.lat * rad) * Math.sin(ll[1] * rad)
+                 + Math.cos(rot.lat * rad) * Math.cos(ll[1] * rad) * Math.cos((ll[0] - rot.lon) * rad);
+      const F = gd.__vpField, g = F.zgrid, lon = ((ll[0] + 540) % 360) - 180, lat = ll[1];
+      if (cosc <= 0.02 || Math.abs(lat) > 75) { hide(); return; }
+      const row = Math.min(g.rows - 1, Math.max(0, Math.floor((lat - g.lat0) / g.cell)));
+      const col = Math.min(g.cols - 1, Math.max(0, Math.floor((lon - g.lon0) / g.cell)));
+      const v = F.z[row * g.cols + col];
+      if (v == null) { hide(); return; }
+      const en = T.lang === "en";
+      const el = function(cls, text) { const n = document.createElement("span"); n.className = cls; n.textContent = text; return n; };
+      box.replaceChildren(el("v", "≈ " + fmt(v) + " °C"));
+      if (F.raw && F.rawLat && F.rawLon) {
+        let bi = 0, bj = 0, bd = 1e9;
+        F.rawLat.forEach(function(a, i) { if (Math.abs(a - lat) < bd) { bd = Math.abs(a - lat); bi = i; } });
+        bd = 1e9;
+        F.rawLon.forEach(function(o, j) { const d = Math.abs(((o - lon + 540) % 360) - 180); if (d < bd) { bd = d; bj = j; } });
+        const rv = F.raw[bi] && F.raw[bi][bj];
+        if (rv != null) {
+          const s1 = el("s", (en ? "Nearest measurement point (15°)" : "En yakın ölçüm noktası (15°)") + ": "
+               + deg(F.rawLat[bi], en ? "N" : "K", en ? "S" : "G") + " " + deg(F.rawLon[bj], en ? "E" : "D", en ? "W" : "B") + " · ");
+          s1.appendChild(Object.assign(document.createElement("b"), {textContent: fmt(rv) + " °C"}));
+          box.appendChild(s1);
+        }
+      }
+      box.appendChild(el("n", en ? "Interpolated from the 15° grid" : "15° ızgaradan ara değer"));
+      box.style.left = (e.clientX + 16) + "px"; box.style.top = (e.clientY + 16) + "px";
+      box.classList.add("on");
+    }, {passive: true});
+    document.addEventListener("mouseleave", hide);
+    // Hedef değişince (uçuş, katman, pencere) eski okuma ekranda asılı kalmasın
+    let lastNonce = null;
+    setInterval(function() {
+      if (!box.classList.contains("on")) return;
+      const T = window.__vulpaTarget || {}, gd = plot();
+      if (!gd || T.layer !== "thermal" || gd.__vpFlying || T.nonce !== lastNonce
+          || document.querySelector("[data-testid='stDialog'] [role='dialog']")) hide();
+      lastNonce = T.nonce;
+    }, 300);
+  }
+  // ÖNERİ #6 · Kısayol kartı ("?") ve ekran okuyucu duyuruları (aria-live)
+  if (!window.__vpKeys) {
+    window.__vpKeys = true;
+    const live = document.createElement("div");
+    live.className = "vp-sr"; live.setAttribute("aria-live", "polite"); live.setAttribute("role", "status");
+    document.body.appendChild(live);
+    window.__vpAnnounce = function(text) { live.textContent = ""; setTimeout(function() { live.textContent = text; }, 60); };
+    const root = document.documentElement;
+    const closeKeys = function() { root.classList.remove("vp-keys-open"); };
+    window.__vpKeysOpen = function() {
+      document.querySelectorAll("body > .vp-keys").forEach(function(n) { n.remove(); });
+      const src = document.querySelector(".st-key-keys_card .vp-keys");
+      if (!src) return;
+      const copy = src.cloneNode(true);
+      document.body.appendChild(copy);
+      copy.inert = false;
+      new MutationObserver(function() { if (copy.inert) copy.inert = false; })
+        .observe(copy, {attributes: true, attributeFilter: ["inert"]});
+      void copy.offsetHeight;
+      requestAnimationFrame(function() { root.classList.add("vp-keys-open"); const b = copy.querySelector("button"); if (b) b.focus(); });
+    };
+    const typing = (el) => el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+    document.addEventListener("keydown", function(e) {
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+      if (e.key === "Escape" && root.classList.contains("vp-keys-open")) { e.preventDefault(); e.stopPropagation(); closeKeys(); return; }
+      if (typing(e.target) || root.classList.contains("vp-credits-open")) return;
+      if (e.key === "?" || (e.key === "/" && e.shiftKey)) { e.preventDefault(); root.classList.contains("vp-keys-open") ? closeKeys() : window.__vpKeysOpen(); }
+      else if ((e.key === "t" || e.key === "T") && !e.repeat) {
+        const b = [...document.querySelectorAll(".vp-sonify")].find(function(x) { return x.offsetParent; });
+        if (b) { e.preventDefault(); b.click(); }
+      }
+      else if (e.key === "Escape") {
+        const stop = document.querySelector(".st-key-tour_stop button");
+        if (stop) { e.preventDefault(); stop.click(); }
+      }
+    }, true);
+    document.addEventListener("click", function(e) {
+      const t = e.target;
+      if (t.closest && t.closest(".vp-keys-btn")) { e.preventDefault(); window.__vpKeysOpen(); return; }
+      if (root.classList.contains("vp-keys-open") && t.closest
+          && (t.closest(".vp-keys-close") || t.classList.contains("vp-keys"))) closeKeys();
+    });
+  }
+  // Simge düğmelerine erişilebilir ad (Streamlit yalnızca simge gösteriyor)
+  document.querySelectorAll(".st-key-gear button").forEach(function(b) {
+    b.setAttribute("aria-label", (window.__vulpaTarget || {}).lang === "en" ? "Settings" : "Ayarlar");
+  });
   // Boşluk tuşu → Termal Analiz: seçim varsa kaldırır, başka katmandaysa Termal düğmesine basar (katman sırası:
   // Klasik · Termal · Basınç). Yazı alanlarında (sohbet, ayarlar) devre dışıdır; düğmede odak varken de çalışır
   // ve tarayıcının varsayılanını (sayfa kaydırma / odaklı düğmeye basma) engeller.
@@ -3732,12 +3909,143 @@ def _settings_body() -> None:
     st.markdown(f"<div class='set-sec'>{L('Hakkında', 'About')}</div>", unsafe_allow_html=True)
     html_block(f"<div class='set-about'>{credits_button()}<span>{L('Veri kaynakları ve atıflar', 'Data sources & attributions')}"
                f"</span></div>")
+    html_block(f"<div class='set-about'><button class='vp-credits-btn vp-keys-btn' type='button'>{inline_svg('keys', 13)} "
+               f"{L('Kısayollar', 'Shortcuts')} <kbd>?</kbd></button><span>{L('Klavye ve sohbet komutları', 'Keyboard & chat commands')}"
+               f"</span></div>")
+    st.button(L("Jüri turunu başlat", "Start the jury tour"), key="tour_start_btn", icon=":material/slideshow:",
+              on_click=start_tour_from_settings, width="stretch",
+              help=L("≈60 sn'lik otomatik sunum: en güvenilir gerçek veri bölgeleri, katmanlar ve değer grafikleri. "
+                     "Esc ile durur.",
+                     "≈60 s automatic presentation: most reliable real-data regions, layers and value charts. Esc stops it."))
     # Dil ya da tema değiştiyse tüm sayfa yeniden çizilir (modal açık kalır: settings_open bayrağı).
     if st.session_state.get("_applied") != (lang(), theme()):
         st.rerun()
 
 
 METRIC_KEYS = ("tau", "p", "slope", "power_t")
+
+# ── ÖNERİ #4 · Jüri turu: ≈60 sn'lik otomatik sunum ─────────────────────────────────────────────────────────
+# Duraklar data_quality "high" ve gerçek veri bölgelerinden seçilir (Backend'in isteği). Her durak 3 adım (TOUR_TICK
+# saniye arayla): 1) küre uçar, katman değişir, Seiron tek cümlelik yerel özet yazar  2) değer grafiği açılır
+# 3) grafik kapanır. Groq kullanılmaz; tur boyunca zaman canlı veride tutulur, bitince eski seçim geri gelir.
+TOUR_TICK = 4
+TOUR_PREFERRED = ("Amazon Havzası", "Sahra Çölü", "Alaska Permafrost Kuşağı", "Ganj-Brahmaputra Deltası",
+                  "Marmara Havzası")
+TOUR_PLAN = (("thermal", "slope"), ("classic", "tau"), ("wind", "power_t"), ("thermal", "p"), ("classic", "slope"))
+TOUR_WORDS = ("turu başlat", "jüri turu", "tura başla", "sunumu başlat", "start the tour", "start tour", "jury tour",
+              "start the presentation")
+
+
+def tour_stops() -> list[str]:
+    def good(c: str) -> bool:
+        try:
+            return theme_real(c) and data_quality(c).get("level") == "high"
+        except Exception:
+            return False
+    stops = [c for c in TOUR_PREFERRED if c in REGIONS and good(c)]
+    for c in CITY_NAMES:
+        if len(stops) >= len(TOUR_PLAN):
+            break
+        if c not in stops and good(c):
+            stops.append(c)
+    return stops[:len(TOUR_PLAN)]
+
+
+def tour_line(city: str) -> str:
+    """Durak başına tek cümlelik yerel özet (dil modeli yok)."""
+    spec, r = REGIONS[city], analyze(city)
+    return L(f"**{rname(city)}** · {rvar(spec)}: eğilim {dir_label(r['trend']).lower()}, Sen eğilimi "
+             f"{fmt(spec, r['slope_year'], extra=1)} {spec.unit}/yıl, p = {format_p(r['p'])} · {status_label(status_of(spec, r))}.",
+             f"**{rname(city)}** · {rvar(spec)}: trend {dir_label(r['trend']).lower()}, Sen slope "
+             f"{fmt(spec, r['slope_year'], extra=1)} {spec.unit}/yr, p = {format_p(r['p'])} · {status_label(status_of(spec, r))}.")
+
+
+def start_tour() -> None:
+    stops = tour_stops()
+    if not stops:
+        return
+    history = st.session_state.setdefault("chat", [])
+    st.session_state["tour"] = {"stops": stops, "step": 0, "next": 0.0,
+                                "restore": (st.session_state.get("year", 0), st.session_state.get("month", 0),
+                                            st.session_state.get("layer", "classic"))}
+    st.session_state["year"] = 0          # tur canlı veride kalır
+    st.session_state["chart_metric"] = None
+    history.append({"role": "assistant", "source": L("Jüri turu · otomatik sunum", "Jury tour · automatic presentation"),
+                    "content": chat_icon("slideshow") + " " + L(
+                        f"Bu bir **otomatik sunum**: {len(stops)} bölgede veri güveni yüksek, gerçek gözlem serilerini "
+                        "sırayla gezeceğim; her durakta katman değişir ve bir değer grafiği açılır. Esc ya da "
+                        "\"Durdur\" ile turu bitirebilirsiniz.",
+                        f"This is an **automatic presentation**: I will visit {len(stops)} regions with high data "
+                        "confidence and observed series; at each stop the layer changes and a value chart opens. Press "
+                        "Esc or \"Stop\" to end the tour.")})
+    tour_advance()
+
+
+def start_tour_from_settings() -> None:
+    st.session_state["settings_open"] = False
+    start_tour()
+
+
+def stop_tour(note: bool = True) -> None:
+    t = st.session_state.pop("tour", None)
+    if not t:
+        return
+    year, month, layer = t.get("restore", (0, 0, "classic"))
+    st.session_state["year"], st.session_state["month"], st.session_state["layer"] = year, month, layer
+    st.session_state["chart_metric"] = None
+    if note:
+        st.session_state.setdefault("chat", []).append(
+            {"role": "assistant", "source": L("Jüri turu", "Jury tour"),
+             "content": chat_icon("check_circle") + " " + L("Tur bitti; önceki görünüm geri yüklendi.",
+                                                            "Tour finished; the previous view is restored.")})
+
+
+def tour_advance() -> None:
+    """Turu bir adım ilerletir (durak × 3 adım)."""
+    import time
+    t = st.session_state.get("tour")
+    if not t:
+        return
+    stop_i, phase = divmod(t["step"], 3)
+    if stop_i >= len(t["stops"]):
+        stop_tour()
+        return
+    city = t["stops"][stop_i]
+    layer, metric = TOUR_PLAN[stop_i % len(TOUR_PLAN)]
+    if phase == 0:
+        st.session_state["city"] = city
+        st.session_state["_nav_by_chat"] = city        # bölge geçiş notu yerine tur notu
+        st.session_state["layer"] = layer
+        st.session_state["zoom"] = {"city": city, "scale": CITY_SCALE}
+        st.session_state["chart_metric"] = None
+        st.session_state.setdefault("chat", []).append(
+            {"role": "assistant", "source": L(f"Jüri turu · {stop_i + 1}/{len(t['stops'])}",
+                                              f"Jury tour · {stop_i + 1}/{len(t['stops'])}"),
+             "content": chat_icon("travel_explore") + " " + tour_line(city) + " " + L("Katman: ", "Layer: ")
+                        + f"**{layer_label(layer)}**."})
+    elif phase == 1:
+        st.session_state["chart_metric"] = metric
+    else:
+        st.session_state["chart_metric"] = None
+    t["step"] += 1
+    t["next"] = time.time() + TOUR_TICK
+
+
+@st.fragment(run_every=TOUR_TICK)
+def tour_runner() -> None:
+    """Tur zamanlayıcısı: süre dolunca bir adım ilerler ve tüm sayfayı yeniden çalıştırır. Turda değilken boş."""
+    import time
+    t = st.session_state.get("tour")
+    if not t:
+        return
+    if time.time() >= t.get("next", 0):
+        tour_advance()
+        st.rerun()
+    stop_i = min(max(t["step"] - 1, 0) // 3 + 1, len(t["stops"]))
+    with st.container(key="tour_bar", horizontal=True, gap="small", vertical_alignment="center"):
+        html_block(f"<div class='tour-t'><b>{L('Jüri turu', 'Jury tour')}</b>"
+                   f" · {stop_i}/{len(t['stops'])} · {html.escape(rname(st.session_state.get('city', CITY_NAMES[0])))}</div>")
+        st.button(L("Durdur", "Stop"), key="tour_stop", on_click=stop_tour, icon=":material/stop_circle:")
 
 
 def sound_on() -> bool:
@@ -3750,6 +4058,8 @@ def open_metric(metric: str) -> None:
 
 def close_metric() -> None:
     st.session_state["chart_metric"] = None
+    if st.session_state.get("tour"):
+        stop_tour()
 
 
 def metric_data(city: str, metric: str) -> dict | None:
@@ -3839,6 +4149,34 @@ def render_metric_dialog(city: str) -> None:
     d = metric_data(city, metric)
     title = (d.get("title_en" if lang() == "en" else "title_tr") if d else None) or L("Değer grafiği", "Value chart")
     st.dialog(title, width="large", on_dismiss=close_metric)(_metric_body)(city, metric)
+
+
+def render_keys_card() -> None:
+    """ÖNERİ #6 · "?" ile açılan kısayol kartı. Kaynak gizli durur; JS belge gövdesine kopyalayıp açar (Credits gibi)."""
+    rows = [("Space", L("Termal Analiz'e dön / bölge seçimini kaldır", "Back to Thermal Analysis / clear selection")),
+            ("Esc", L("Açık pencereyi, paneli ya da jüri turunu kapat", "Close the open window, panel or jury tour")),
+            ("Enter", L("Odaktaki değer kutusunun grafiğini aç", "Open the chart of the focused value box")),
+            ("T", L("Trendi dinle (sesli seri) · tekrar basınca durur", "Listen to the trend (sonified series) · press again to stop")),
+            ("?", L("Bu kartı aç / kapat", "Open / close this card")),
+            (L("Tekerlek · sürükle", "Wheel · drag"), L("Küreyi yakınlaştır · döndür", "Zoom · rotate the globe"))]
+    keys = "".join(f"<div class='r'><kbd>{html.escape(k)}</kbd><span>{html.escape(v)}</span></div>" for k, v in rows)
+    cmds = (["2019'a git", "Termal analizi aç", "Beni Sahra Çölü'ne götür", "Kendall grafiğini göster", "Credits aç",
+             "Turu başlat"] if lang() == "tr" else
+            ["Go to 2019", "Open thermal analysis", "Take me to the Sahara", "Show the Kendall chart", "Open credits",
+             "Start the tour"])
+    chips = "".join(f"<span class='c'>{html.escape(c)}</span>" for c in cmds)
+    with st.container(key="keys_card"):
+        html_block(f"""
+        <div class="vp-keys" role="dialog" aria-modal="true" aria-label="{L('Kısayollar', 'Shortcuts')}">
+          <div class="vp-keys-panel">
+            <div class="vp-keys-head">{inline_svg('keys', 18)}<b>{L('Kısayollar ve komutlar', 'Shortcuts & commands')}</b>
+              <button class="vp-keys-close" type="button">✕ <kbd>Esc</kbd></button></div>
+            {keys}
+            <div class="vp-keys-sub">{L('Seiron sohbet komutları', 'Seiron chat commands')}</div>
+            <div class="vp-keys-cmds">{chips}</div>
+          </div>
+        </div>
+        """)
 
 
 def render_settings() -> None:
@@ -4054,6 +4392,11 @@ def submit_question(text: str) -> None:
     if not text:
         return
     current = st.session_state.get("city", CITY_NAMES[0])
+    if any(w in tr_lower(text) for w in TOUR_WORDS):
+        # Kullanıcı mesajı doğrudan geçmişe yazılır; turun açılış notu Seiron'un yanıtıdır (dil modeline gitmez)
+        st.session_state.setdefault("chat", []).append({"role": "user", "content": text, "source": ""})
+        start_tour()
+        return
     cmd = apply_ui_command(text, current)
     if cmd.get("denied"):   # yönetici isteği: hiçbir şey değiştirilmez, dil modeline gönderilmez
         st.session_state["pending"] = {"q": text, "nav": None, "zoom": 0, "scale": None, "layer": None, "cmd": cmd}
@@ -4259,6 +4602,27 @@ def copy_button(city: str) -> None:
     """, unsafe_allow_javascript=True)
 
 
+def quality_chip(city: str, wx: dict, pw: dict) -> str:
+    """ÖNERİ #3 · Veri güveni rozeti (data_pipelines.data_quality). Üstüne gelince / odakta ölçütler ✓/✗ listelenir."""
+    try:
+        q = data_quality(city, wx.get("live"), pw.get("live"), pw.get("short_window"))
+    except Exception:
+        return ""
+    if not q:
+        return ""
+    en = lang() == "en"
+    level = q.get("level", "low")
+    names = {"high": L("yüksek", "high"), "medium": L("orta", "medium"), "low": L("düşük", "low")}
+    rows = "".join(
+        f"<li class='{'ok' if c.get('ok') else 'no'}'><b>{'✓' if c.get('ok') else '✗'}</b>"
+        f"{html.escape(c.get('text_en' if en else 'text_tr', ''))}</li>" for c in q.get("checks", []))
+    return (f"<span class='dq dq-{level}' tabindex='0' role='note' "
+            f"aria-label='{L('Veri güveni', 'Data confidence')}: {names.get(level, level)} ({q.get('score', 0)}/100)'>"
+            f"{inline_svg('shield', 12)}{L('Veri güveni', 'Data confidence')}: <b>{names.get(level, level)}</b>"
+            f"<span class='dq-tip'><span class='dq-h'>{L('Veri güveni', 'Data confidence')} · {q.get('score', 0)}/100"
+            f"</span><ul>{rows}</ul></span></span>")
+
+
 def sonify_button(city: str) -> str:
     """ÖNERİ #1 · Trendi dinle: yıllık seri sese çevrilir (data_pipelines.sonify), Web Audio ile tarayıcıda çalar.
     Notalar düğmenin data özniteliğinde taşınır; çalarken düğmede o anki yıl ve değer görünür. Tekrar basınca durur."""
@@ -4305,6 +4669,7 @@ def city_details(city: str) -> None:
                        f"<b>{fetch_power(city)['last_t']:.1f} °C</b></div>")
     elif hist and is_annual():
         wx_kind = L("Sene ortalaması", "Year average")
+    pw = fetch_power(city)
     chip = (f"<span class='hist-chip'>{inline_svg('clock', 12)} {L('ZAMANDA YOLCULUK', 'TIME TRAVEL')} · {wx['time'][:10]}</span>"
             if hist else "")
     pw = fetch_power(city)
@@ -4316,7 +4681,7 @@ def city_details(city: str) -> None:
     html_block(f"""
     <div class="city-name">{html.escape(rname(city))}<span class="city-country">{html.escape(rarea(spec))}</span></div>
     <div class="city-theme">{html.escape(rtheme(spec))} {chip}</div>
-    <div class="badge" style="--c:{c}"><i></i>{status_label(status)}</div>
+    <div class="badge-row"><div class="badge" style="--c:{c}"><i></i>{status_label(status)}</div>{quality_chip(city, wx, pw)}</div>
     {annual_note}
     <div class="wx"><div class="ic">{wx_icon(w, 34)}</div><div class="t">{w['temp']:.1f}°C</div>
       <div class="d">{html.escape(wlabel(w))}{' · ' + ' · '.join(wx_meta) if wx_meta else ''}<br><span>{wx_kind} · {html.escape(wx['source'])}</span></div></div>
@@ -4435,6 +4800,8 @@ def render_mission_control() -> None:
     chat_autoscroll()
     render_settings()
     render_metric_dialog(city)
+    render_keys_card()
+    tour_runner()
 
 
 MOBILE_UA = re.compile(r"Mobi|Android|iPhone|iPod|Windows Phone|Opera Mini", re.IGNORECASE)
@@ -4499,6 +4866,8 @@ def render_mobile() -> None:
     chat_autoscroll()
     render_settings()
     render_metric_dialog(city)
+    render_keys_card()
+    tour_runner()
 
 
 def main() -> None:

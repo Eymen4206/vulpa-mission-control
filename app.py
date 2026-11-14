@@ -66,7 +66,8 @@ import data_pipelines as _dp  # noqa: E402  (isteğe bağlı API'lerin varlığ�
 _DP_NEEDED = ("CITY_NAMES", "END", "GRID_LATS", "GRID_LONS", "LAST_FULL_YEAR", "PERIOD", "POWER_SPAN",
               "PROJECTION_MONTHS", "REGION_LIST", "REGIONS", "START", "WEATHER_TTL", "Region", "_fetch_grid",
               "_fetch_power", "_fetch_weather", "analyze", "build_series", "REAL_SOURCES", "series_meta", "data_credits",
-              "parse_ui_command", "switch_message", "time_text", "metric_chart", "ALLOWED_ACTIONS", "METRICS")
+              "parse_ui_command", "switch_message", "time_text", "metric_chart", "ALLOWED_ACTIONS", "METRICS",
+              "sonify", "fetch_events", "EVENT_TYPES")
 if not all(hasattr(_dp, _n) for _n in _DP_NEEDED):
     for _m in [m for m in sys.modules if m == "data_pipelines" or m.startswith("data_pipelines.")]:
         del sys.modules[_m]
@@ -75,7 +76,7 @@ from data_pipelines import (  # noqa: E402
     CITY_NAMES, END, GRID_LATS, GRID_LONS, LAST_FULL_YEAR, PERIOD, POWER_SPAN, PROJECTION_MONTHS, REGION_LIST,
     REGIONS, START, WEATHER_TTL, Region, _fetch_grid, _fetch_power, _fetch_weather, analyze, build_series,
     REAL_SOURCES, series_meta, data_credits,
-    parse_ui_command, switch_message, time_text, metric_chart,
+    parse_ui_command, switch_message, time_text, metric_chart, sonify, fetch_events,
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2336,6 +2337,16 @@ div[role="dialog"]:has(.set-sec) { background: rgba(20,17,15,.92); backdrop-filt
   linear-gradient(to top, var(--orange) 0 100%) right bottom / 2px 70% no-repeat; transition: opacity .18s; }
 .fact.clk:hover::after, .pw-main.clk:hover::after { opacity: 1; }
 .st-key-metric_btns { display: none !important; }
+.vp-sonify { display: inline-flex; align-items: center; gap: .35rem; margin-left: .5rem; padding: .12rem .55rem;
+  border-radius: 999px; border: 1px solid var(--line-strong); background: rgba(249,115,22,.08); color: var(--orange);
+  font: 600 .64rem 'Inter', sans-serif; letter-spacing: .04em; cursor: pointer; vertical-align: middle;
+  text-transform: none; font-variant-numeric: tabular-nums; transition: background .18s, box-shadow .18s; }
+.vp-sonify:hover, .vp-sonify:focus-visible { background: rgba(249,115,22,.18); box-shadow: 0 0 12px rgba(249,115,22,.3); outline: none; }
+.vp-sonify.playing { background: var(--orange); color: #1c1917; }
+.vp-sonify.playing .vp-svg { animation: pulse 1s infinite; }
+.st-key-events_ctl { margin: 0 auto .25rem; padding: .1rem .7rem; border-radius: 999px; background: rgba(28,25,23,.62);
+  backdrop-filter: blur(14px); border: 1px solid var(--line); }
+.st-key-events_ctl label p { font-size: .72rem !important; color: #e7e5e4; white-space: nowrap; }
 div[role="dialog"]:has(.mc-sub) { background: rgba(20,17,15,.92); backdrop-filter: blur(14px);
   border: 1px solid var(--line-strong); }
 [data-testid="stDialog"]:has(.mc-sub) { backdrop-filter: blur(6px); }
@@ -2610,6 +2621,9 @@ _SVG_ICONS = {
     "clock": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' "
              "stroke-width='2.2' stroke-linejoin='miter'><path d='M8.5 3h7L21 8.5v7L15.5 21h-7L3 15.5v-7Z'/>"
              "<path d='M12 7v5.5l3.5 2'/></svg>",
+    "wave": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' "
+            "stroke-width='2.2' stroke-linejoin='miter' stroke-linecap='square'><path d='M2 12h3l2-6 3 12 3-9 2 6 "
+            "2-3h5'/></svg>",
     "warn": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' "
             "stroke-width='2.2' stroke-linejoin='miter'><path d='M12 3 22 20H2Z'/><path d='M12 9.5v5M12 16.8v1.4'/></svg>",
 }
@@ -2723,9 +2737,9 @@ def layer_label(key: str, short: bool = False) -> str:
 #  10 şehir basınç noktaları · 11 sürekli termal yüzey (choropleth; Plotly onu her zaman noktaların altına çizer)
 # Termalde 3 (nokta alanı) ve 5 (nabız halkaları) kapalıdır; yerlerini 11'deki sürekli yüzey alır.
 LAYER_VISIBILITY = {
-    "classic": [True, True, True, False, False, False, False, False, False, False, False, False],
-    "thermal": [True, True, False, False, True, False, False, False, False, False, False, True],
-    "wind":    [True, True, False, True, False, False, True, True, True, True, True, False],
+    "classic": [True, True, True, False, False, False, False, False, False, False, False, False, False],
+    "thermal": [True, True, False, False, True, False, False, False, False, False, False, True, False],
+    "wind":    [True, True, False, True, False, False, True, True, True, True, True, False, False],
 }
 # Termal skala (meteorolojik gelenek): soğuk sapma mavi → camgöbeği → yeşil → sarı → turuncu → kırmızı (sıcak sapma)
 THERMAL_STOPS = ((0.0, "#1e40af"), (0.2, "#0ea5e9"), (0.4, "#4ade80"), (0.55, "#facc15"),
@@ -2809,6 +2823,11 @@ def globe_figure() -> go.Figure:
         geojson={"type": "FeatureCollection", "features": []}, featureidkey="id", locations=[], z=[],
         colorscale=[[p, c] for p, c in THERMAL_STOPS], zmin=-8, zmax=8, showscale=False,
         marker={"line": {"width": 0}}, hoverinfo="skip", showlegend=False, visible=False))
+    fig.add_trace(go.Scattergeo(  # 12 · NASA EONET doğal olayları (Klasik katmanda anahtarla; veri denetleyiciden)
+        lon=[None], lat=[None], mode="markers", hovertext=[""], hovertemplate="%{hovertext}<extra></extra>",
+        marker={"size": 11, "symbol": "triangle-up", "color": ["#ef4444"],
+                "line": {"color": "rgba(12,10,9,0.9)", "width": 1}},
+        selected={"marker": {"opacity": 1}}, unselected={"marker": {"opacity": 1}}, showlegend=False, visible=False))
     fig.update_geos(
         projection_type="orthographic",
         projection_rotation={"lon": INTRO_CAMERA["lon"], "lat": INTRO_CAMERA["lat"], "roll": 0},
@@ -2937,10 +2956,43 @@ GLOBE_CONTROLLER_JS = """
         return !!src;
     };
     window.__vpCreditsOpen = openCredits;
+    // Trendi dinle (sonifikasyon): notalar düğmeden okunur, ses motoru açılış sesiyle ortaktır (__vpAudio).
+    const playTrend = function(btn) {
+      const A = window.__vpAudio, span = btn.querySelector("span");
+      if (btn.__vpStop) { btn.__vpStop(); return; }
+      if (!A) return;
+      const ctx = A.ctx(); if (!ctx) return;
+      let data; try { data = JSON.parse(btn.getAttribute("data-notes")); } catch (e) { return; }
+      const t0 = ctx.currentTime + 0.08, out = ctx.createGain(), timers = [];
+      out.gain.value = 0.22; out.connect(ctx.destination);
+      const wave = {data: "triangle", trend: "sine", pulse: "square"};
+      let end = 0;
+      data.notes.forEach(function(n) {
+        A.tone(ctx, out, n.freq, wave[n.role] || "sine", t0 + n.t, 0.012, Math.max(0.01, n.dur - 0.09), 0.08,
+               Math.max(0.001, n.gain * (n.role === "pulse" ? 0.5 : 1)));
+        end = Math.max(end, n.t + n.dur);
+        if (n.role === "data" && span) {
+          timers.push(setTimeout(function() {
+            span.textContent = n.year + " · " + (n.value != null ? n.value.toFixed(1) + " " + data.unit : "");
+          }, (n.t + 0.08) * 1000));
+        }
+      });
+      btn.classList.add("playing");
+      const stop = function() {
+        timers.forEach(clearTimeout);
+        try { out.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.05); setTimeout(function() { out.disconnect(); }, 300); } catch (e) {}
+        btn.classList.remove("playing"); btn.__vpStop = null;
+        if (span) span.textContent = btn.getAttribute("data-label");
+      };
+      btn.__vpStop = stop;
+      timers.push(setTimeout(stop, (end + 0.4) * 1000));
+    };
     window.__vpCreditsClose = close;
     document.addEventListener("click", function(e) {
       const t = e.target;
       // Sağ paneldeki değer kutuları: tıklanınca gizli Streamlit düğmesine basılır, grafik penceresi açılır.
+      const son = t.closest && t.closest(".vp-sonify");
+      if (son) { e.preventDefault(); playTrend(son); return; }
       const fact = t.closest && t.closest("[data-metric]");
       if (fact) {
         const b = document.querySelector(".st-key-mc_" + fact.getAttribute("data-metric") + " button");
@@ -3217,6 +3269,12 @@ GLOBE_CONTROLLER_JS = """
       } else if (!gd.__vpFlying) {
         if (gd.__vulpaLabel !== T.name) { gd.__vulpaLabel = T.name; await applySelection(gd, T); }
         if (gd.__vulpaData !== T.data.nonce) { gd.__vulpaData = T.data.nonce; await applyData(gd, T.data); }
+        const E = T.events;
+        if (E && gd.data.length > 12 && gd.__vpEvents !== E.nonce) {
+          gd.__vpEvents = E.nonce;
+          await P().restyle(gd, {lon: [E.lon], lat: [E.lat], hovertext: [E.hover], "marker.symbol": [E.symbol],
+                                 "marker.color": [E.color]}, [12]);
+        }
         const visKey = T.layer + "|" + T.visibility.join(",");   // termal yüzey veri yoksa gizlenir
         if (gd.__vulpaLayer !== visKey) {
           gd.__vulpaLayer = visKey;
@@ -3257,11 +3315,46 @@ def anomaly_ok() -> bool:
 
 
 def layer_visibility(layer: str) -> list[bool]:
-    """Katman görünürlüğü; termalde sapma verisi yoksa sürekli yüzey (iz 11) gösterilmez."""
+    """Katman görünürlüğü; termalde sapma verisi yoksa sürekli yüzey (iz 11) gösterilmez. EONET olayları (iz 12)
+    yalnızca Klasik katmanda, anahtar açıkken ve canlı veride görünür (olaylar geçmiş tarihe ait değildir)."""
     vis = list(LAYER_VISIBILITY[layer])
     if layer == "thermal" and not anomaly_ok():
         vis[11] = False
+    vis[12] = events_active(layer)
     return vis
+
+
+# ── NASA EONET doğal olayları (Backend: data_pipelines.fetch_events) ─────────────────────────────────────────
+# Tür → (simge, renk). Mavi/mor yok: buz/kar taş beyazı, su kehribar.
+EVENT_STYLE = {"wildfire": ("triangle-up", "#ef4444"), "volcano": ("triangle-up", "#b91c1c"),
+               "storm": ("diamond", "#fbbf24"), "ice": ("square", "#e7e5e4"), "snow": ("square", "#e7e5e4"),
+               "flood": ("circle", "#fdba74"), "drought": ("circle", "#d97706"), "dust": ("circle", "#a8a29e"),
+               "temperature": ("star", "#f97316"), "earthquake": ("x", "#fb923c"), "landslide": ("x", "#a16207")}
+
+
+def events_active(layer: str | None = None) -> bool:
+    layer = layer or st.session_state.get("layer", "classic")
+    return bool(st.session_state.get("events_on")) and layer == "classic" and not sel_year()
+
+
+def events_payload() -> dict | None:
+    """Açıkken olay işaretleri (en fazla 150, önbellekli); kapalıyken hiç veri gönderilmez."""
+    if not events_active():
+        return None
+    try:
+        events = fetch_events() or []
+    except Exception:
+        events = []
+    en = lang() == "en"
+    lon, lat, sym, col, hov = [], [], [], [], []
+    for e in events:
+        style = EVENT_STYLE.get(e.get("type"), ("circle", "#fdba74"))
+        lon.append(e["lon"]); lat.append(e["lat"]); sym.append(style[0]); col.append(style[1])
+        kind = e.get("type_en" if en else "type_tr") or e.get("type", "")
+        hov.append(f"<b>{html.escape(e.get('title', ''))}</b><br>{html.escape(kind)} · {e.get('date', '')}"
+                   f"<br><i>NASA EONET · {html.escape(e.get('source', ''))}</i>")
+    return {"nonce": f"{len(events)}|{events[0]['id'] if events else ''}|{lang()}", "lon": lon, "lat": lat,
+            "symbol": sym, "color": col, "hover": hov, "count": len(events)}
 
 
 def globe_controller(city: str, cam: dict, layer: str) -> None:
@@ -3271,13 +3364,14 @@ def globe_controller(city: str, cam: dict, layer: str) -> None:
               "count": len(CITY_NAMES), "name": rname(city), "lon0": spec.lon, "lat0": spec.lat, "lang": lang(),
               "layer": layer, "visibility": layer_visibility(layer), "data": layer_payload(),
               "zoom": [MIN_SCALE, MAX_SCALE], "theme": theme(),
-              "credits": st.session_state.pop("_credits_cmd", None), "sound": sound_on()}
+              "credits": st.session_state.pop("_credits_cmd", None), "sound": sound_on(),
+              "events": events_payload()}
     # Streamlit st.html içeriğini DOMPurify ile temizler; metninde "<b>" gibi etiket benzeri parçalar bulunan
     # <script> öğelerini tamamen siler. Bu yüzden JSON içindeki "<" karakterleri < olarak kaçırılır
     # (JavaScript için anlamı aynıdır).
     payload = json.dumps(target).replace("<", "\\u003c")
     with st.container(key="fx"):
-        st.html(f"<script>window.__vulpaTarget = {payload};{GLOBE_CONTROLLER_JS}</script>",
+        st.html(f"<script>window.__vulpaTarget = {payload};{LAUNCH_SOUND_JS}{GLOBE_CONTROLLER_JS}</script>",
                 unsafe_allow_javascript=True)
 
 
@@ -3321,6 +3415,17 @@ def render_layer_bar(compact: bool = False) -> None:
         legend = layer_legend(st.session_state.get("layer", "classic"))
         if legend:
             html_block(legend)
+        if st.session_state.get("layer", "classic") == "classic":
+            with st.container(key="events_ctl", width="content"):
+                hist = bool(sel_year())
+                bound(st.toggle, "events_on", label=L("Doğal olaylar · NASA EONET", "Natural events · NASA EONET"),
+                          disabled=hist,
+                          help=L("Son 30 günün açık doğal olayları (yangın, fırtına, buz, volkan…). Olaylar canlıdır; "
+                                 "zamanda yolculukta kapalıdır." if hist else
+                                 "Son 30 günün açık doğal olayları (yangın, fırtına, buz, volkan…), NASA EONET v3.",
+                                 "Open natural events of the last 30 days (wildfires, storms, ice, volcanoes…). Events "
+                                 "are live; disabled during time travel." if hist else
+                                 "Open natural events of the last 30 days (wildfires, storms, ice, volcanoes…), NASA EONET v3."))
         st.segmented_control(L("Harita katmanı", "Map layer"), list(LAYERS), key="layer", required=True,
                              format_func=lambda k: layer_label(k, short=compact), label_visibility="collapsed")
 
@@ -4154,6 +4259,23 @@ def copy_button(city: str) -> None:
     """, unsafe_allow_javascript=True)
 
 
+def sonify_button(city: str) -> str:
+    """ÖNERİ #1 · Trendi dinle: yıllık seri sese çevrilir (data_pipelines.sonify), Web Audio ile tarayıcıda çalar.
+    Notalar düğmenin data özniteliğinde taşınır; çalarken düğmede o anki yıl ve değer görünür. Tekrar basınca durur."""
+    try:
+        sn = sonify(city)
+    except Exception:
+        sn = None
+    if not sn or not sn.get("notes"):
+        return ""
+    payload = html.escape(json.dumps({"notes": sn["notes"], "unit": sn.get("unit", "")}), quote=True)
+    explain = html.escape(sn.get("explain_en" if lang() == "en" else "explain_tr", ""), quote=True)
+    label = L("Trendi dinle", "Listen to the trend")
+    return (f"<button class='vp-sonify' type='button' data-notes=\"{payload}\" data-label='{html.escape(label)}' "
+            f"title=\"{explain}\" aria-label='{html.escape(label)}'>{inline_svg('wave', 13)}"
+            f"<span>{label}</span></button>")
+
+
 def city_details(city: str) -> None:
     """Sağ panel ve Mini VULPA'nın ortak içeriği (seçili dil ve zamana göre)."""
     spec, r, rep = REGIONS[city], analyze(city), generate_report(city)
@@ -4217,7 +4339,7 @@ def city_details(city: str) -> None:
         <span>{L('Ort.', 'Mean')} <b>{pw['t_mean']:.1f} °C</b> · <b>{pw['prec_mean']:.0f} mm</b>/{yr}</span></div>
       <div class="pw-src">{html.escape(pw['source'])}</div>
     </div>
-    <div class="sec-title">{L('ZAMAN SERİSİ', 'TIME SERIES')} · {html.escape(rvar(spec))} · <span class="ts-kind {'is-real' if real else 'is-synth'}">{L('GERÇEK VERİ', 'REAL DATA') if real else L('SENTETİK', 'SYNTHETIC')}</span></div>
+    <div class="sec-title">{L('ZAMAN SERİSİ', 'TIME SERIES')} · {html.escape(rvar(spec))} · <span class="ts-kind {'is-real' if real else 'is-synth'}">{L('GERÇEK VERİ', 'REAL DATA') if real else L('SENTETİK', 'SYNTHETIC')}</span>{sonify_button(city)}</div>
     """)
     st.plotly_chart(build_chart(build_series(city), spec, r), theme=None, width="stretch",
                     config={"displayModeBar": False})

@@ -2238,6 +2238,8 @@ div:has(> .st-key-seiron_msgs) { height: 100% !important; min-height: 0 !importa
   scrollbar-width: thin; scrollbar-color: rgba(249,115,22,.35) transparent; }
 .seiron-name { font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 1.12rem; color: var(--text); }
 .seiron-name span { color: var(--orange); }
+.seiron-name { display: flex; align-items: center; gap: .45rem; }
+.seiron-name svg { flex: none; filter: drop-shadow(0 0 6px rgba(249,115,22,.45)); }
 .seiron-mode { font-size: .7rem; color: var(--muted); }
 .st-key-left_panel [data-testid="stCaptionContainer"] p { font-size: .68rem !important; }
 .st-key-suggestions button { border-radius: 999px !important; border: 1px solid var(--line-strong) !important;
@@ -2309,6 +2311,8 @@ div:has(> .stHtml .globe-ctl), .stHtml:has(.globe-ctl) { position: static !impor
 .st-key-mobile_seiron, .st-key-m_card { background: var(--glass); border: 1px solid var(--line); border-radius: 16px; padding: .8rem; }
 .seiron-name { font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 1.08rem; color: var(--text); }
 .seiron-name span { color: var(--orange); }
+.seiron-name { display: flex; align-items: center; gap: .45rem; }
+.seiron-name svg { flex: none; filter: drop-shadow(0 0 6px rgba(249,115,22,.45)); }
 .seiron-mode { font-size: .7rem; color: var(--muted); }
 .st-key-suggestions button { border-radius: 999px !important; border: 1px solid var(--line-strong) !important;
   background: rgba(249,115,22,.06) !important; color: #fed7aa !important; min-height: 1.7rem !important; }
@@ -2350,6 +2354,48 @@ VULPA_LOGO = """
   <path d="M54 104 L60 100 L66 104 L60 112 Z" fill="#1c1917" opacity=".42"/>
 </svg>
 """
+
+
+# Seiron amblemi: referans baykuş (kulak tüyleri, iri gözler, V gaga) VULPA kurduyla aynı dilde yeniden çizildi:
+# keskin poligonlar, kristal turuncu fasetler, gözlerin üstünü kesen çatık kaş (ciddi, gülümsemeyen ifade).
+SEIRON_LOGO = """
+<svg viewBox="0 0 120 120" width="{size}" height="{size}" role="img" aria-label="Seiron baykuş amblemi">
+  <defs>
+    <linearGradient id="sg{uid}" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fed7aa"/><stop offset=".3" stop-color="#fb923c"/>
+      <stop offset=".65" stop-color="#ea580c"/><stop offset="1" stop-color="#7c2d12"/>
+    </linearGradient>
+    <filter id="sf{uid}" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <path d="M16 6 L42 30 L60 25 L78 30 L104 6 L101 44 L110 62 L102 84 L86 102 L60 115 L34 102 L18 84 L10 62 L19 44 Z"
+        fill="url(#sg{uid})" stroke="#fed7aa" stroke-opacity=".45" stroke-width=".8" stroke-linejoin="miter"/>
+  <path d="M60 25 L50 39 L60 43 Z M42 30 L50 39 L36 41 Z M78 30 L70 39 L84 41 Z" fill="#fff7ed" opacity=".28"/>
+  <path d="M19 44 L10 62 L22 60 Z M101 44 L110 62 L98 60 Z M18 84 L34 102 L30 86 Z M102 84 L86 102 L90 86 Z"
+        fill="#1c1917" opacity=".3"/>
+  <path d="M22 50 L42 40 L60 47 L78 40 L98 50 L99 68 L85 84 L60 92 L35 84 L21 68 Z" fill="#1c1917" opacity=".62"/>
+  <path d="M25 64 L42 47 L58 64 L42 81 Z M62 64 L78 47 L95 64 L78 81 Z" fill="#0c0a09"/>
+  <path d="M31 64 L42 53 L53 64 L42 75 Z M67 64 L78 53 L89 64 L78 75 Z" fill="#fde68a" filter="url(#sf{uid})"/>
+  <path d="M37.5 64 L42 59.5 L46.5 64 L42 68.5 Z M73.5 64 L78 59.5 L82.5 64 L78 68.5 Z" fill="#0c0a09"/>
+  <path d="M20 47 L56 58 L60 64 L64 58 L100 47 L99 54 L65 64 L60 71 L55 64 L21 54 Z" fill="#0c0a09" opacity=".95"/>
+  <path d="M55 72 L65 72 L60 91 Z" fill="#0c0a09"/>
+  <path d="M60 72 L65 72 L60 91 Z" fill="#fdba74" opacity=".35"/>
+  <path d="M38 94 L60 102 L82 94 L60 107 Z" fill="#431407" opacity=".45"/>
+</svg>
+"""
+
+
+def seiron_logo(size: int, uid: str) -> str:
+    return SEIRON_LOGO.replace("{size}", str(size)).replace("{uid}", uid)
+
+
+@functools.lru_cache(maxsize=1)
+def seiron_avatar() -> str:
+    """Sohbet balonları için Seiron amblemi (st.chat_message avatar'ı; data URI)."""
+    import base64
+    svg = seiron_logo(64, "av").strip().replace('width="64" height="64" ', 'width="64" height="64" xmlns="http://www.w3.org/2000/svg" ')
+    return "data:image/svg+xml;base64," + base64.b64encode(svg.encode("utf-8")).decode("ascii")
 
 
 def logo(size: int, uid: str) -> str:
@@ -2644,6 +2690,7 @@ GLOBE_CONTROLLER_JS = """
     // sırasını geri yüklediği için bu, her çizimden sonra (plotly_afterplot) yeniden uygulanır.
     const coast = gd.querySelector("g.layer.coastlines"), front = gd.querySelector("g.layer.frontplot");
     if (coast && front && coast.nextSibling !== front) front.parentNode.insertBefore(coast, front);
+    surfaceOpacity(gd);
     gd.querySelectorAll("g.trace.scattergeo").forEach(function(g) {
       const d = g.__data__, idx = d && d[0] && d[0].trace ? d[0].trace.index : -1;
       Object.entries(ANIM_CLASS).forEach(function([i, cls]) { g.classList.toggle(cls, idx === Number(i)); });
@@ -2655,7 +2702,7 @@ GLOBE_CONTROLLER_JS = """
   // alt kenarları hücre başına bir köşeyle çizilir (uzun kenar büyük daire yayı gibi bükülmesin). Halkalar saat
   // yönündedir: d3-geo ters yönlü halkayı kürenin geri kalanı olarak yorumlar. Veri ±75° ile sınırlı olduğundan
   // son 12°'lik kuşakta opaklık sıfıra iner (sert kenar olmasın).
-  const T_BANDS = 48, T_OPACITY = 0.62, T_FADE = 12;
+  const T_BANDS = 48, T_OPACITY = 0.85, T_FADE = 12;
   const tBand = v => Math.max(0, Math.min(T_BANDS - 1, Math.floor((v + 8) / 16 * T_BANDS)));
   function thermalBands(z, g) {
     const groups = {};
@@ -2741,6 +2788,48 @@ GLOBE_CONTROLLER_JS = """
       if (still >= 3) { clearInterval(watch); done(); }
     }, 1000);
   }
+  // Bölge seçimi: Plotly seçili noktanın dışındaki tüm izleri "seçilmemiş" sayar ve soluklaştırır; termalde sürekli
+  // yüzey (iz 11) bu yüzden gizlenir. Bu bilerek korunur (seçilen bölgenin ayrıntısı net görünsün).
+  const hasSelection = gd => gd.data.some(function(t) { return Array.isArray(t.selectedpoints); });
+  // Termal yüzeyin öğe başına opaklığı (bant + ±75° sönmesi). Plotly choropleth, marker.opacity dizi olduğunda onu
+  // yalnızca seçim soluklaştırmasında kullanır; normal çizimde uygulamaz ve seçimden kalan değer yolda takılı kalır.
+  // Bu yüzden her çizimden sonra veriden (d.mo) uygulanır. Seçim varken Plotly'nin soluklaştırmasına dokunulmaz.
+  function surfaceOpacity(gd) {
+    if (hasSelection(gd)) return;
+    gd.querySelectorAll("g.trace.choropleth path").forEach(function(p) {
+      const d = p.__data__;
+      if (d && d.mo !== undefined) p.style.opacity = d.mo;
+    });
+  }
+  // Seçimi temizler: soluklaştırma kalkar. notify=true ise Streamlit'in seçim durumu da boşaltılır (plotly_deselect).
+  async function clearSelection(gd, notify) {
+    gd.__vpClearing = true;
+    try {
+      await P().restyle(gd, {selectedpoints: gd.data.map(function() { return null; })},
+                        gd.data.map(function(_, i) { return i; }));
+      surfaceOpacity(gd);
+      if (notify) gd.emit("plotly_deselect", null);
+    } finally { gd.__vpClearing = false; }
+  }
+  // Boşluk tuşu → Termal Analiz: seçim varsa kaldırır, başka katmandaysa Termal düğmesine basar (katman sırası:
+  // Klasik · Termal · Basınç). Yazı alanlarında (sohbet, ayarlar) devre dışıdır; düğmede odak varken de çalışır
+  // ve tarayıcının varsayılanını (sayfa kaydırma / odaklı düğmeye basma) engeller.
+  if (!window.__vpSpace) {
+    window.__vpSpace = true;
+    document.addEventListener("keydown", function(e) {
+      if (e.code !== "Space" || e.repeat || e.ctrlKey || e.altKey || e.metaKey) return;
+      const el = e.target;
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+      const gd = plot();
+      if (!gd || gd.getBoundingClientRect().width < 10) return;   // küre görünür değil (mobilde başka sekme)
+      e.preventDefault();
+      if (hasSelection(gd)) clearSelection(gd, true);
+      if ((window.__vulpaTarget || {}).layer !== "thermal") {
+        const btn = document.querySelectorAll(".st-key-layer_bar button")[1];
+        if (btn) btn.click();
+      }
+    }, true);
+  }
   let busy = false;
   async function tick() {
     const T = window.__vulpaTarget, gd = plot();
@@ -2766,6 +2855,9 @@ GLOBE_CONTROLLER_JS = """
           e.stopPropagation();
         }
       }, {capture: true, passive: false});
+      // Bölge seçimi kaldırıldığında (çift tıklama ya da seçili noktaya yeniden tıklama) soluklaşan katmanlar —
+      // termalde sürekli yüzey — eski haline döner.
+      gd.on("plotly_deselect", function() { if (!gd.__vpClearing) clearSelection(gd, false); });
       gd.on("plotly_relayout", function(e) {
         const s = e["geo.projection.scale"];
         if (s === undefined || gd.__vpFlying) return;
@@ -3042,7 +3134,7 @@ def ensure_greeting(city: str) -> list[dict]:
 
 def render_messages(history: list[dict]) -> None:
     for m in history:
-        with st.chat_message(m["role"], avatar="🛰️" if m["role"] == "assistant" else ":material/person:"):
+        with st.chat_message(m["role"], avatar=seiron_avatar() if m["role"] == "assistant" else ":material/person:"):
             st.markdown(m["content"])
             if m.get("source"):
                 st.caption(m["source"])
@@ -3059,7 +3151,7 @@ def process_pending(city: str, history: list[dict], box) -> None:
     with box:
         with st.chat_message("user", avatar=":material/person:"):
             st.markdown(question)
-        with st.chat_message("assistant", avatar="🛰️"):
+        with st.chat_message("assistant", avatar=seiron_avatar()):
             notes = []
             if nav:
                 notes.append(L(f"🧭 Küre **{rname(nav)}** bölgesine odaklandı.", f"🧭 Globe focused on **{rname(nav)}**."))
@@ -3097,7 +3189,7 @@ def render_seiron(city: str, mobile: bool = False) -> None:
         head_l, head_r = st.columns([3, 1.3], vertical_alignment="center")
         with head_l:
             html_block(f"""
-            <div class="seiron-name">🛰️ <span>Seiron</span></div>
+            <div class="seiron-name">{seiron_logo(28, "hd")}<span>Seiron</span></div>
             <div class="seiron-mode">{(L('Groq destekli', 'Groq-powered') if key else L('Yerel analiz motoru', 'Local analysis engine'))} · {L('iklim, hava ve ekosistem uzmanı', 'climate, weather & ecosystem expert')}</div>
             """)
         with head_r, st.popover(L("Ayarlar", "Settings"), width="stretch"):
@@ -3343,7 +3435,7 @@ def render_mobile() -> None:
         render_year_control()
         with st.container(key="lang_ctl", width="content"):
             render_lang_control()
-    tab_globe, tab_ai, tab_data = st.tabs([L("🌍 3D Küre", "🌍 3D Globe"), "🛰️ Seiron AI",
+    tab_globe, tab_ai, tab_data = st.tabs([L("🌍 3D Küre", "🌍 3D Globe"), "🦉 Seiron AI",
                                            L("📊 Telemetri & QR", "📊 Telemetry & QR")])
     with tab_globe:
         # Mobil: küre yüksekliği ekran boyuna göre CSS'te belirlenir (clamp), grafik kabı doldurur.

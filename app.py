@@ -68,7 +68,7 @@ _DP_NEEDED = ("CITY_NAMES", "END", "GRID_LATS", "GRID_LONS", "LAST_FULL_YEAR", "
               "_fetch_power", "_fetch_weather", "analyze", "build_series", "REAL_SOURCES", "series_meta", "data_credits",
               "parse_ui_command", "switch_message", "time_text", "metric_chart", "ALLOWED_ACTIONS", "METRICS",
               "fetch_events", "EVENT_TYPES", "data_quality",
-              "showcase_regions", "global_annual_anomaly", "year_extremes", "compare_regions")
+              "showcase_regions", "global_annual_anomaly", "year_extremes", "compare_regions", "warm_up")
 if not all(hasattr(_dp, _n) for _n in _DP_NEEDED):
     for _m in [m for m in sys.modules if m == "data_pipelines" or m.startswith("data_pipelines.")]:
         del sys.modules[_m]
@@ -78,7 +78,7 @@ from data_pipelines import (  # noqa: E402
     REGIONS, START, WEATHER_TTL, Region, _fetch_grid, _fetch_power, _fetch_weather, analyze, build_series,
     REAL_SOURCES, series_meta, data_credits,
     parse_ui_command, switch_message, time_text, metric_chart, fetch_events, data_quality,
-    showcase_regions, year_extremes, compare_regions,
+    showcase_regions, year_extremes, compare_regions, warm_up,
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2098,6 +2098,22 @@ def render_qr_module(expanded: bool = False) -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 BASE_CSS = """
 <style>
+#vp-veil { position: fixed; inset: 0; z-index: 2147483600; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: .7rem; background: #0c0a09; transition: opacity .55s ease; }
+#vp-veil.out { opacity: 0; pointer-events: none; }
+#vp-veil.light { background: #f5f0ea; } #vp-veil.light .vp-veil-sub { color: #78716c; }
+.vp-veil-ring { width: 58px; height: 58px; border-radius: 50%; border: 2px solid rgba(249,115,22,.18);
+  border-top-color: #f97316; animation: spin 1s linear infinite; }
+.vp-veil-word { font: 700 1.2rem 'Space Grotesk', sans-serif; letter-spacing: .3em; color: #f97316; }
+.vp-veil-sub { font: 400 .78rem 'Inter', sans-serif; color: #a8a29e; }
+.st-key-boot_prog { width: min(420px, 86vw) !important; margin: 1.1rem auto 0; }
+/* Yükleme sırasında açılış ekranının eski öğeleri (Sistemi Başlat, dil, alt yazı) görünmesin */
+.st-key-splash:has(.st-key-boot_prog) [data-stale="true"] { display: none !important; }
+.st-key-boot_prog [data-testid="stProgress"] > div > div > div > div { background: linear-gradient(90deg, #ea580c, #f97316, #fbbf24) !important; }
+.st-key-boot_prog [data-testid="stProgress"] p { color: #d6d3d1 !important; font-size: .78rem !important; text-align: center; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+<style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 
 :root {
@@ -3715,6 +3731,92 @@ LAUNCH_SOUND_JS = """
 
 def start_system() -> None:
     st.session_state["started"] = True
+    st.session_state["booting"] = True     # Karar 4: önce tam ekran yükleme, site tek seferde açılır
+
+
+BOOT_STEPS = {"series": ("Bölgesel tema serisi", "Regional theme series"),
+              "analysis": ("Eğilim analizi · Mann-Kendall · Sen", "Trend analysis · Mann-Kendall · Sen"),
+              "weather": ("Hava verisi · Meteomatics / Open-Meteo", "Weather · Meteomatics / Open-Meteo"),
+              "grid": ("Küresel ızgara · termal · basınç · rüzgâr", "Global grid · thermal · pressure · wind"),
+              "power": ("NASA POWER uzun vadeli iklim", "NASA POWER long-term climate")}
+
+
+def render_boot() -> None:
+    """Karar 4 · Açılış yükleme ekranı. "Sistemi Başlat"tan sonra yalnızca bu ekran çizilir; veri data_pipelines.warm_up
+    ile paralel çekilir (bekleme en yavaş kaynak kadar), ardından kürenin katmanları ve 50 bölgenin analizi hazırlanır.
+    Bitince sayfa önbellekten tek seferde çizilir; kürenin ilk çizimi bitene dek üstte bir perde kalır (boot_veil)."""
+    st.markdown(SPLASH_CSS, unsafe_allow_html=True)
+    theme_css(SPLASH_CSS)
+    city = init_city()
+    with st.container(key="splash"):
+        html_block(f"""
+        <div class="splash-logo"><div class="ring"></div><div class="ring r2"></div>{logo(92, "b")}</div>
+        <div class="splash-word">VULPA</div>
+        <div class="splash-sub"><b>{L('Sistem başlatılıyor', 'Starting the system')}</b> · {L('veriler hazırlanıyor', 'preparing data')}</div>
+        """)
+        with st.container(key="boot_prog"):
+            bar = st.progress(0.02, text=L("Bağlantılar kuruluyor…", "Connecting…"))
+            total_steps = len(BOOT_STEPS) + 1
+
+            def step(done: int, total: int, name: str) -> None:
+                label = BOOT_STEPS.get(name, (name, name))[1 if lang() == "en" else 0]
+                bar.progress(min(done / total_steps, 0.95), text=f"{label} ✓")
+
+            year, month, day = sel_date()
+            try:
+                warm_up(city, year, month, day, on_step=step)
+            except Exception:
+                pass   # warm_up istisna fırlatmaz; yine de açılış takılmasın
+            bar.progress(0.9, text=L("Küre katmanları hazırlanıyor…", "Preparing globe layers…"))
+            try:   # arayüz tarafı önbellekleri: ızgara katmanları, 50 bölgenin analizi, POWER
+                fetch_weather()
+                current_grid()
+                fetch_power(city)
+                for c in CITY_NAMES:
+                    analyze(c)
+            except Exception:
+                pass
+            bar.progress(1.0, text=L("Hazır", "Ready"))
+    st.session_state["_loaded_date"] = sel_date()
+    st.session_state["booting"] = False
+    st.session_state["_boot_veil"] = True
+    st.rerun()
+
+
+# Kürenin ilk çizimi (Plotly + denetleyicinin ilk uygulaması) birkaç yüz ms sürer. Bu süre boyunca sayfa parça parça
+# görünmesin diye belge gövdesine tam ekran bir perde eklenir; küre hedefe uygulanınca (ya da en geç 15 sn sonra)
+# yumuşakça solar. Etiket benzeri metin içermez (DOMPurify).
+BOOT_VEIL_JS = """
+(function() {
+  if (document.getElementById("vp-veil")) return;
+  const v = document.createElement("div");
+  v.id = "vp-veil";
+  if ("__THEME__" === "light") v.className = "light";
+  const ring = document.createElement("div"); ring.className = "vp-veil-ring";
+  const word = document.createElement("div"); word.className = "vp-veil-word"; word.textContent = "VULPA";
+  const sub = document.createElement("div"); sub.className = "vp-veil-sub";
+  sub.textContent = document.documentElement.lang === "en" ? "Rendering the globe…" : "Küre çiziliyor…";
+  v.appendChild(ring); v.appendChild(word); v.appendChild(sub);
+  document.body.appendChild(v);
+  const t0 = Date.now();
+  const done = function() {
+    v.classList.add("out");
+    setTimeout(function() { v.remove(); }, 600);
+  };
+  (function wait() {
+    const gd = document.querySelector(".st-key-globe_panel .js-plotly-plot");
+    const ready = gd && gd.__vulpaNonce && gd._fullLayout;   // hedef uygulandı: giriş uçuşu perde kalkınca görünür
+    if (ready || Date.now() - t0 > 15000) { setTimeout(done, ready ? 250 : 0); return; }
+    setTimeout(wait, 120);
+  })();
+})();
+"""
+
+
+def boot_veil() -> None:
+    if st.session_state.pop("_boot_veil", False):
+        with st.container(key="fx_veil"):
+            st.html(f"<script>{BOOT_VEIL_JS.replace('__THEME__', theme())}</script>", unsafe_allow_javascript=True)
 
 
 def render_splash() -> None:
@@ -4981,6 +5083,10 @@ def main() -> None:
     if not st.session_state.get("started"):
         render_splash()
         return
+    if st.session_state.get("booting"):
+        render_boot()
+        return
+    boot_veil()
     if mobile:
         render_mobile()
         return

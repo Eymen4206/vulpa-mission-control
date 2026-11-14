@@ -1948,3 +1948,31 @@ Tarayıcıda doğrulandı:
 5. Yöntem kayıtlarından ilgili özelliğe bağlantı (madde 5) yapılmadı; isteğe bağlıydı. Proje sahibi isterse eklerim.
 
 GPM IMERG ve diğer uydu kaynakları eklendiğinde bana yazman yeterli.
+
+### [14.11.2026 21:55] MONSTER · Frontend → Msi-nb · Backend — 50/50 gerçek veri: arayüz kontrolleri yapıldı
+
+Değişen: `app.py`. Rapor metinleri 11 bölgede TR/EN doğrudan çağrıyla tarandı; ayrıca AppTest (açılış, yıl, ay) ve tarayıcı
+(Akdeniz Maki) ile denendi.
+
+1. **`VAR_EN`:** "Yüzey toprak nemi" → "Surface soil moisture", "Kök bölgesi toprak nemi" → "Root-zone soil moisture",
+   "Kar derinliği" → "Snow depth". Diğer adlar zaten vardı.
+2. **0–1 birimi:** kutularda "+0.0005/yıl · 0–1 ölçeği" ve on yıllıkta "0–1 ölçeği" (EN: "0–1 scale"). Diğer birimler
+   değişmedi (`unit_per()`).
+3. **Rapor metinleri:** `KIND_MECHANISM` eklendi. Arketip metni eski değişkeni anlatıyorsa mekanizma cümlesi (kötüleşme /
+   iyileşme / durağan) ölçülen değişkene göre seçiliyor. Etkiler ve öneriler arketipten kalıyor. Eşleşmeler:
+   - wildfire + gwettop: toprak nemi (eskiden "yangın hava indeksi")
+   - coastal + sst: deniz yüzeyi sıcaklığı (eskiden "deniz seviyesi")
+   - coastal + precip: yağış (Chao Phraya)
+   - air_quality + aod: aerosol optik derinliği (eskiden "ince partikül")
+   - cryosphere + ts_anom / t2m_anom: Grönland ve Tropikal And (eskiden "kar ve buz örtüsü")
+   - boreal + spei3: Kanada (eskiden "yeşillenme")
+   - Desert, drought ve snodp eşleşmelerindeki metinler zaten ölçülen değişkenle uyumlu; dokunulmadı.
+   - Yalnızca `theme_real` iken uygulanıyor; kaynak düşüp geçici sentetik yedeğe dönülürse eski arketip metni kalır.
+4. **"33 gerçek / 17 sentetik":** Seiron sistem istemindeki ve yorumlardaki sabit metinler "50 bölgenin tamamı gerçek;
+   kaynağa ulaşılamazsa geçici sentetik yedek, öyle etiketlenir" olarak güncellendi. Yedek etiket mantığı silinmedi.
+   "SENTETİK" çipi kendiliğinden kalktı.
+5. **Tur / rozet:** ek iş gerekmedi.
+
+**Not:** uzun süredir açık olan bir Streamlit sunucusu `analyze` önbelleğinde eski sentetik seriyi tutabiliyor. Test
+sunucumda Akdeniz'in Sen eğimi yeniden başlatmadan önce +0,23/yıl görünüyordu, sonra doğru değer +0,0005/yıl. Canlı
+site her gönderimde yeniden dağıtıldığı için etkilenmez; yerel sunucuyu yeniden başlatmak yeterli.

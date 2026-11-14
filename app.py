@@ -815,6 +815,25 @@ def sel_date_text() -> str:
     return f"{date[8:10]}.{date[5:7]}.{date[:4]}" if len(date) == 10 else str(sel_year())
 
 
+def anomaly_phrase(kind: str | None, short: bool = False) -> str:
+    """Termal sapmanın neye göre olduğu (data_pipelines → "anomaly_kind"): "30d" önceki 30 gün, "climatology" iklim
+    normali (Open-Meteo kapalıyken NASA POWER), "annual" yıllık ortalamanın 1991–2020 normalinden sapması."""
+    if kind == "climatology":
+        return L("normale göre sapma", "dev. from normal") if short else L("İklim normaline göre sapma",
+                                                                          "Deviation from climate normal")
+    if kind == "annual":
+        return L("yıllık sapma", "annual dev.") if short else L("1991–2020 normaline göre yıllık sapma",
+                                                               "Annual deviation from the 1991–2020 normal")
+    return L("30 gün sapması", "30-day dev.") if short else L("Önceki 30 güne göre sapma",
+                                                             "Deviation vs previous 30 days")
+
+
+def anomaly_lower(kind: str | None) -> str:
+    """Cümle içi küçük harfli hali (Türkçe büyük/küçük harf kurallarıyla)."""
+    text = anomaly_phrase(kind)
+    return text.lower() if lang() == "en" else tr_lower(text)
+
+
 def fetch_weather() -> dict:
     """Seçili zamana (canlı ya da arşiv tarihi) ait 50 bölge verisi."""
     year, month, day = sel_date()
@@ -832,10 +851,10 @@ def weather_sentence(city: str) -> str:
     name = rname(city)
     hist = bool(meta.get("year"))
     if not meta["live"]:
-        return L(f"{name} için {'arşiv' if hist else 'canlı'} hava verisine şu an ulaşılamıyor; mevsime göre tahmini "
-                 f"sıcaklık yaklaşık {w['temp']:.0f} °C.",
-                 f"{'Archive' if hist else 'Live'} weather data for {name} is currently unavailable; the seasonal "
-                 f"estimate is about {w['temp']:.0f} °C.")
+        return L(f"{name} için {'arşiv' if hist else 'canlı'} hava verisine şu an ulaşılamıyor; iklim normaline göre "
+                 f"tahmini sıcaklık yaklaşık {w['temp']:.0f} °C (NASA POWER normalleri).",
+                 f"{'Archive' if hist else 'Live'} weather data for {name} is currently unavailable; the estimate from "
+                 f"the climate normal is about {w['temp']:.0f} °C (NASA POWER normals).")
     extra = []
     if w["humidity"] is not None:
         extra.append(L(f"bağıl nem %{w['humidity']:.0f}", f"relative humidity {w['humidity']:.0f}%"))
@@ -843,8 +862,7 @@ def weather_sentence(city: str) -> str:
                    f"wind from the {compass(w['wind_dir'])} at {w['wind']:.0f} km/h"))
     extra.append(L(f"deniz seviyesi basıncı {w['pressure']:.0f} hPa", f"sea-level pressure {w['pressure']:.0f} hPa"))
     if w["anomaly"] is not None:
-        extra.append(L(f"önceki 30 güne göre sıcaklık sapması {w['anomaly']:+.1f} °C",
-                       f"temperature deviation from the previous 30 days {w['anomaly']:+.1f} °C"))
+        extra.append(f"{anomaly_lower(meta.get('anomaly_kind'))} {w['anomaly']:+.1f} °C")
     kind = L("arşiv hava verisi" if hist else "anlık hava durumu", "archive weather" if hist else "current weather")
     return (L(f"{name} için {kind}", f"{kind.capitalize()} for {name}")
             + f" ({meta['provider']}, {when_text(meta)}): {wlabel(w).lower()}, {w['temp']:.1f} °C, "
@@ -1563,7 +1581,7 @@ KAPSAM:
 
 HARİTA KATMANLARI (yalnızca bu tanımları kullan; uydu görüntüsü YOKTUR):
 - Klasik Görünüm: şehir pinleri, bölgesel tema serisinin uzun dönemli (2000–2024; bölgeye göre gerçek ya da sentetik) eğilim durumuna göre renklendirilir.
-- Termal Analiz: bugünkü günlük ortalama sıcaklığın son 30 günün ortalamasından sapması (°C). Küre üzerinde 15°'lik küresel ızgaradan 7,5°'ye ara değerlenmiş, bölgeler arası yumuşak geçişli bir gradyan alanı ve 50 bölgede nabız gibi atan termal halkalar vardır. Renk skalası: koyu mavi (≤ −8 °C, soğuk sapma) → camgöbeği → yeşil → sarı (≈ 0) → turuncu → kırmızı (≥ +8 °C, sıcak sapma). Kaynak: anomali Open-Meteo, anlık alanlar Meteomatics; 30 dakikada bir yenilenir.
+- Termal Analiz: sıcaklık sapması (°C); şu an: {anomaly_phrase(fetch_grid().get('anomaly_kind'))}. Normalde önceki 30 güne göre sapma (Open-Meteo); Open-Meteo kapalıyken iklim normaline göre sapma (NASA POWER); Sene Ortalaması seçiliyken 1991–2020 normaline göre yıllık sapma. 15°'lik küresel ızgara 3°'lik hücrelere kübik ara değerlenerek sürekli, renk geçişli bir yüzey olarak çizilir; bir bölge seçiliyken yüzey gizlenir, Boşluk tuşuyla geri gelir. Renk skalası: koyu mavi (≤ −8 °C, soğuk sapma) → camgöbeği → yeşil → sarı (≈ 0) → turuncu → kırmızı (≥ +8 °C, sıcak sapma). Sapma verisi alınamazsa yüzey gösterilmez. Anlık alanlar Meteomatics'ten gelir ve 30 dakikada bir yenilenir.
 - Basınç & Hava Dalgası: 15°'lik küresel ızgaradaki deniz seviyesi basıncından hesaplanan 4 hPa aralıklı izobarlar (üzerlerinde yavaşça akan dalga deseni), ızgara noktalarında rüzgârın AKTIĞI yönü gösteren akan vektörler ve oklar (uzunluk hızla orantılı), ayrıca yerel en düşük/en yüksek basınç noktalarında A (alçak, < 1008 hPa) ve Y (yüksek, > 1018 hPa) merkezleri ve etraflarında yayılan dalga halkaları. Bölge noktaları basınca göre renklenir (kırmızı alçak → gri → krem yüksek). Kaynak: Meteomatics API (msl_pressure, wind_speed_10m, wind_dir_10m), 30 dakikada bir yenilenir. Izgara 15° olduğu için küçük ölçekli sistemler görünmez; bu bir sinoptik ölçek özetidir.
 Şu an etkin katman: {LAYERS[st.session_state.get("layer", "classic")]}
 ZAMAN: {"Kullanıcı " + sel_date_text() + " tarihine (12:00 UTC) zamanda yolculuk yaptı; hava değerleri o güne ait arşiv verisidir, NASA POWER trendi " + str(power_window()[0]) + "–" + str(power_window()[1]) + " dönemini kapsar. Bunu yanıtlarında belirt." if sel_year() else "Canlı (güncel) veriler gösteriliyor."}
@@ -1858,16 +1876,16 @@ def layer_summary(layer: str) -> str:
         if "hottest" in ex:
             hot, cold = ex["hottest"], ex["coldest"]
             ha, ca = data[hot]["anomaly"], data[cold]["anomaly"]
-            return L(f"Termal analiz katmanı açık. Küre, günün ortalama sıcaklığının önceki 30 günün ortalamasından "
-                     f"sapmasını gösteren yumuşak bir gradyan alanıyla kaplandı (mavi soğuk, kırmızı sıcak sapma); "
-                     f"bölge halkaları sapma büyüdükçe genişler. En sıcak sapma **{rname(hot)}** ({ha:+.1f} °C), en "
-                     f"soğuk sapma **{rname(cold)}** ({ca:+.1f} °C). Kaynak: {src}.",
-                     f"Thermal analysis layer is on. The globe is covered by a smooth gradient showing the day's mean "
-                     f"temperature deviation from the previous 30 days (blue cold, red warm); region rings widen with "
-                     f"the deviation. Warmest deviation **{rname(hot)}** ({ha:+.1f} °C), coldest **{rname(cold)}** "
-                     f"({ca:+.1f} °C). Source: {src}.")
-        return L("Termal analiz katmanı açık; sapma verisine ulaşılamadığı için mevsimsel tahmin gösteriliyor.",
-                 "Thermal analysis layer is on; deviation data is unavailable, so a seasonal estimate is shown.")
+            what = anomaly_lower(wx.get("anomaly_kind"))
+            return L(f"Termal analiz katmanı açık. Küre, sıcaklık sapmasını ({what}) gösteren sürekli, renk geçişli "
+                     f"bir yüzeyle kaplandı (mavi soğuk, kırmızı sıcak sapma). En sıcak sapma **{rname(hot)}** "
+                     f"({ha:+.1f} °C), en soğuk sapma **{rname(cold)}** ({ca:+.1f} °C). Kaynak: {src}.",
+                     f"Thermal analysis layer is on. The globe is covered by a continuous colour-graded surface showing "
+                     f"the temperature deviation ({what}; blue cold, red warm). Warmest deviation **{rname(hot)}** "
+                     f"({ha:+.1f} °C), coldest **{rname(cold)}** ({ca:+.1f} °C). Source: {src}.")
+        return L("Termal analiz katmanı açık; sapma verisine şu an ulaşılamadığı için termal yüzey gösterilmiyor.",
+                 "Thermal analysis layer is on; deviation data is currently unavailable, so the thermal surface is "
+                 "hidden.")
     if layer == "wind":
         low, high, windy = ex["lowest_p"], ex["highest_p"], ex["windiest"]
         gs = current_grid()[1]["summary"]
@@ -2705,7 +2723,7 @@ def layer_payload() -> dict:
         anom_txt = f"{w['anomaly']:+.1f} °C" if w["anomaly"] is not None else L("veri yok", "no data")
         stamp = f"<br><i>{wx['time']} UTC</i>" if hist else ""
         t_hover.append(f"<b>{rname(name)}</b><br>{w['icon']} {w['temp']:.1f} °C · {wlabel(w)}<br>"
-                       + L("Önceki 30 güne göre sapma: ", "Deviation vs previous 30 days: ") + anom_txt + stamp)
+                       + anomaly_phrase(wx.get("anomaly_kind")) + ": " + anom_txt + stamp)
         p_color.append(blend(PRESSURE_STOPS, (w["pressure"] - 990) / 45))
         p_hover.append(f"<b>{rname(name)}</b><br>{w['pressure']:.0f} hPa<br>"
                        + L(f"Rüzgâr: {compass(w['wind_dir'])} yönünden {w['wind']:.0f} km/sa",
@@ -3081,7 +3099,7 @@ def layer_legend(layer: str) -> str:
         span = (L(" · en yüksek sapma: ", " · largest deviation: ") + f"{rname(hot)} {wx['data'][hot]['anomaly']:+.1f} °C"
                 if hot and wx["data"][hot]["anomaly"] is not None else "")
         return (f"<div class='legend-bar'><span>−8 °C</span><i class='lg-thermal'></i><span>+8 °C</span>"
-                f"<em>{L('Önceki 30 güne göre sıcaklık sapması', 'Temperature deviation vs previous 30 days')}{span} · "
+                f"<em>{anomaly_phrase(fetch_grid().get('anomaly_kind'))}{span} · "
                 f"{html.escape(src)}</em></div>")
     if layer == "wind":
         ex = weather_extremes()
@@ -3274,7 +3292,8 @@ def render_credits() -> None:
                 f"<div class='vp-src'><a class='n' href='{esc(it['url'], quote=True)}' target='_blank' "
                 f"rel='noopener noreferrer'>{esc(it['name'])} ↗</a><div class='p'>{esc(it['provider'])}</div>"
                 f"<div class='u'>{esc(it['used_for_en'] if en else it['used_for_tr'])}</div>"
-                f"<div class='l'>{L('Lisans / koşul', 'License / terms')}: {esc(it['license'])}</div>{extra}</div>")
+                f"<div class='l'>{L('Lisans / koşul', 'License / terms')}: "
+                f"{esc(it.get('license_en' if en else 'license_tr') or it.get('license', ''))}</div>{extra}</div>")
         cats.append(f"<div class='vp-cat'><div class='vp-cat-t'>{esc(cat['title_en'] if en else cat['title_tr'])}"
                     f"</div>{''.join(items)}</div>")
     snap = (f" · {L('Gerçek seri anlık görüntüsü', 'Real-series snapshot')}: {esc(c['snapshot_generated'])}"
@@ -3527,8 +3546,10 @@ def city_details(city: str) -> None:
     if w["wind"] is not None:
         wx_meta.append(L(f"rüzgâr {w['wind']:.0f} km/sa", f"wind {w['wind']:.0f} km/h"))
     if w.get("anomaly") is not None:
-        wx_meta.append(L(f"30 gün sapması {w['anomaly']:+.1f} °C", f"30-day dev. {w['anomaly']:+.1f} °C"))
+        wx_meta.append(f"{anomaly_phrase(wx.get('anomaly_kind'), short=True)} {w['anomaly']:+.1f} °C")
     wx_kind = L("Arşiv hava", "Archive weather") if hist else L("Anlık hava", "Current weather")
+    if not wx["live"]:   # kaynaklar düştü: değerler NASA POWER iklim normallerinden (data_pipelines yedeği)
+        wx_kind = L("Tahmini (iklim normali)", "Estimated (climate normal)")
     annual_note = ""
     if hist and is_annual() and not annual_api():   # Sene Ortalaması: veri katmanı henüz yıllık API sunmuyor
         annual_note = (f"<div class='annual-note'>* {L('Sene ortalaması veri katmanında hazırlanıyor. Hava ve harita '

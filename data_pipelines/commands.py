@@ -185,10 +185,12 @@ def _parse(text: str, year: int, month: int, lang: str, years: tuple[int, ...], 
         if lo <= y <= hi:
             new_year = y
         elif y > hi:
-            notes.append(_note(f"{y} için arşiv verisi yok; seçilebilir yıllar {lo}–{hi}. Canlı veriye geçmek için "
-                               "\"canlıya dön\" deyin.",
-                               f"There is no archive data for {y}; available years are {lo}–{hi}. Say \"back to "
-                               "live\" for current data.", lang))
+            notes.append(_note(f"{y} için arşiv verisi yok; seçilebilir yıllar {lo}–{hi}. Geleceğe dair bir fikir için "
+                               "zaman serisi grafiğindeki 2034 uzatımına bakabilirsin (öngörü değil, eğilimin doğrusal "
+                               "devamı). Canlı veriye geçmek için \"canlıya dön\" de.",
+                               f"There is no archive data for {y}; available years are {lo}–{hi}. For a look ahead, see "
+                               "the 2034 extension on the time-series chart (a linear continuation of the trend, not a "
+                               "forecast). Say \"back to live\" for current data.", lang))
         else:
             new_year = lo
             notes.append(_note(f"{y} arşiv aralığının dışında; en eski yıl {lo} seçildi.",
@@ -258,7 +260,8 @@ def _parse(text: str, year: int, month: int, lang: str, years: tuple[int, ...], 
 
 
 def _done(out: dict) -> dict:
-    out["matched"] = bool(out["denied"] or out["reset_view"]
+    # Not varsa da eşleşmiş say: ör. "2099'a git" hiçbir şeyi değiştirmez ama kullanıcıya nedenini söylemek gerekir.
+    out["matched"] = bool(out["denied"] or out["reset_view"] or out["notes"]
                           or any(out[k] is not None for k in ALLOWED_ACTIONS if k != "reset_view"))
     return out
 

@@ -2195,3 +2195,72 @@ Değişen: `app.py`. AppTest (TR + EN, gerilemeler) ve tarayıcıyla (mobil) den
 - B2b · Antarktika için "denizde toprak nemi" neden metni
 - B4 · "1900'e git" → 2006'ya sabitleme: onay
 - B5 · "2099'a git" tanınmıyor
+
+### [14.11.2026 22:50] Msi-nb · Backend → MONSTER · Frontend — B1–B5 yanıtı · YENİ: uydu ve yer ölçümleri (proje sahibinin isteği)
+
+TR-1…TR-8 için teşekkürler, hepsini bir sonraki kontrolde AppTest ve tarayıcıyla doğrulayacağım.
+
+#### B1–B5
+- **B1 · Güney kutbu:** koordinat düzeltmesiyle (±89,5'e sıkıştırma, 22:20) çözüldü. (−89,9; 45) T2M artık normal analiz
+  veriyor. AOD kutupta gerçekten 0,00 (NASA POWER 2 ondalık), "sabit" sonucu doğru. Neden metnini netleştirdim: "sabit ya
+  da ölçüm hassasiyetinin altında (ör. kutupta aerosol ≈ 0, tropikte kar yok)".
+- **B2 · Antarktika neden metni:** "toprak nemi, buharlaşma ve kar yalnızca buzsuz kara için hesaplanır (deniz ve kalıcı
+  buz örtüsünde yoktur)". EN karşılığı `reason_en`'de.
+- **B3 · Yıllık hava çevirisi:** `_fetch_weather_annual` → `source_en` + her bölgede `label_en` ("Year average").
+  `_fetch_grid_annual` → `source_en`.
+- **B4 · "1900'e git" → 2006:** bilinçli, onaylıyorum (en eski yıl + not).
+- **B5 · "2099'a git":** artık `matched=True`, `year=None` ve not: "… arşiv verisi yok; … 2034 uzatımına bakabilirsin
+  (öngörü değil)…". Genel kural: not varsa `matched=True`.
+
+#### YENİ: ek ölçüm veri setleri (`data_pipelines/satellite.py`)
+Proje sahibi yarışmanın saydığı uydu kaynaklarının hepsini istedi (Earthdata hesabı açtı). Veriler bir kez çekilip
+`snapshots/extra_series.json`'a yazıldı; **canlı site token kullanmaz.**
+**`_DP_NEEDED` için yeni adlar:** `extra_catalog`, `extra_analysis`, `EXTRA_DATASETS`.
+
+**Hazır olanlar:**
+
+| key | Veri seti | Kapsam |
+|---|---|---|
+| `SEAICE_N` | Arktik deniz buzu yayılımı (NSIDC, uydu) | Grönland, Alaska, Sibirya, Kanada · −0,43 milyon km²/10 yıl |
+| `SEALEVEL` | Deniz seviyesi, gelgit ölçer (PSMSL) | ABD Doğu Kıyısı (Lewisetta, +87 mm/10 yıl), Florida (+76), Chao Phraya (+53), Yangtze (Kanmen, +47) · 2000–2024 |
+| `GPM` | Uydu yağışı (GPM IMERG V07) | 50 bölge + ızgara |
+| `GLDAS_RUNOFF` | Toplam akış (GLDAS) | 48 bölge (deniz hariç) + ızgara |
+| `GLDAS_SOILDEEP` | Derin toprak nemi 100–200 cm (GLDAS) | 48 bölge + ızgara |
+| `GLDAS_SWE` | Kar su eşdeğeri (GLDAS) | 48 bölge + ızgara |
+| `AIRS_T850` / `AIRS_T300` / `AIRS_T70` | 850 / 300 / 70 hPa sıcaklığı (AIRS, Aqua) | 50 bölge + ızgara |
+| `AIRS_O3` | Toplam ozon (AIRS) | 50 bölge + ızgara |
+
+- **İnenler:** `OMI_NO2` (troposferik NO₂, 2005–2024) ve `MODIS_NDVI` (bitki örtüsü). Gelince yazarım; aynı API.
+- **GRACE (yer altı suyu ve buz kütlesi):** NASA'nın nokta servisi bu veri setinde çalışmıyor. Dosyayı okumak için bir
+  kütüphane gerekiyor; proje sahibinin iznini bekliyor.
+
+**API:**
+- `extra_catalog(city, lang)` → o bölgede verisi olan veri setleri: `[{key, name, unit, category, instrument,
+  definition, why, source, bad_dir}]`. Verisi %10'dan fazla eksik olanlar listelenmez.
+- `extra_analysis(city, key)` → **`variable_analysis` ile birebir aynı şema** (mk, sen, ttest, agree,
+  years_to_significance, annual, chart (+band), sentence_tr/en, source/source_en). Ek alanlar:
+  - `extra: True`
+  - `instrument`
+  - SEALEVEL'de `station: {station, psmsl_id, distance_km}`; kaynak metninde istasyon adı ve uzaklığı var.
+- **Trend haritası:** `map_keys_available()` artık GPM, GLDAS (3), AIRS (4) anahtarlarını da veriyor (OMI ve MODIS
+  gelince onlar da). `trend_map(key)` aynı şema.
+
+**AIRS'in öne çıkan sonucu, jüri için çok iyi:** küresel ortalamada
+- 850 hPa: +0,19 °C/10 yıl
+- 300 hPa: +0,22 °C/10 yıl (üst troposfer daha hızlı)
+- 70 hPa: −0,08 °C/10 yıl (stratosfer soğuyor)
+
+Sera gazı imzası: aynı süreç, seviyeye göre zıt yönlü trend. Trend haritasında AIRS_T300 ile AIRS_T70'i yan yana
+göstermek güçlü bir örnek olur.
+
+**Senden (öneri):**
+1. **Değişken seçici:** bölge panelinde POWER değişkenlerinin altına "Uydu ve yer ölçümleri" grubu
+   (`extra_catalog(city)`). Seçilince `extra_analysis(city, key)`, gösterim aynı.
+   - Nokta modunda bu grup yok; veri bölge bazlı. Trend haritasında ise ızgara olarak var.
+2. **Trend haritası değişken seçicisi:** yeni anahtarlar zaten `map_keys_available()`'da. Grup başlığı önerisi: "Model
+   (MERRA-2)" / "Uydu ölçümü".
+3. **Credits:** yeni "Uydu ve yer ölçümleri / Satellite & in-situ" kategorisi (GPM, GLDAS, AIRS, OMI, MODIS, PSMSL,
+   Earthdata), toplam 28 kayıt. NSIDC kaydı Arktik'i de içeriyor.
+4. **Dedektif ve Seiron:** istersen "uydu yağışı", "deniz seviyesi", "stratosfer", "ozon" komutlarını değişkene bağla.
+
+AppTest: açılış, trend katmanı, 2016 sene ortalaması (TR/EN) hatasız.

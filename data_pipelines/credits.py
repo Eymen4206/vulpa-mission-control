@@ -16,6 +16,7 @@ CATEGORIES = {
     "climate": ("Uzun vadeli iklim ve tema serileri", "Long-term climate & theme series"),
     "ocean_ice": ("Okyanus, karbon ve deniz buzu", "Ocean, carbon & sea ice"),
     "events": ("Doğal olaylar", "Natural events"),
+    "satellite": ("Uydu ve yer ölçümleri", "Satellite & in-situ measurements"),
     "methods": ("Yöntem ve kaynakça", "Methods & references"),
     "ai": ("Yapay zekâ", "Artificial intelligence"),
     "software": ("Yazılım ve harita altlığı", "Software & base map"),
@@ -100,8 +101,10 @@ CREDITS: list[dict] = [
     {
         "id": "nsidc-sea-ice", "category": "ocean_ice", "name": "Sea Ice Index, Version 4 (G02135)",
         "provider": "National Snow and Ice Data Center (NSIDC)",
-        "used_for_tr": "Antarktika Yarımadası bölgesinin Güney Yarımküre deniz buzu yayılımı serisi.",
-        "used_for_en": "Southern Hemisphere sea-ice extent series of the Antarctic Peninsula region.",
+        "used_for_tr": "Antarktika Yarımadası bölgesinin Güney Yarımküre deniz buzu yayılımı serisi ve Grönland, "
+                       "Alaska, Sibirya ve Kanada için Arktik (Kuzey Yarımküre) deniz buzu yayılımı.",
+        "used_for_en": "Southern Hemisphere sea-ice extent for the Antarctic Peninsula region and Arctic (Northern "
+                       "Hemisphere) sea-ice extent for Greenland, Alaska, Siberia and Canada.",
         "url": "https://nsidc.org/data/g02135", "license": "Açık veri (atıf istenir)",
         "citation": "Fetterer, F. et al. Sea Ice Index, Version 4 (G02135). NSIDC, Boulder, Colorado USA.",
     },
@@ -231,6 +234,64 @@ CREDITS += [
     },
 ]
 
+# ── Ek ölçüm veri setleri (satellite.py) ────────────────────────────────────
+def _sat(id_, name, provider, tr, en, url, citation=None, attribution=None):
+    d = {"id": id_, "category": "satellite", "name": name, "provider": provider, "used_for_tr": tr, "used_for_en": en,
+         "url": url, "license": "Açık veri (NASA)"}
+    if citation:
+        d["citation"] = citation
+    if attribution:
+        d["attribution"] = attribution
+    return d
+
+
+CREDITS += [
+    _sat("gpm-imerg", "GPM IMERG V07 (aylık)", "NASA GES DISC · GPM",
+         "Uydu yağışı: 50 bölge ve trend haritası (2001–2025); model yağışıyla karşılaştırma.",
+         "Satellite precipitation: 50 regions and the trend map (2001–2025); comparison with model precipitation.",
+         "https://gpm.nasa.gov/data/imerg",
+         "Huffman, G. J. et al. (2023). GPM IMERG Final Precipitation L3 1 month 0.1 degree x 0.1 degree V07, GES DISC, "
+         "doi:10.5067/GPM/IMERG/3B-MONTH/07."),
+    _sat("gldas", "GLDAS-2.1 Noah (aylık)", "NASA GES DISC · GLDAS",
+         "Toplam akış (yüzey + taban), 100–200 cm toprak nemi ve kar su eşdeğeri.",
+         "Total runoff (surface + baseflow), 100–200 cm soil moisture and snow water equivalent.",
+         "https://ldas.gsfc.nasa.gov/gldas",
+         "Beaudoing, H. & Rodell, M. (2020). GLDAS Noah Land Surface Model L4 monthly 0.25 x 0.25 degree V2.1, GES DISC, "
+         "doi:10.5067/SXAVCZFAQLNO."),
+    _sat("airs", "AIRS v7 L3 aylık (Aqua)", "NASA GES DISC · AIRS",
+         "850 / 300 / 70 hPa sıcaklıkları (atmosfer katmanları) ve toplam ozon.",
+         "Temperature at 850 / 300 / 70 hPa (atmospheric levels) and total ozone.",
+         "https://airs.jpl.nasa.gov",
+         "AIRS Project (2019). Aqua/AIRS L3 Monthly Standard Physical Retrieval (AIRS-only) 1 degree x 1 degree V7.0, "
+         "GES DISC, doi:10.5067/UBENJB9D3T2H."),
+    _sat("omi-no2", "OMI/Aura OMNO2d (günlük L3)", "NASA GES DISC · OMI",
+         "Troposferik NO₂ (bulut elemeli), ayda 4 gün örneklemiyle aylık ortalama (2005–2024).",
+         "Tropospheric NO₂ (cloud-screened), monthly mean from 4 sampled days per month (2005–2024).",
+         "https://aura.gsfc.nasa.gov/omi.html",
+         "Krotkov, N. A. et al. (2019). OMI/Aura NO2 Tropospheric, Stratospheric & Total Columns MINDS Daily L3, "
+         "GES DISC (OMNO2d v003)."),
+    _sat("modis-ndvi", "MODIS Terra MOD13C2 v061 (aylık NDVI)", "NASA LP DAAC · MODIS",
+         "Bitki örtüsü indeksi (NDVI): 50 bölge ve trend haritası.", "Vegetation index (NDVI): 50 regions and the trend map.",
+         "https://lpdaac.usgs.gov/products/mod13c2v061/",
+         "Didan, K. (2021). MODIS/Terra Vegetation Indices Monthly L3 Global 0.05Deg CMG V061, NASA LP DAAC, "
+         "doi:10.5067/MODIS/MOD13C2.061."),
+    {"id": "psmsl", "category": "satellite", "name": "PSMSL — Permanent Service for Mean Sea Level (RLR aylık)",
+     "provider": "National Oceanography Centre, Liverpool",
+     "used_for_tr": "Gelgit ölçerlerden göreli deniz seviyesi: ABD Doğu Kıyısı (Lewisetta), Florida (Virginia Key), "
+                    "Chao Phraya (Bangkok), Yangtze (Kanmen); 2000–2024.",
+     "used_for_en": "Relative sea level from tide gauges: US East Coast (Lewisetta), Florida (Virginia Key), Chao Phraya "
+                    "(Bangkok), Yangtze (Kanmen); 2000–2024.",
+     "url": "https://psmsl.org", "license": "Açık veri (atıf gerekli)",
+     "citation": "Holgate, S. J. et al. (2013). New Data Systems and Products at the Permanent Service for Mean Sea "
+                 "Level. Journal of Coastal Research, 29(3), 493–504."},
+    {"id": "earthdata", "category": "satellite", "name": "NASA Earthdata (GES DISC · LP DAAC · Earthdata Cloud OPeNDAP)",
+     "provider": "NASA Earth Science Data Systems",
+     "used_for_tr": "Uydu verilerine erişim. Veriler bir kez çekilip depoya kaydedilir; canlı site token kullanmaz.",
+     "used_for_en": "Access to the satellite data. Data are fetched once and stored in the repository; the live site "
+                    "uses no token.",
+     "url": "https://www.earthdata.nasa.gov", "license": "Açık veri (NASA)"},
+]
+
 # Lisans metinlerinin İngilizce karşılıkları (EN arayüz). "license" alanı Türkçe kalır (geriye uyumlu);
 # her kayda "license_tr" ve "license_en" eklenir.
 LICENSE_EN = {
@@ -248,6 +309,9 @@ LICENSE_EN = {
     "fonts": "SIL Open Font License 1.1",
     "nasa-eonet": "Open data (NASA)",
     "warming-stripes": "CC BY 4.0",
+    "gpm-imerg": "Open data (NASA)", "gldas": "Open data (NASA)", "airs": "Open data (NASA)",
+    "omi-no2": "Open data (NASA)", "modis-ndvi": "Open data (NASA)", "earthdata": "Open data (NASA)",
+    "psmsl": "Open data (attribution required)",
     "nasa-power-monthly": "Open data (NASA)",
     "giovanni": "Open data (NASA)",
     "ref-mann-kendall": "Scientific reference", "ref-gilbert": "Scientific reference",

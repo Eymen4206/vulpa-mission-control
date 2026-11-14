@@ -118,15 +118,19 @@ def _fetch_weather_annual(year: int) -> dict:
         else:
             vals = _annual_normals_region(r.name) or {"temp": 15.0, "pressure": 1013.0, "wind": 15.0,
                                                       "wind_dir": 270.0, "humidity": None, "anomaly": None}
-        data[r.name] = {**vals, "label": "Sene ortalaması", "icon": "📅"}
+        data[r.name] = {**vals, "label": "Sene ortalaması", "label_en": "Year average", "icon": "📅"}
     live = real == len(REGION_LIST)
     if live:
         source = f"NASA POWER (MERRA-2) · {year} sene ortalaması · sapma: {BASELINE[0]}–{BASELINE[1]} normaline göre"
+        source_en = (f"NASA POWER (MERRA-2) · {year} year average · anomaly vs the {BASELINE[0]}–{BASELINE[1]} "
+                     "normal")
     else:
         source = f"{year} sene ortalaması henüz yok · NASA POWER iklim normali (tahmini)"
+        source_en = f"No {year} year average yet · NASA POWER climate normal (estimated)"
     return {"live": live, "time": str(year), "data": data, "year": year, "month": None, "day": None,
             "date": str(year), "annual": True, "provider": "NASA POWER" if live else "İklim normali",
-            "source": source, "anomaly_live": live, "anomaly_kind": "annual" if live else None}
+            "source": source, "source_en": source_en, "anomaly_live": live,
+            "anomaly_kind": "annual" if live else None}
 
 
 @st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
@@ -144,7 +148,8 @@ def _fetch_grid_annual(year: int) -> dict:
         out["anomaly"] = np.array([0.0 if v["anomaly"] is None else v["anomaly"] for v in vals],
                                   dtype=float).reshape(la.shape)
         out.update({"live": True, "anomaly_live": True, "anomaly_kind": "annual",
-                    "source": f"NASA POWER (MERRA-2) · {year} sene ortalaması"})
+                    "source": f"NASA POWER (MERRA-2) · {year} sene ortalaması",
+                    "source_en": f"NASA POWER (MERRA-2) · {year} year average"})
         return out
     # Yedek: aylık normallerin yıllık ortalaması
     months = [grid_normals(datetime(2001, m, 15, 12, tzinfo=timezone.utc)) for m in range(1, 13)]
@@ -157,7 +162,8 @@ def _fetch_grid_annual(year: int) -> dict:
     alat = np.abs(la)
     out.update({"wind_dir": np.where(alat < 30, 90.0, np.where(alat < 60, 270.0, 90.0)),
                 "anomaly": np.zeros_like(la), "live": False, "anomaly_live": False, "anomaly_kind": None,
-                "source": f"{year} sene ortalaması henüz yok · NASA POWER iklim normali (tahmini)"})
+                "source": f"{year} sene ortalaması henüz yok · NASA POWER iklim normali (tahmini)",
+                "source_en": f"No {year} year average yet · NASA POWER climate normal (estimated)"})
     return out
 
 

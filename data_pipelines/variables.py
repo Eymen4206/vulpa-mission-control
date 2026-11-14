@@ -261,12 +261,14 @@ def variable_series(lat: float, lon: float, key: str, end_year: int | None = Non
     missing = sum(x is None for x in vals)
     finite = [x for x in vals if x is not None]
     if missing > len(vals) * 0.1:
-        reason = ("Bu değişken bu noktada yok (ör. denizde toprak nemi ya da buharlaşma)." if key in LAND_ONLY
+        reason = ("Bu değişken bu noktada yok: toprak nemi, buharlaşma ve kar yalnızca buzsuz kara için "
+                  "hesaplanır (deniz ve kalıcı buz örtüsünde yoktur)." if key in LAND_ONLY
                   else "Bu noktada verinin %10'undan fazlası eksik.")
         return {**base, "dates": dates, "values": vals, "available": False, "reason": reason}
     if finite and max(finite) - min(finite) < 1e-9:
         return {**base, "dates": dates, "values": vals, "available": False,
-                "reason": "Değişken bu noktada sabit (ör. hiç kar yok); trend hesaplanamaz."}
+                "reason": "Değişken bu noktada sabit ya da ölçüm hassasiyetinin altında (ör. kutupta aerosol ≈ 0, "
+                           "tropikte kar yok); trend hesaplanamaz."}
     return {**base, "dates": dates, "values": vals, "available": True, "reason": None}
 
 
@@ -355,11 +357,15 @@ def _yts_sentences(a: dict) -> tuple[str, str]:
 
 
 _REASON_EN = {
-    "Bu değişken bu noktada yok (ör. denizde toprak nemi ya da buharlaşma).":
-        "This variable is not available at this point (e.g. soil moisture or evaporation over the sea).",
+    "Bu değişken bu noktada yok: toprak nemi, buharlaşma ve kar yalnızca buzsuz kara için hesaplanır (deniz ve "
+    "kalıcı buz örtüsünde yoktur).":
+        "This variable is not available here: soil moisture, evaporation and snow are computed only for ice-free "
+        "land (not over the sea or permanent ice sheets).",
     "Bu noktada verinin %10'undan fazlası eksik.": "More than 10% of the data is missing at this point.",
-    "Değişken bu noktada sabit (ör. hiç kar yok); trend hesaplanamaz.":
-        "The variable is constant at this point (e.g. no snow at all); no trend can be computed.",
+    "Değişken bu noktada sabit ya da ölçüm hassasiyetinin altında (ör. kutupta aerosol ≈ 0, tropikte kar yok); "
+    "trend hesaplanamaz.":
+        "The variable is constant here or below measurement precision (e.g. aerosol ≈ 0 at the pole, no snow in the "
+        "tropics); no trend can be computed.",
     "bilinmeyen değişken": "unknown variable",
 }
 
@@ -397,6 +403,12 @@ def variable_analysis(lat: float, lon: float, key: str, end_year: int | None = N
             "giovanni_url": giovanni_url(key, s["lat"], s["lon"], s["y0"], s["y1"]) if v else None}
     if not s["available"]:
         return head
+    return build_analysis(head, s)
+
+
+def build_analysis(head: dict, s: dict) -> dict:
+    """Ortak analiz gövdesi: head (key, name, name_en, unit, lat, lon, …) + seri s (dates, values, y0, y1, unit,
+    lat, lon). Uydu ve gelgit verileri de (satellite.py) aynı şemayı bu fonksiyonla üretir."""
     try:
         a = analyze_values(s["values"], s["y0"], s["unit"], head["name"])
     except Exception as exc:

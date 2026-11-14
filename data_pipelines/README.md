@@ -499,3 +499,20 @@ Açılış yükleme ekranı içindir. Hava, ızgara, NASA POWER, tema serisi ve 
 - Nil, İran ve Kaliforniya → SPEI-3. Toprak neminin 2 ondalıklı verisi Sen eğimini 0'a yuvarlıyordu.
 - `variables._snap` koordinatları normalize eder: enlem ±89,5, boylam −180…180.
 - Yeni alanlar: `variable_series.source_en`, `variable_analysis.source_en` / `reason_en`, `warming_stripes.source_en`.
+
+## Ek ölçüm veri setleri (satellite.py, refresh_extra.py) — 14.11.2026
+- **`extra_catalog(region, lang)`:** bölgede verisi olan veri setleri.
+- **`extra_analysis(region, key)`:** `variable_analysis` şemasıyla aynı (ortak `variables.build_analysis`).
+- **`extra_grid_annual(key)`:** trend haritası için (trendgrid `EXTRA_MAP_KEYS`).
+- **Veri setleri:**
+  - SEAICE_N: NSIDC Arktik
+  - SEALEVEL: PSMSL gelgit, 4 istasyon, 2000–2024
+  - GPM: IMERG V07
+  - GLDAS_RUNOFF / SOILDEEP / SWE
+  - AIRS_T850 / T300 / T70 / O3
+  - OMI_NO2: 2005–2024
+  - MODIS_NDVI: MOD13C2
+- **Yenileme:** `python -m data_pipelines.refresh_extra <KEY…>`.
+  - Earthdata gerektirenler `secrets.toml [earthdata] token` kullanır (yalnızca betik; uygulama kullanmaz).
+  - Aylık dilimler `cache/<veri>/` altına yazılır; yarıda kalırsa kaldığı yerden devam eder.
+- **Erişim:** GES DISC/LP DAAC "Earthdata Cloud OPeNDAP" 1–2°'lik dilimler. GPM için gpm1 OPeNDAP.

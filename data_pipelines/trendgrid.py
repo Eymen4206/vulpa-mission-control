@@ -57,7 +57,28 @@ def annual_from_raw(params: dict, y0: int, y1: int) -> dict:
     return out
 
 
+# Uydu/ek veri setleri (satellite.py) — ızgara anlık görüntüsü varsa haritada seçilebilir
+EXTRA_MAP_KEYS = ("GPM", "GLDAS_RUNOFF", "GLDAS_SOILDEEP", "GLDAS_SWE", "AIRS_T850", "AIRS_T300", "AIRS_T70",
+                  "AIRS_O3", "OMI_NO2", "MODIS_NDVI")
+
+
+def _meta(key: str) -> tuple[str, str, str] | None:
+    """(ad TR, ad EN, birim) — POWER değişkeni ya da ek veri seti."""
+    if key in VARIABLES:
+        v = VARIABLES[key]
+        return v[5], v[6], v[2]
+    from .satellite import DATASETS
+    m = DATASETS.get(key)
+    return (m["name_tr"], m["name_en"], m["unit"]) if m else None
+
+
 def _series_for(key: str) -> tuple[list | None, list[int] | None, str]:
+    if key in EXTRA_MAP_KEYS:
+        from .satellite import DATASETS, extra_grid_annual
+        series, years = extra_grid_annual(key)
+        if series is None:
+            return None, None, ""
+        return series, years, f"{DATASETS[key]['source']} · {years[0]}–{years[-1]}"
     snap = load_trendgrid()
     pts = snap.get("points") or []
     if len(pts) == len(GRID_LATS) * len(GRID_LONS) and all(p and key in p for p in pts):
@@ -74,7 +95,7 @@ def _series_for(key: str) -> tuple[list | None, list[int] | None, str]:
 
 def map_keys_available() -> list[str]:
     """Trend haritasında şu an seçilebilen değişkenler (anlık görüntüde olanlar)."""
-    return [k for k in MAP_KEYS if _series_for(k)[0] is not None]
+    return [k for k in MAP_KEYS + EXTRA_MAP_KEYS if _series_for(k)[0] is not None]
 
 
 @st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
@@ -114,8 +135,8 @@ def trend_map(key: str = "T2M", end_year: int | None = None) -> dict | None:
     `end_year` şimdilik yok sayılır (anlık görüntü sabit dönem); dönem "years" alanında. Veri yoksa None.
     Yıllık ortalamalar üzerinde Mann-Kendall (mevsim etkisi yıllık ortalamayla zaten giderilir).
     """
-    v = VARIABLES.get(key)
-    if v is None:
+    meta = _meta(key)
+    if meta is None:
         return None
     try:
         m = _trend_map(key)
@@ -124,15 +145,16 @@ def trend_map(key: str = "T2M", end_year: int | None = None) -> dict | None:
     if m is None:
         return None
     c = m["counts"]
-    up_word = {"T2M": ("ısınıyor", "warming"), "TS": ("ısınıyor", "warming")}.get(key, ("artıyor", "increasing"))
-    dn_word = {"T2M": ("soğuyor", "cooling"), "TS": ("soğuyor", "cooling")}.get(key, ("azalıyor", "decreasing"))
+    warm = ("T2M", "TS", "AIRS_T850", "AIRS_T300", "AIRS_T70")
+    up_word = ("ısınıyor", "warming") if key in warm else ("artıyor", "increasing")
+    dn_word = ("soğuyor", "cooling") if key in warm else ("azalıyor", "decreasing")
     y0, y1 = m["years"]
-    s_tr = (f"{v[5]} ({y0}–{y1}) · {c['valid']} nokta: {up_word[0]} {c['up']} (anlamlı {c['up_sig']}), "
+    s_tr = (f"{meta[0]} ({y0}–{y1}) · {c['valid']} nokta: {up_word[0]} {c['up']} (anlamlı {c['up_sig']}), "
             f"{dn_word[0]} {c['down']} (anlamlı {c['down_sig']}). Aynı değişken bölgeye göre zıt yönde "
             "değişebiliyor.")
-    s_en = (f"{v[6]} ({y0}–{y1}): {c['up']} of {c['valid']} points are {up_word[1]} ({c['up_sig']} significant), "
+    s_en = (f"{meta[1]} ({y0}–{y1}): {c['up']} of {c['valid']} points are {up_word[1]} ({c['up_sig']} significant), "
             f"{c['down']} are {dn_word[1]} ({c['down_sig']} significant). The same variable can change in opposite "
             "directions in different regions.")
-    unit = v[2]
-    return {"key": key, "name": v[5], "name_en": v[6], "unit": unit, "lats": list(GRID_LATS), "lons": list(GRID_LONS),
+    unit = meta[2]
+    return {"key": key, "name": meta[0], "name_en": meta[1], "unit": unit, "lats": list(GRID_LATS), "lons": list(GRID_LONS),
             **m, "sentence_tr": s_tr, "sentence_en": s_en}

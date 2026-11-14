@@ -458,3 +458,11 @@ Jüri turu için vitrin bölgelerini seçer. Groq ve ağ isteği kullanmaz.
   - Mevcut izler değişmedi.
 - **`glossary(lang)` / `GLOSSARY`:** 13 terim (p, tau, mann_kendall, sen, anomaly, normal, aod, spei, merra2, era5, sst,
   projection, confidence).
+
+### `warm_up(region=None, year=0, month=None, day=None, on_step=None) -> dict` (warmup.py)
+Açılış yükleme ekranı içindir. Hava, ızgara, NASA POWER, tema serisi ve analizi **paralel** olarak önbelleğe alır.
+- Çağrılar app.py'deki `fetch_weather` / `fetch_grid` / `fetch_power` ile birebir aynı argümanlarla yapılır, bu yüzden
+  sayfa çizilirken her şey önbellekten gelir.
+- `on_step(done, total, name)` ilerleme çubuğu içindir.
+- Dönüş: `{ok, seconds, steps: {ad: {ok, seconds}}}`. Sahte veri üretmez; kaynak düşerse fonksiyonların kendi
+  yedekleri devreye girer.

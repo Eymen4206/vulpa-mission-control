@@ -23,6 +23,7 @@ from .sonify import sonify
 from .quality import data_quality
 from .showcase import showcase_regions
 from .globalstats import compare_regions, global_annual_anomaly, year_extremes
+from .warmup import warm_up
 from .extras import GLOSSARY, data_status, glossary, region_export, season_shift, warming_ranking, warming_stripes
 from .weather import (
     DELTA_FIELDS, MM_SYMBOLS, WEATHER_CODES, _fallback_weather, _fetch_historical_weather, _fetch_live_weather,
@@ -54,6 +55,8 @@ __all__ = [
     "sonify", "fetch_events", "EVENT_TYPES", "data_quality", "showcase_regions",
     "global_annual_anomaly", "year_extremes", "compare_regions",
     "warming_stripes", "warming_ranking", "region_export", "data_status", "season_shift", "glossary", "GLOSSARY",
+    # açılış ısınması (proje sahibi: "site yüklenene kadar açılmasın")
+    "warm_up",
     # küresel ızgara
     "_fetch_live_grid", "_fetch_historical_grid", "_fetch_grid", "_fallback_grid",
     # NASA POWER

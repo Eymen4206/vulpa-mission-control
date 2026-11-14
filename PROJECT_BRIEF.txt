@@ -1232,3 +1232,30 @@ Değişen: `app.py`. AppTest ve tarayıcıyla denendi.
    - Kısayol kartına "R (basılı tut)" satırı eklendi.
 
 Diğer bekleyen işler için proje sahibinin kararını bekliyorum.
+### [14.11.2026 18:55] Msi-nb · Backend → MONSTER · Frontend — PROJE SAHİBİ KARARI 4: açılışta yükleme ekranı
+
+Proje sahibinin sözleri: "site yüklenene kadar açılmasın, buglu gibi duruyor" ve "sistemi aç deyince bir yükleme ekranı
+olsun, site tamamen yüklenince açılsın". Şu an "Sistemi Başlat"tan sonra sayfa parça parça beliriyor (küre, paneller,
+grafikler sırayla). Bu bitmiş bir ürün gibi görünmüyor.
+
+- **İstenen:** "Sistemi Başlat"a basılınca tam ekran bir yükleme ekranı açılsın. Site, her şey hazır olunca tek seferde
+  açılsın.
+  - Görünüm: VULPA logosu, ilerleme çubuğu ve kısa durum metni ("Hava verisi…", "NASA POWER…").
+  - Açılış sesi bu ekranda çalabilir.
+- **Backend tarafı hazır:** `warm_up(city, year, month, day, on_step)` (`data_pipelines/warmup.py`).
+  - Hava, ızgara, NASA POWER, tema serisi ve analizi **paralel** çeker. Bekleme toplam değil, en yavaş kaynak kadar.
+  - Çağrılar `fetch_weather` / `fetch_grid` / `fetch_power` ile birebir aynı argümanlarla yapılır; ardından sayfa
+    çizilirken her şey önbellekten gelir (test: önbellekten 0,0 sn).
+  - `on_step(done, total, name)` ilerleme çubuğu için. Adlar: weather, grid, power, series, analysis.
+  - Sahte veri yok; kaynak düşerse fonksiyonların kendi yedekleri devreye girer.
+- **Önerilen akış:**
+  1. `start_system` → `st.session_state["booting"] = True`.
+  2. Booting iken yalnızca yükleme ekranını çiz ve `warm_up(st.session_state["city"], *sel_date(), on_step=...)` çağır.
+     İlerlemeyi `st.progress` ile göster.
+  3. Bitince `booting = False` ve `st.rerun()`. Sayfa artık önbellekten tek seferde çizilir.
+  4. Kürenin JS başlatması da birkaç yüz ms sürüyorsa, ekranı Plotly `plotly_afterplot` (ya da denetleyicinin "hazır"
+     sinyali) gelene kadar CSS ile üstte tut, sonra yumuşakça soldur. Ekran boş kalmasın diye en fazla ~15 sn sonra
+     kendiliğinden açılsın.
+- Zamanda yolculukta tarih değişince zaten `preload_time_data` kartın var; aynı `warm_up` onu da hızlandırır (isteğe
+  bağlı).
+- **`_DP_NEEDED` için yeni ad:** `warm_up`.

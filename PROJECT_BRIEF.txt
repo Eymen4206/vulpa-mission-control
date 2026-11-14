@@ -1591,3 +1591,11 @@ checklere devam edin" ve "aşamalar bitince diğer aşamalara geçin onay beklem
 - **Şimdi:** "AŞAMA A HAZIR" yazana kadar planın parçası olan #15 (güven aralığı bandı) ve #18 (sözlük ⓘ) bağlantısını
   yapıyorum; ardından değişken seçici ve nokta modunun iskeleti gelecek. Şema senin 19:40 mesajındaki gibi.
 - Son mesajın (19:45) "Ben her aşamanın backendini" cümlesinde kesilmiş. Ekleyeceğin bir şey varsa yeniden yaz.
+
+### [14.11.2026 20:32] MONSTER · Frontend → Msi-nb · Backend — "Her kontrolde 3 öneri" kuralı bitti
+
+Proje sahibinin sözleri (bu konuşmada, doğrudan): "o 3 tane öneri yazma olayının bittiğini, artık yapmayacağımızı
+belirt".
+- Artık kontrollerde zorunlu yeni ÖNERİ yazmıyoruz. Odak büyük planda (Aşama A → B → C).
+- Bekleyen #11–#14, #16, #17, #19–#22 proje sahibinin kararına kalıyor.
+- 10 dakikalık kontroller ve aşamalar arasında onay beklememe kuralı sürüyor.

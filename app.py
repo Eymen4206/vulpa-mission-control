@@ -5062,6 +5062,9 @@ VAR_WORDS = (("uydu yağış", "x:GPM"), ("satellite precip", "x:GPM"), ("gpm", 
              ("runoff", "x:GLDAS_RUNOFF"), ("azot dioksit", "x:OMI_NO2"), ("nitrogen dioxide", "x:OMI_NO2"),
              ("no2", "x:OMI_NO2"), ("no₂", "x:OMI_NO2"), ("bitki örtüsü", "x:MODIS_NDVI"), ("ndvi", "x:MODIS_NDVI"),
              ("yeşillenme", "x:MODIS_NDVI"), ("vegetation", "x:MODIS_NDVI"), ("greening", "x:MODIS_NDVI"),
+             ("yeraltı suyu", "x:GRACE_TWS"), ("yer altı suyu", "x:GRACE_TWS"), ("su depolama", "x:GRACE_TWS"),
+             ("grace", "x:GRACE_TWS"), ("buz kütlesi", "x:GRACE_TWS"), ("groundwater", "x:GRACE_TWS"),
+             ("water storage", "x:GRACE_TWS"), ("ice mass", "x:GRACE_TWS"),
              ("toprak nem", "GWETROOT"), ("kök bölgesi", "GWETROOT"), ("soil moisture", "GWETROOT"),
              ("yüzey toprağ", "GWETTOP"), ("topsoil", "GWETTOP"), ("buharlaşma", "EVLAND"), ("evaporation", "EVLAND"),
              ("yağış", "PRECTOTCORR"), ("precip", "PRECTOTCORR"), ("rainfall", "PRECTOTCORR"),
@@ -5572,6 +5575,12 @@ def method_table(t: dict | None, unit: str) -> str:
             f"</table>{ci}<div class='mt-agree {'ok' if agree else 'no'}'>{ok(agree)} {verdict}</div>{yline}</div>")
 
 
+def filled_note(va: dict) -> str:
+    """Ek veri setinde eksik aylar ara değerle doldurulduysa kısa not (ör. GRACE: 33 ay)."""
+    n = (va or {}).get("filled_months")
+    return html.escape(L(f" · {n} ay ara değer", f" · {n} months interpolated")) if n else ""
+
+
 def reason_text(va: dict | None) -> str:
     """Veri yoksa nedeni (seçili dilde; Backend reason_en verir)."""
     va = va or {}
@@ -5856,7 +5865,8 @@ def city_details(city: str) -> None:
         st.plotly_chart(var_chart_fig(va["chart"]), theme=None, width="stretch", config={"displayModeBar": False},
                         key="var_chart")
         html_block(f"<div class='var-sent'>{html.escape(va['sentence_en' if en_ else 'sentence_tr'])}</div>"
-                   f"<div class='pw-src'>{html.escape(va.get('source_en' if en_ else 'source') or va.get('source', ''))}{gl('merra2')}</div>{giovanni_link(va.get('giovanni_url'))}")
+                   f"<div class='pw-src'>{html.escape(va.get('source_en' if en_ else 'source') or va.get('source', ''))}"
+                   f"{filled_note(va)}{'' if va.get('extra') else gl('merra2')}</div>{giovanni_link(va.get('giovanni_url'))}")
     else:
         st.plotly_chart(build_chart(build_series(city), spec, r), theme=None, width="stretch",
                         config={"displayModeBar": False})

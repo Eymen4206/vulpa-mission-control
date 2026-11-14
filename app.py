@@ -728,6 +728,9 @@ VAR_EN = {
     "Buzul kaplı alan (Cordillera Real)": "Glacier-covered area (Cordillera Real)",
     "Deniz buzu yayılımı (Güney Yarımküre)": "Sea-ice extent (Southern Hemisphere)",
     "Atmosferik karbondioksit (CO₂)": "Atmospheric carbon dioxide (CO₂)",
+    "Yüzey toprak nemi": "Surface soil moisture",
+    "Kök bölgesi toprak nemi": "Root-zone soil moisture",
+    "Kar derinliği": "Snow depth",
 }
 
 # Gerçek tema serisi kaynaklarından Türkçe ifade içerenlerin İngilizcesi (data_pipelines.series_meta → "source")
@@ -765,7 +768,8 @@ def rvar(spec: Region) -> str:
     return VAR_EN.get(spec.variable, spec.variable) if lang() == "en" else spec.variable
 
 
-# ── Bölgesel tema serisi: gerçek mi, sentetik mi? (33 bölge gerçek, 17 bölge sentetik; bkz. data_pipelines) ──
+# ── Bölgesel tema serisi: gerçek mi? (14.11.2026'dan beri 50 bölgenin 50'si gerçek; kaynağa ulaşılamazsa geçici
+# sentetik yedek gösterilir ve öyle etiketlenir; bkz. data_pipelines.series_meta) ──
 def theme_real(city: str) -> bool:
     return bool(series_meta(city)["real"])
 
@@ -807,6 +811,15 @@ def format_p(p: float) -> str:
 
 def p_phrase(p: float) -> str:
     return "p < 1e-16" if p < 1e-16 else f"p = {format_p(p)}"
+
+
+def unit_per(unit: str, per: str = "") -> str:
+    """Kutulardaki birim yazısı. Boyutsuz 0–1 ölçeği (toprak nemi) '0–1/yıl' gibi okunaksız olmasın:
+    '/yıl · 0–1 ölçeği'. Diğer birimler 'birim/yıl'."""
+    if unit == "0–1":
+        scale = L("0–1 ölçeği", "0–1 scale")
+        return html.escape(f"/{per} · {scale}" if per else scale)
+    return html.escape(f"{unit}/{per}" if per else unit)
 
 
 def fmt(spec: Region, value: float, signed: bool = True, extra: int = 0) -> str:
@@ -1261,6 +1274,88 @@ def generate_report(region_name: str) -> dict:
     return _report(region_name, lang())
 
 
+# Arketip metni eski (sentetik) değişkeni anlatıyorsa ölçülen değişkene göre mekanizma cümlesi:
+# (arketip, series_meta kind) → (kötüleşme, iyileşme, durağan) · TR / EN. Etkiler ve öneriler arketipten kalır.
+KIND_MECHANISM = {
+    ("wildfire", "gwettop"): (
+        ("Yüzey toprak nemi azalmaktadır: daha sıcak ve kurak yazlar üst toprağı ve bitki örtüsünü kurutarak yangın "
+         "riskini artıran koşulları besler.",
+         "Yüzey toprak nemi artmaktadır; daha nemli koşullar yangın mevsiminin şiddetini azaltıcı yöndedir.",
+         "Yüzey toprak nemi mevsimsel döngü içinde dalgalanmaktadır; uzun dönemli bir kuruma ya da nemlenme ayırt "
+         "edilememektedir."),
+        ("Surface soil moisture is declining: hotter, drier summers dry out the topsoil and vegetation, feeding the "
+         "conditions that raise wildfire risk.",
+         "Surface soil moisture is rising; wetter conditions tend to ease the severity of the fire season.",
+         "Surface soil moisture fluctuates within its seasonal cycle; no long-term drying or wetting can be "
+         "distinguished.")),
+    ("coastal", "sst"): (
+        ("Deniz yüzeyi sıcaklığı artmaktadır: ısınan deniz ısıl genleşmeyle deniz seviyesine katkı yapar, fırtınaları "
+         "besler ve kıyı ekosistemlerini zorlar.",
+         "Deniz yüzeyi sıcaklığı düşmektedir; bu, bölgesel okyanus dolaşımındaki değişimle uyumludur.",
+         "Deniz yüzeyi sıcaklığı mevsimsel ve yıllar arası salınımlar içinde kalmaktadır; uzun dönemli ısınma ayırt "
+         "edilememektedir."),
+        ("Sea surface temperature is rising: a warming sea adds to sea level through thermal expansion, fuels storms "
+         "and stresses coastal ecosystems.",
+         "Sea surface temperature is falling, consistent with a change in regional ocean circulation.",
+         "Sea surface temperature stays within seasonal and interannual oscillations; no long-term warming can be "
+         "distinguished.")),
+    ("coastal", "precip"): (
+        ("Aylık yağış artmaktadır: daha yoğun yağışlar alçak delta ovasında taşkın riskini yükseltir.",
+         "Aylık yağış azalmaktadır; taşkın baskısı hafiflerken su teminindeki değişim izlenmelidir.",
+         "Yağış, muson döngüsü ve yıllar arası değişkenlik içinde kalmaktadır; uzun dönemli değişim ayırt "
+         "edilememektedir."),
+        ("Monthly precipitation is increasing: heavier rainfall raises flood risk on the low-lying delta plain.",
+         "Monthly precipitation is decreasing; flood pressure eases, but changes in water supply should be watched.",
+         "Rainfall stays within the monsoon cycle and interannual variability; no long-term change can be "
+         "distinguished.")),
+    ("air_quality", "aod"): (
+        ("Aerosol optik derinliği artmaktadır: sanayi, ısınma, trafik ve tarımsal yakmadan gelen partiküller "
+         "atmosferdeki toz-duman yükünü yükseltir.",
+         "Aerosol optik derinliği azalmaktadır; salım kontrol politikaları atmosferdeki partikül yükünü "
+         "düşürmektedir.",
+         "Aerosol yükü meteorolojik koşullara bağlı olarak dalgalanmaktadır; politika etkisi henüz ayırt "
+         "edilememektedir."),
+        ("Aerosol optical depth is increasing: particles from industry, heating, traffic and crop burning raise the "
+         "haze load of the atmosphere.",
+         "Aerosol optical depth is decreasing; emission-control policies are lowering the atmospheric particle "
+         "load.",
+         "The aerosol load fluctuates with meteorological conditions; a policy effect cannot yet be "
+         "distinguished.")),
+    ("cryosphere", "ts_anom"): (
+        ("Yüzey sıcaklığı anomalisi artmaktadır: ısınan yüzey, buz ve kar örtüsünün erimesini hızlandıran koşulları "
+         "oluşturur.",
+         "Yüzey sıcaklığı anomalisi düşmektedir; erime baskısı azalma yönündedir.",
+         "Yüzey sıcaklığı anomalisi yıllar arası dalgalanma içindedir; buz üzerinde ek bir ısınma baskısı ayırt "
+         "edilememektedir."),
+        ("The surface temperature anomaly is rising: a warming surface creates the conditions that speed up the "
+         "melting of ice and snow.",
+         "The surface temperature anomaly is falling; melt pressure is easing.",
+         "The surface temperature anomaly fluctuates from year to year; no additional warming pressure on the ice "
+         "can be distinguished.")),
+    ("cryosphere", "t2m_anom"): (
+        ("Sıcaklık anomalisi artmaktadır: ısınan hava buzul ve kar örtüsünün erimesini hızlandıran koşulları "
+         "oluşturur.",
+         "Sıcaklık anomalisi düşmektedir; buzullar üzerindeki erime baskısı azalma yönündedir.",
+         "Sıcaklık anomalisi yıllar arası dalgalanma içindedir; buzullar üzerinde ek bir ısınma baskısı ayırt "
+         "edilememektedir."),
+        ("The temperature anomaly is rising: warming air creates the conditions that speed up glacier and snow "
+         "melt.",
+         "The temperature anomaly is falling; melt pressure on the glaciers is easing.",
+         "The temperature anomaly fluctuates from year to year; no additional warming pressure on the glaciers can "
+         "be distinguished.")),
+    ("boreal", "spei3"): (
+        ("Kuraklık indeksi (SPEI-3) düşmektedir: su açığı büyüdükçe ormanlarda su stresi, böcek salgınları ve yangın "
+         "riski artar.",
+         "Kuraklık indeksi yükselmektedir; su dengesi iyileşmekte, orman su stresi hafiflemektedir.",
+         "Kuraklık indeksi yıllar arası dalgalanma içindedir; uzun dönemli kuruma ya da nemlenme ayırt "
+         "edilememektedir."),
+        ("The drought index (SPEI-3) is falling: as the water deficit grows, forests face more water stress, insect "
+         "outbreaks and fire risk.",
+         "The drought index is rising; the water balance is improving and forest water stress is easing.",
+         "The drought index fluctuates from year to year; no long-term drying or wetting can be distinguished.")),
+}
+
+
 @st.cache_data(show_spinner=False)
 def _report(region_name: str, lng: str) -> dict:
     """Coğrafi arketip ve istatistiksel sonuca göre senaryo seçerek Türkçe/İngilizce rapor üretir."""
@@ -1270,6 +1365,13 @@ def _report(region_name: str, lng: str) -> dict:
     arch = ARCHETYPES[spec.archetype]
     ax = ARCHETYPES_EN[spec.archetype]
     a_worse, a_better, a_stable = (ax["worse"], ax["better"], ax["stable"]) if en else (arch.worse, arch.better, arch.stable)
+    try:
+        kind = (series_meta(region_name) or {}).get("kind")
+    except Exception:
+        kind = None
+    km = KIND_MECHANISM.get((spec.archetype, kind)) if theme_real(region_name) else None
+    if km:   # arketip metni eski değişkeni anlatıyor: ölçülen değişkene göre cümle
+        a_worse, a_better, a_stable = km[1] if en else km[0]
     a_impacts = ax["impacts"] if en else arch.impacts
     a_actions = ax["actions"] if en else arch.actions
     rng = np.random.default_rng(spec.seed)
@@ -1633,11 +1735,11 @@ KAPSAM:
 ÜSLUP:
 - Akıcı, sade, kurumsal ve saygılı bir Türkçe kullan; İngilizce terimleri yalnızca zorunlu akademik kavramlarla sınırla.
 - Yanıtlar dar bir sohbet panelinde gösterilir: genellikle 60–170 kelime, tablo kullanma, gerekirse kısa maddeler kullan.
-- Platform verilerine ilişkin sayıları yalnızca aşağıdaki bağlamdan al; uydurma. Genel bilimsel bilgileri yerleşik bilimsel uzlaşıya dayandır. Veri kaynakları: anlık sıcaklık, basınç ve rüzgâr Meteomatics API'sinden; termal anomali Open-Meteo'dan; uzun vadeli sıcaklık/yağış trendi NASA POWER'dan (MERRA-2, 2001–2024) gelir ve gerçektir. Bölgesel tema serileri bölgeye göre değişir: 50 bölgenin 33'ünde gerçek gözlemdir (NASA POWER, NOAA ERSST, NOAA Mauna Loa CO₂, NSIDC deniz buzu; bağlamda [GERÇEK VERİ · bölgesel tema serisi] etiketli), kalan bölgelerde sentetik prototip verisidir ([SENTETİK PROTOTİP] etiketli). Her bölge için bağlamdaki etikete uy; gerçek seriyi sentetik, sentetik seriyi gerçek diye anlatma. Gerçek sıcaklık/yağış eğilimi veya ısınma sorulduğunda öncelikle [GERÇEK ÖLÇÜM] satırını kullan ve dönemini belirt; tema serisinin Sen eğilimini, projeksiyonunu veya senaryo önerilerini bu sonuçla karıştırma. Sentetik tema serisinden söz edersen bunun prototip verisi olduğunu açıkça söyle.
+- Platform verilerine ilişkin sayıları yalnızca aşağıdaki bağlamdan al; uydurma. Genel bilimsel bilgileri yerleşik bilimsel uzlaşıya dayandır. Veri kaynakları: anlık sıcaklık, basınç ve rüzgâr Meteomatics API'sinden; termal anomali Open-Meteo'dan; uzun vadeli sıcaklık/yağış trendi NASA POWER'dan (MERRA-2, 2001–2024) gelir ve gerçektir. Bölgesel tema serilerinin tamamı (50 bölge) gerçek gözlemdir (NASA POWER/MERRA-2, NOAA ERSST, NOAA Mauna Loa CO₂, NSIDC deniz buzu, SPEI; bağlamda [GERÇEK VERİ · bölgesel tema serisi] etiketli). Kaynağa geçici olarak ulaşılamazsa seri sentetik yedekle gösterilir ve bağlamda [SENTETİK PROTOTİP] etiketiyle gelir. Her bölge için bağlamdaki etikete uy; gerçek seriyi sentetik, sentetik seriyi gerçek diye anlatma. Gerçek sıcaklık/yağış eğilimi veya ısınma sorulduğunda öncelikle [GERÇEK ÖLÇÜM] satırını kullan ve dönemini belirt; tema serisinin Sen eğilimini, projeksiyonunu veya senaryo önerilerini bu sonuçla karıştırma. Sentetik tema serisinden söz edersen bunun prototip verisi olduğunu açıkça söyle.
 - Matematiksel ifadeler için LaTeX veya dolar işareti kullanma.
 
 HARİTA KATMANLARI (yalnızca bu tanımları kullan; uydu görüntüsü YOKTUR):
-- Klasik Görünüm: şehir pinleri, bölgesel tema serisinin uzun dönemli (2000–2024; bölgeye göre gerçek ya da sentetik) eğilim durumuna göre renklendirilir.
+- Klasik Görünüm: şehir pinleri, bölgesel tema serisinin uzun dönemli (2000–2024, gerçek gözlem) eğilim durumuna göre renklendirilir.
 - Termal Analiz: sıcaklık sapması (°C); şu an: {anomaly_phrase(fetch_grid().get('anomaly_kind'))}. Normalde önceki 30 güne göre sapma (Open-Meteo); Open-Meteo kapalıyken iklim normaline göre sapma (NASA POWER); Sene Ortalaması seçiliyken 1991–2020 normaline göre yıllık sapma. 15°'lik küresel ızgara 3°'lik hücrelere kübik ara değerlenerek sürekli, renk geçişli bir yüzey olarak çizilir; bir bölge seçiliyken yüzey gizlenir, Boşluk tuşuyla geri gelir. Renk skalası: koyu mavi (≤ −8 °C, soğuk sapma) → camgöbeği → yeşil → sarı (≈ 0) → turuncu → kırmızı (≥ +8 °C, sıcak sapma). Sapma verisi alınamazsa yüzey gösterilmez. Anlık alanlar Meteomatics'ten gelir ve 30 dakikada bir yenilenir.
 - Basınç & Hava Dalgası: 15°'lik küresel ızgaradaki deniz seviyesi basıncından hesaplanan 4 hPa aralıklı izobarlar (üzerlerinde yavaşça akan dalga deseni), ızgara noktalarında rüzgârın AKTIĞI yönü gösteren akan vektörler ve oklar (uzunluk hızla orantılı), ayrıca yerel en düşük/en yüksek basınç noktalarında A (alçak, < 1008 hPa) ve Y (yüksek, > 1018 hPa) merkezleri ve etraflarında yayılan dalga halkaları. Bölge noktaları basınca göre renklenir (kırmızı alçak → gri → krem yüksek). Kaynak: Meteomatics API (msl_pressure, wind_speed_10m, wind_dir_10m), 30 dakikada bir yenilenir. Izgara 15° olduğu için küçük ölçekli sistemler görünmez; bu bir sinoptik ölçek özetidir.
 Şu an etkin katman: {LAYERS[st.session_state.get("layer", "classic")]}
@@ -5513,7 +5615,7 @@ def city_details(city: str) -> None:
     status = status_of(spec, r)
     c = STATUS_COLORS[status]
     unit = html.escape(spec.unit)
-    real = theme_real(city)   # tema serisi gerçek gözlem mi (33 bölge), sentetik mi (17 bölge)
+    real = theme_real(city)   # tema serisi gerçek gözlem mi (50 bölgenin hepsi; kaynak düşerse geçici sentetik)
     wx = fetch_weather()
     w = wx["data"][city]
     hist = bool(wx.get("year"))
@@ -5578,8 +5680,8 @@ def city_details(city: str) -> None:
       <div class="fact clk" data-metric="p" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('p-değeri', 'p-value')}{gl('p')}</div><div class="v">{format_p(r['p'])}</div></div>
       <div class="fact clk" data-metric="tau" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">Kendall τ{gl('tau')}</div><div class="v">{r['Tau']:+.3f}</div></div>
       <div class="fact clk" data-metric="slope" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('Eğilim yönü', 'Direction')}{gl('mann_kendall')}</div><div class="v">{dir_label(r['trend'])}</div></div>
-      <div class="fact clk" data-metric="slope" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('Sen eğilimi', 'Sen slope')}{gl('sen')}</div><div class="v">{fmt(spec, r['slope_year'], extra=1)}<small>{unit}/{yr}</small></div></div>
-      <div class="fact clk" data-metric="slope" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('On yıllık', 'Per decade')}</div><div class="v">{fmt(spec, r['slope_year'] * 10)}<small>{unit}</small></div></div>
+      <div class="fact clk" data-metric="slope" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('Sen eğilimi', 'Sen slope')}{gl('sen')}</div><div class="v">{fmt(spec, r['slope_year'], extra=1)}<small>{unit_per(spec.unit, yr)}</small></div></div>
+      <div class="fact clk" data-metric="slope" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('On yıllık', 'Per decade')}</div><div class="v">{fmt(spec, r['slope_year'] * 10)}<small>{unit_per(spec.unit)}</small></div></div>
       <div class="fact"><div class="k">Risk</div><div class="v">{risk_label(rep['risk'])}<small>{rep['risk']}</small></div></div>
     </div>
     {top_facts or ''}

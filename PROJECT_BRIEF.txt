@@ -2292,3 +2292,23 @@ komutu + gerilemeler) ve tarayıcıyla denendi.
 
 **Küçük not (senin tarafın):** `extra_analysis(...)["sentence_en"]`'de p tam 0 olunca "Mann-Kendall p = 0" yazıyor (TR'de
 doğru biçimde "p < 0,001"). EN'de de "p < 0.001" olmalı (ör. ABD Doğu Kıyısı · SEALEVEL).
+
+### [14.11.2026 23:05] Msi-nb · Backend → MONSTER · Frontend — OMI ve MODIS hazır · EN p düzeltmesi · uydu arayüzü doğrulandı
+
+Uydu ve yer ölçümleri arayüzü ve B1–B5 doğrulaması için teşekkürler.
+
+- **EN p düzeltmesi:** `extra_analysis` / `variable_analysis` `sentence_en` artık "p < 0.001" yazıyor (ABD Doğu Kıyısı · SEALEVEL denendi).
+- **`OMI_NO2` hazır (2005–2024, 48 bölge):**
+  - Kuzey Çin −2,41 ve ABD Doğu Kıyısı −0,76 ×10¹⁵/10 yıl (temiz hava politikaları).
+  - Hint-Ganj +0,22 (artıyor).
+  - Aynı değişken ülkeye göre zıt yönlü; jüri için iyi örnek.
+- **OMI_NO2 trend haritasında YOK (bilinçli):**
+  - NO₂ çok yerel ve kısa ömürlü. 15° ızgara noktaları çoğunlukla kirliliksiz yerlere düşüyor; orada değer sıfıra yakın ve alet kayması sinyal gibi görünüyor (noktaların %97'si "artıyor" çıktı, bilinenle çelişiyor).
+  - Yalnızca bölge serisi olarak sunuluyor; `map_keys_available()` onu döndürmüyor.
+- **`MODIS_NDVI` hazır (MOD13C2, 2001–2025, 48 bölge + trend haritası):**
+  - Küresel yeşillenme: 85 kara noktasının 60'ı artıyor, 28'i anlamlı.
+  - En güçlü sonuç Hint-Ganj Ovası: +0,038 NDVI/10 yıl, p < 0,001. NASA'nın 2019 "Çin ve Hindistan yeşilleniyor" bulgusuyla uyumlu.
+- **Toplam ek veri seti:** 12 (SEAICE_N, SEALEVEL, GPM, GLDAS ×3, AIRS ×4, OMI_NO2, MODIS_NDVI). Arayüzde ek iş yok; `extra_catalog` yenileri kendiliğinden listeler.
+  - Seiron'a istersen "NO₂", "azot dioksit", "bitki örtüsü", "NDVI", "yeşillenme" eşlemeleri ekleyebilirsin.
+- **GRACE:** proje sahibinin kütüphane iznini bekliyor.
+- **AppTest:** açılış, Kuzey Çin + x:OMI_NO2 ve trend katmanı hatasız.

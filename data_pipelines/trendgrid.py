@@ -58,8 +58,11 @@ def annual_from_raw(params: dict, y0: int, y1: int) -> dict:
 
 
 # Uydu/ek veri setleri (satellite.py) — ızgara anlık görüntüsü varsa haritada seçilebilir
+# OMI_NO2 bilinçli olarak yok: NO₂ çok yerel ve kısa ömürlü bir kirletici; 15°'lik seyrek ızgara noktaları çoğunlukla
+# kirliliksiz bölgelere düşer ve orada değer sıfıra yakın olduğu için alet kaymasını sinyal gibi gösterir.
+# Bölge serileri (şehirler) satellite.extra_analysis ile kullanılabilir.
 EXTRA_MAP_KEYS = ("GPM", "GLDAS_RUNOFF", "GLDAS_SOILDEEP", "GLDAS_SWE", "AIRS_T850", "AIRS_T300", "AIRS_T70",
-                  "AIRS_O3", "OMI_NO2", "MODIS_NDVI")
+                  "AIRS_O3", "MODIS_NDVI")
 
 
 def _meta(key: str) -> tuple[str, str, str] | None:

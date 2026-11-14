@@ -423,18 +423,19 @@ def build_analysis(head: dict, s: dict) -> dict:
     sig_tr = "anlamlı" if a["mk"]["significant"] else "anlamlı değil"
     sig_en = "significant" if a["mk"]["significant"] else "not significant"
     p_s = "p < 0,001" if p < 0.001 else f"p = {p:.3f}".replace(".", ",")
+    p_e = "p < 0.001" if p < 0.001 else f"p = {p:.3f}"
     pt = a['ttest']['p']
     pt_s = "< 0,001" if pt < 0.001 else "= " + f"{pt:.3f}".replace(".", ",")
     pt_e = "< 0.001" if pt < 0.001 else f"= {pt:.3f}"
     sentence_tr = (f"{head['name']} {s['y0']}–{s['y1']} arasında on yılda {fmt(dec).replace('.', ',')} {unit_tr} değişti "
                    f"(mevsimsel Mann-Kendall {p_s}, {sig_tr}; t-testi p {pt_s}).")
     sentence_en = (f"{head['name_en']} changed by {fmt(dec)} {unit_en} per decade over "
-                   f"{s['y0']}–{s['y1']} (seasonal Mann-Kendall p = {p:.3g}, {sig_en}; t-test p {pt_e}).")
+                   f"{s['y0']}–{s['y1']} (seasonal Mann-Kendall {p_e}, {sig_en}; t-test p {pt_e}).")
     if abs(dec) < 1e-12:   # Sen eğimi tam sıfır (ör. ayların çoğunda kar yok): "+0" yazmak yerine
         sentence_tr = (f"{head['name']} {s['y0']}–{s['y1']} arasında belirgin bir değişim göstermedi (Sen eğimi 0; "
                        f"mevsimsel Mann-Kendall {p_s}).")
         sentence_en = (f"{head['name_en']} showed no clear change over {s['y0']}–{s['y1']} (Sen slope 0; seasonal "
-                       f"Mann-Kendall p = {p:.3g}).")
+                       f"Mann-Kendall {p_e}).")
     yrs = a["annual"]["years"]
     xm, ym = float(np.median(np.arange(len(yrs)))), float(np.median(a["annual"]["values"]))
     sen_y = [round(ym + a["sen"]["per_year"] * (i - xm), 4) for i in range(len(yrs))]

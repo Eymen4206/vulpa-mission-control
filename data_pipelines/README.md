@@ -516,3 +516,4 @@ Açılış yükleme ekranı içindir. Hava, ızgara, NASA POWER, tema serisi ve 
   - Earthdata gerektirenler `secrets.toml [earthdata] token` kullanır (yalnızca betik; uygulama kullanmaz).
   - Aylık dilimler `cache/<veri>/` altına yazılır; yarıda kalırsa kaldığı yerden devam eder.
 - **Erişim:** GES DISC/LP DAAC "Earthdata Cloud OPeNDAP" 1–2°'lik dilimler. GPM için gpm1 OPeNDAP.
+- OMI_NO2 trend haritasında bilinçli olarak yok (seyrek ızgarada sinyal yerine alet kayması); yalnızca bölge serisi.

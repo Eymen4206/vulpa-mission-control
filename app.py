@@ -69,7 +69,7 @@ _DP_NEEDED = ("CITY_NAMES", "END", "GRID_LATS", "GRID_LONS", "LAST_FULL_YEAR", "
               "parse_ui_command", "switch_message", "time_text", "metric_chart", "ALLOWED_ACTIONS", "METRICS",
               "fetch_events", "EVENT_TYPES", "data_quality",
               "showcase_regions", "global_annual_anomaly", "year_extremes", "compare_regions", "warm_up",
-              "glossary")
+              "glossary", "variable_catalog", "variable_analysis", "describe_point", "trend_tests")
 if not all(hasattr(_dp, _n) for _n in _DP_NEEDED):
     for _m in [m for m in sys.modules if m == "data_pipelines" or m.startswith("data_pipelines.")]:
         del sys.modules[_m]
@@ -79,7 +79,8 @@ from data_pipelines import (  # noqa: E402
     REGIONS, START, WEATHER_TTL, Region, _fetch_grid, _fetch_power, _fetch_weather, analyze, build_series,
     REAL_SOURCES, series_meta, data_credits,
     parse_ui_command, switch_message, time_text, metric_chart, fetch_events, data_quality,
-    showcase_regions, year_extremes, compare_regions, warm_up, glossary,
+    showcase_regions, year_extremes, compare_regions, warm_up, glossary, variable_catalog, variable_analysis,
+    describe_point, trend_tests,
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2360,6 +2361,33 @@ div[role="dialog"]:has(.set-sec) { background: rgba(20,17,15,.92); backdrop-filt
   linear-gradient(to top, var(--orange) 0 100%) right bottom / 2px 70% no-repeat; transition: opacity .18s; }
 .fact.clk:hover::after, .pw-main.clk:hover::after { opacity: 1; }
 .st-key-metric_btns, .st-key-yx_btns { display: none !important; }
+/* Aşama A */
+.st-key-pt_bar { margin-bottom: .4rem; }
+.st-key-pt_bar [data-testid="stTextInputRootElement"] { min-height: 2rem; }
+.st-key-pt_bar input { font-size: .76rem !important; }
+.st-key-pick_btn button { min-height: 2rem !important; width: 2.2rem; padding: 0 !important; }
+html.vp-picking .st-key-globe_panel .js-plotly-plot, html.vp-picking .st-key-globe_panel .js-plotly-plot * { cursor: crosshair !important; }
+[class*="st-key-vp_"] { margin-top: .6rem; }
+[class*="st-key-vp_"] [data-testid="stWidgetLabel"] p { font-size: .66rem !important; color: var(--muted) !important;
+  text-transform: uppercase; letter-spacing: .08em; }
+.var-def { display: flex; gap: .4rem; font-size: .72rem; line-height: 1.5; color: #d6d3d1; margin: .15rem 0 .2rem; }
+.var-def .vp-svg { color: var(--orange); flex: none; margin-top: .15rem; }
+.var-sent { font-size: .78rem; line-height: 1.55; color: #e7e5e4; border-left: 2px solid var(--orange); padding: .3rem .6rem;
+  background: rgba(249,115,22,.06); border-radius: 0 10px 10px 0; margin: .2rem 0 .3rem; }
+.mt { margin-top: .6rem; padding: .5rem .6rem; border-radius: 12px; border: 1px solid rgba(249,115,22,.14); background: rgba(12,10,9,.35); }
+.mt-h { font-size: .66rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: .3rem; }
+.mt table { width: 100%; border-collapse: collapse; font-size: .72rem; font-variant-numeric: tabular-nums; }
+.mt th { font-weight: 500; color: var(--muted); text-align: left; padding: .15rem .25rem; font-size: .64rem; }
+.mt td { padding: .2rem .25rem; color: #e7e5e4; border-top: 1px solid rgba(249,115,22,.1); }
+.mt td small { color: var(--muted); font-size: .6rem; }
+.mt b.y { color: #f97316; } .mt b.n { color: #a8a29e; }
+.mt-ci { display: block; font-size: .64rem; color: var(--muted); margin-top: .25rem; }
+.mt-agree { font-size: .72rem; margin-top: .3rem; color: #d6d3d1; } .mt-agree.no { color: #fbbf24; }
+.mt-yrs { display: flex; gap: .35rem; font-size: .72rem; color: #fde68a; margin-top: .3rem; }
+.mt-yrs .vp-svg { flex: none; margin-top: .12rem; }
+.gv { display: flex; flex-wrap: wrap; align-items: baseline; gap: .45rem; font-size: .72rem; margin: .25rem 0; }
+.gv a { color: var(--orange) !important; font-weight: 600; text-decoration: none; }
+.gv a:hover { text-decoration: underline; } .gv span { color: var(--muted); font-size: .64rem; }
 .gl { position: relative; display: inline-flex; margin-left: .25rem; color: var(--muted); vertical-align: -.1em; cursor: help; outline: none; }
 .gl:hover, .gl:focus-visible { color: var(--orange); }
 .gl-tip { display: none; position: absolute; top: calc(100% + 6px); left: -8px; z-index: 40; width: 230px;
@@ -3130,6 +3158,7 @@ GLOBE_CONTROLLER_JS = """
   try {
     const T0 = window.__vulpaTarget || {};
     if (typeof T0.sound === "boolean") localStorage.setItem("vulpa_sound", T0.sound ? "1" : "0");
+    document.documentElement.classList.toggle("vp-picking", !!T0.pick);   // kürede nokta seçme imleci
   } catch (e) {}
   if (window.__vulpaCtl) return;
   const P = () => window.Plotly;
@@ -3414,6 +3443,31 @@ GLOBE_CONTROLLER_JS = """
           && (t.closest(".vp-keys-close") || t.classList.contains("vp-keys"))) closeKeys();
     });
   }
+  // Aşama A · kürede nokta seçme: "seç" modu açıksa küreye (sürüklemeden) tıklanan yerin enlem/boylamı koordinat
+  // kutusuna yazılır ve Enter ile gönderilir (Streamlit metin girişinin kendi olayları; ek widget yok).
+  if (!window.__vpPick) {
+    window.__vpPick = true;
+    let down = null;
+    document.addEventListener("pointerdown", function(e) { down = [e.clientX, e.clientY]; }, true);
+    document.addEventListener("pointerup", function(e) {
+      const T = window.__vulpaTarget || {};
+      const gd = document.querySelector(".st-key-globe_panel .js-plotly-plot");
+      if (!T.pick || !gd || !gd.contains(e.target) || !down) return;
+      if (Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;   // sürükleme
+      const sp = gd._fullLayout && gd._fullLayout.geo && gd._fullLayout.geo._subplot, svg = gd.querySelector(".main-svg");
+      if (!sp || !svg) return;
+      const r = svg.getBoundingClientRect();
+      const ll = sp.projection.invert([e.clientX - r.left, e.clientY - r.top]);
+      if (!ll || !isFinite(ll[0]) || !isFinite(ll[1])) return;
+      const input = document.querySelector(".st-key-pt_input input");
+      if (!input) return;
+      const lon = ((ll[0] + 540) % 360) - 180;
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+      setter.call(input, ll[1].toFixed(2) + ", " + lon.toFixed(2));
+      input.dispatchEvent(new Event("input", {bubbles: true}));
+      input.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true}));
+    }, true);
+  }
   // Simge düğmelerine erişilebilir ad (Streamlit yalnızca simge gösteriyor)
   document.querySelectorAll(".st-key-gear button").forEach(function(b) {
     b.setAttribute("aria-label", (window.__vulpaTarget || {}).lang === "en" ? "Settings" : "Ayarlar");
@@ -3580,7 +3634,14 @@ def globe_controller(city: str, cam: dict, layer: str) -> None:
               "layer": layer, "visibility": layer_visibility(layer), "data": layer_payload(),
               "zoom": [MIN_SCALE, MAX_SCALE], "theme": theme(),
               "credits": st.session_state.pop("_credits_cmd", None), "sound": sound_on(),
-              "events": events_payload()}
+              "events": events_payload(), "pick": bool(st.session_state.get("pick"))}
+    pt = st.session_state.get("point") if FEATURE_POINT else None
+    if pt:   # nokta modu: seçili halka/etiket ve kamera noktaya
+        target.update({"lon0": pt["lon"], "lat0": pt["lat"], "index": -1,
+                       "name": f"{abs(pt['lat']):.1f}°{L('K', 'N') if pt['lat'] >= 0 else L('G', 'S')} "
+                               f"{abs(pt['lon']):.1f}°{L('D', 'E') if pt['lon'] >= 0 else L('B', 'W')}",
+                       "camera": {"lon": pt["lon"], "lat": pt["lat"], "scale": cam["scale"]},
+                       "nonce": f"pt|{pt['lat']}|{pt['lon']}|{cam['scale']}|{st.session_state.get('_reset_n', 0)}"})
     # Streamlit st.html içeriğini DOMPurify ile temizler; metninde "<b>" gibi etiket benzeri parçalar bulunan
     # <script> öğelerini tamamen siler. Bu yüzden JSON içindeki "<" karakterleri < olarak kaçırılır
     # (JavaScript için anlamı aynıdır).
@@ -3783,7 +3844,7 @@ def render_boot() -> None:
     st.markdown(SPLASH_CSS, unsafe_allow_html=True)
     theme_css(SPLASH_CSS)
     # Bu çalıştırmada widget çizilmez; Streamlit çizilmeyen widget'ların durumunu siler. Seçimler kalıcı tutulur.
-    for k in ("city", "year", "month", "layer"):
+    for k in ("city", "year", "month", "layer", "var_key", "pt_var"):
         if k in st.session_state:
             st.session_state[k] = st.session_state[k]
     city = init_city()
@@ -4080,7 +4141,7 @@ def _settings_body() -> None:
         st.rerun()
 
 
-METRIC_KEYS = ("tau", "p", "slope", "power_t", "global", "series")
+METRIC_KEYS = ("tau", "p", "slope", "power_t", "global", "series", "var")
 
 # ── ÖNERİ #4 · Jüri turu: ≈60 sn'lik otomatik sunum ─────────────────────────────────────────────────────────
 # Duraklar data_quality "high" ve gerçek veri bölgelerinden seçilir (Backend'in isteği). Her durak 3 adım (TOUR_TICK
@@ -4241,6 +4302,17 @@ def close_metric() -> None:
 
 def metric_data(city: str, metric: str) -> dict | None:
     try:
+        if metric == "var":      # Aşama A · seçili değişkenin (bölge ya da nokta) grafiği
+            v = st.session_state.get("_va")
+            if not v:
+                return None
+            a = variable_analysis(v["lat"], v["lon"], v["key"], end_year_arg())
+            if not a or not a.get("available"):
+                return None
+            ch = dict(a["chart"])
+            ch["explain_tr"], ch["explain_en"] = a.get("sentence_tr"), a.get("sentence_en")
+            ch["source"], ch["_gv"] = a.get("source"), a.get("giovanni_url")
+            return ch
         if metric == "series":   # sağ paneldeki zaman serisi grafiğinin büyük görünümü (aynı figür)
             return {"series": True, "title_tr": f"Zaman serisi · {rvar(REGIONS[city])}",
                     "title_en": f"Time series · {rvar(REGIONS[city])}"}
@@ -4267,6 +4339,9 @@ def metric_figure(d: dict) -> go.Figure:
     for t in d.get("traces", []):
         name = t.get("name_en" if en else "name_tr", "")
         x = t.get("x_en") if en and t.get("x_en") else t.get("x", [])
+        if x and isinstance(x[0], str) and re.fullmatch(r"\d{4}-\d{2}", x[0]):
+            # Aylık "YYYY-AA" etiketleri yıllık izlerle aynı sayısal eksende çizilsin: ayın ortası, kesirli yıl
+            x = [int(v[:4]) + (int(v[5:7]) - 0.5) / 12 for v in x]
         style = t.get("style", "line")
         if style == "bar":
             fig.add_trace(go.Bar(x=x, y=t["y"], name=name, hovertext=t.get("hover"),
@@ -4282,6 +4357,9 @@ def metric_figure(d: dict) -> go.Figure:
         elif style == "dash":
             fig.add_trace(go.Scatter(x=x, y=t["y"], name=name, mode="lines",
                                      line=dict(width=2, dash="dash", color="#fb923c")))
+        elif len(x) > 60:   # aylık uzun seri (Aşama A): ince, soluk
+            fig.add_trace(go.Scatter(x=x, y=t["y"], name=name, mode="lines", line=dict(width=1, color=muted),
+                                     opacity=.75))
         else:
             color = muted if d.get("kind") == "density" else "#f97316"
             fig.add_trace(go.Scatter(x=x, y=t["y"], name=name, mode="lines", line=dict(width=2.5, color=color)))
@@ -4322,7 +4400,9 @@ def _metric_body(city: str, metric: str) -> None:
         return
     en = lang() == "en"
     sub = (L("Küresel · NASA POWER (MERRA-2) · 264 nokta, alan ağırlıklı", "Global · NASA POWER (MERRA-2) · 264 points, "
-             "area-weighted") if metric == "global" else f"{rname(city)} · {rtheme(REGIONS[city])}")
+             "area-weighted") if metric == "global" else
+           (f"{d.get('title_en' if lang() == 'en' else 'title_tr', '')}" if metric == "var" else
+            f"{rname(city)} · {rtheme(REGIONS[city])}"))
     st.markdown(f"<div class='mc-sub'>{html.escape(sub)}</div>", unsafe_allow_html=True)
     st.plotly_chart(metric_figure(d), theme=None, width="stretch", config={"displayModeBar": False},
                     key=f"mc_fig_{metric}")
@@ -4331,6 +4411,8 @@ def _metric_body(city: str, metric: str) -> None:
         st.markdown(f"<div class='mc-explain'>{html.escape(explain)}</div>", unsafe_allow_html=True)
     if d.get("source"):
         st.caption(d["source"])
+    if d.get("_gv"):
+        html_block(giovanni_link(d["_gv"]))
 
 
 def render_metric_dialog(city: str) -> None:
@@ -4444,6 +4526,7 @@ def _light_rules(css: str) -> str:
 
 
 LIGHT_FIXED = """
+.st-key-pt_bar input::placeholder { color: #78716c !important; opacity: 1 !important; }
 .gl-tip, .dq-tip { background: rgba(255,255,255,.97) !important; color: #292524 !important;
   border-color: rgba(234,88,12,.3) !important; box-shadow: 0 10px 26px rgba(28,25,23,.18) !important; }
 .dq-tip li, .dq-tip li span { color: #292524 !important; } .dq-tip li.no, .dq-tip li.no b { color: #78716c !important; }
@@ -4573,6 +4656,51 @@ def local_answer(text: str, city: str) -> dict | None:
     return None
 
 
+# Aşama A · Seiron: değişken ve nokta komutları ("toprak nemine bak", "show evaporation", "41 29 noktasını analiz et")
+VAR_WORDS = (("toprak nem", "GWETROOT"), ("kök bölgesi", "GWETROOT"), ("soil moisture", "GWETROOT"),
+             ("yüzey toprağ", "GWETTOP"), ("topsoil", "GWETTOP"), ("buharlaşma", "EVLAND"), ("evaporation", "EVLAND"),
+             ("yağış", "PRECTOTCORR"), ("precip", "PRECTOTCORR"), ("rainfall", "PRECTOTCORR"),
+             ("özgül nem", "QV2M"), ("specific humidity", "QV2M"), ("bağıl nem", "RH2M"), ("nem", "RH2M"),
+             ("humidity", "RH2M"), ("rüzgar hız", "WS10M"), ("rüzgâr hız", "WS10M"), ("wind speed", "WS10M"),
+             ("bulut", "CLOUD_AMT"), ("cloud", "CLOUD_AMT"), ("aerosol", "AOD_55"), ("aod", "AOD_55"),
+             ("güneş ışın", "ALLSKY_SFC_SW_DWN"), ("solar", "ALLSKY_SFC_SW_DWN"), ("kar derinli", "SNODP"),
+             ("snow", "SNODP"), ("yüzey sıcaklı", "TS"), ("surface temperature", "TS"),
+             ("en yüksek sıcaklık", "T2M_MAX"), ("maksimum sıcaklık", "T2M_MAX"), ("max temperature", "T2M_MAX"),
+             ("en düşük sıcaklık", "T2M_MIN"), ("minimum sıcaklık", "T2M_MIN"), ("min temperature", "T2M_MIN"),
+             ("hava sıcaklı", "T2M"), ("air temperature", "T2M"), ("tema serisi", "theme"), ("theme series", "theme"))
+VAR_VERBS = ("bak", "göster", "seç", "incele", "analiz", "aç", "geç", "show", "look", "switch", "analy", "plot",
+             "select", "open")
+POINT_WORDS = ("nokta", "koordinat", "point", "coordinate")
+
+
+def _word_in(q: str, w: str) -> bool:
+    return re.search(r"(?<![\wçğıöşü])" + re.escape(w), q) is not None
+
+
+def var_or_point_command(text: str) -> dict | None:
+    """Değişken ya da nokta komutu ise uygular ve arayüz notunu döndürür; değilse None (soru cümleleri dokunulmaz)."""
+    q = tr_lower(text)
+    if "?" in q or len(_tokens(text)) > 9:
+        return None
+    if FEATURE_POINT and any(_word_in(q, w) for w in POINT_WORDS):
+        ll = parse_latlon(text)
+        if ll:
+            set_point(*ll)
+            return {"matched": True, "notes": [], "ui": chat_icon("my_location") + " "
+                    + L(f"Nokta analizi: **{ll[0]:.2f}°, {ll[1]:.2f}°**.", f"Point analysis: **{ll[0]:.2f}°, {ll[1]:.2f}°**.")}
+    if FEATURE_VARIABLES and any(_word_in(q, v) for v in VAR_VERBS):
+        for w, key in VAR_WORDS:
+            if _word_in(q, w):
+                state_key = "pt_var" if st.session_state.get("point") and key != "theme" else "var_key"
+                st.session_state[state_key] = key
+                cat = {v["key"]: v for v in var_catalog()}
+                name = (L("Tema serisi", "Theme series") if key == "theme" else
+                        (cat.get(key, {}).get("name") or key))
+                return {"matched": True, "notes": [], "ui": chat_icon("tune") + " " + L(f"Değişken: **{name}**.",
+                                                                                         f"Variable: **{name}**.")}
+    return None
+
+
 def apply_ui_command(text: str, city: str) -> dict:
     """Zaman, dil, Credits, görünüm ve grafik komutlarını uygular (data_pipelines.parse_ui_command çözer).
 
@@ -4648,6 +4776,10 @@ def submit_question(text: str) -> None:
     local = local_answer(text, current)
     if local:   # sayısal yerel yanıt: gezinme ve dil modeli yok
         st.session_state["pending"] = {"q": text, "nav": None, "zoom": 0, "scale": None, "layer": None, "cmd": local}
+        return
+    vp = var_or_point_command(text)
+    if vp:
+        st.session_state["pending"] = {"q": text, "nav": None, "zoom": 0, "scale": None, "layer": None, "cmd": vp}
         return
     cmd = apply_ui_command(text, current)
     if cmd.get("denied"):   # yönetici isteği: hiçbir şey değiştirilmez, dil modeline gönderilmez
@@ -4746,6 +4878,8 @@ def process_pending(city: str, history: list[dict], box) -> None:
             if layer:
                 notes.append(chat_icon("layers") + " " + L("Harita katmanı: ", "Map layer: ") + f"**{layer_label(layer)}**.")
             notes += command_notes(cmd)
+            if cmd.get("ui"):
+                notes.append(cmd["ui"])
             prefix = "\n\n".join(notes) + "\n\n" if notes else ""
             if prefix:
                 st.markdown(prefix)
@@ -4897,6 +5031,213 @@ def gl(key: str) -> str:
             f"<span class='gl-tip'>{text}</span></span>")
 
 
+# ── Aşama A · değişken seçimi, nokta analizi, yöntem karşılaştırması (büyük plan madde 1, 2, 5, 6, 7) ──────────
+FEATURE_VARIABLES = True    # değişken seçici + yöntem karşılaştırması + "kaç yıl" + Giovanni
+FEATURE_POINT = True        # kürede / koordinatla herhangi bir noktayı analiz
+
+
+def var_catalog() -> list[dict]:
+    return safe(variable_catalog, lang()) or []
+
+
+def end_year_arg() -> int | None:
+    return sel_year() or None
+
+
+def fnum(x: float | None, digits: int = 3) -> str:
+    """İşaretli, anlamlı basamaklı kısa sayı (değişkenlerin birimleri çok farklı ölçeklerde)."""
+    if x is None:
+        return "—"
+    return f"{x:+.{digits}g}".replace("+0", "+0") if abs(x) >= 1e-4 or x == 0 else f"{x:+.2e}"
+
+
+def facts_block(mk: dict, sen: dict, unit: str, metric: dict, extra: str = "") -> str:
+    """p, τ, yön, Sen (yıllık / on yıllık) kutuları. metric: kutunun açacağı grafik ("p"/"tau"/"slope" ya da "var")."""
+    u, yr = html.escape(unit), L("yıl", "yr")
+    tip = L("Grafiği aç", "Open chart")
+    box = lambda m, k, v: (f"<div class='fact clk' data-metric='{m}' role='button' tabindex='0' title='{tip}'>"
+                           f"<div class='k'>{k}</div><div class='v'>{v}</div></div>")
+    return ("<div class='facts'>"
+            + box(metric["p"], L('p-değeri', 'p-value') + gl('p'), format_p(mk['p']))
+            + box(metric["tau"], "Kendall τ" + gl('tau'), f"{mk['tau']:+.3f}")
+            + box(metric["slope"], L('Eğilim yönü', 'Direction') + gl('mann_kendall'), dir_label(mk['trend']))
+            + box(metric["slope"], L('Sen eğilimi', 'Sen slope') + gl('sen'), f"{fnum(sen['per_year'])}<small>{u}/{yr}</small>")
+            + box(metric["slope"], L('On yıllık', 'Per decade'), f"{fnum(sen['per_decade'])}<small>{u}</small>")
+            + extra + "</div>")
+
+
+def method_table(t: dict | None, unit: str) -> str:
+    """Madde 5 · Yöntem karşılaştırması (mevsimsel Mann-Kendall + Sen | otokorelasyon düzeltmeli t-testi) ve
+    madde 6 · anlamlı olması için gereken yıl. Yöntemler farklı sonuç verirse bu dürüstçe gösterilir."""
+    if not t or not t.get("mk") or not t.get("ttest"):
+        return ""
+    mk, sen, tt = t["mk"], t.get("sen") or {}, t["ttest"]
+    u = html.escape(unit)
+    ok = lambda b: f"<b class='{'y' if b else 'n'}'>{'✓' if b else '✗'}</b>"
+    ci = (f"<span class='mt-ci'>%95 GA {fnum(sen.get('ci_low'))} … {fnum(sen.get('ci_high'))} {u}</span>"
+          if sen.get("ci_low") is not None else "")
+    agree = bool(t.get("agree"))
+    verdict = (L("İki yöntem aynı sonuca varıyor", "Both methods reach the same conclusion") if agree else
+               L("Yöntemler farklı sonuç veriyor: biri anlamlı buluyor, diğeri bulmuyor. Bu, eğilimin sınırda olduğunu "
+                 "ve yönteme duyarlı olduğunu gösterir.",
+                 "The methods disagree: one finds the trend significant, the other does not. The trend is borderline "
+                 "and method-sensitive."))
+    yts = t.get("years_to_significance") or {}
+    yline = ""
+    if yts and not yts.get("significant_now") and yts.get("sentence_tr"):
+        yline = (f"<div class='mt-yrs'>{inline_svg('clock', 12)}<span>"
+                 f"{html.escape(yts['sentence_en' if lang() == 'en' else 'sentence_tr'])}</span></div>")
+    return (f"<div class='mt'><div class='mt-h'>{L('Yöntem karşılaştırması', 'Method comparison')}{gl('confidence')}</div>"
+            f"<table><tr><th></th><th>{L('Eğim / 10 yıl', 'Slope / decade')}</th><th>p</th><th>{L('Anlamlı', 'Signif.')}</th></tr>"
+            f"<tr><td>Mann-Kendall + Sen</td><td>{fnum(sen.get('per_decade'))} {u}</td><td>{format_p(mk['p'])}</td><td>{ok(mk.get('significant'))}</td></tr>"
+            f"<tr><td>{L('t-testi', 't-test')} <small>n<sub>eff</sub>≈{tt.get('n_eff', 0):.0f}</small></td>"
+            f"<td>{fnum(tt.get('slope_per_decade'))} {u}</td><td>{format_p(tt['p'])}</td><td>{ok(tt.get('significant'))}</td></tr>"
+            f"</table>{ci}<div class='mt-agree {'ok' if agree else 'no'}'>{ok(agree)} {verdict}</div>{yline}</div>")
+
+
+def giovanni_link(url: str | None) -> str:
+    """Madde 7 · NASA Giovanni'de bağımsız doğrulama bağlantısı (yoksa boş)."""
+    if not url:
+        return ""
+    return (f"<div class='gv'><a href='{html.escape(url, quote=True)}' target='_blank' rel='noopener noreferrer'>"
+            f"{L('NASA Giovanni’de doğrula', 'Verify in NASA Giovanni')} ↗</a>"
+            f"<span>{L('ücretsiz NASA Earthdata hesabı gerekebilir', 'may require a free NASA Earthdata account')}</span></div>")
+
+
+def var_chart_fig(chart: dict, height: int = 250) -> go.Figure:
+    fig = metric_figure(chart)
+    fig.update_layout(height=height, margin=dict(l=46, r=8, t=30, b=26),
+                      legend=dict(font=dict(size=9), y=1.2, orientation="h"))
+    return fig
+
+
+def var_label(key: str, cat: dict, theme_name: str = "", avail: set | None = None) -> str:
+    if key == "theme":
+        return L("Tema serisi · ", "Theme series · ") + theme_name
+    v = cat.get(key)
+    if not v:
+        return key
+    off = (" — " + L("bu noktada yok", "not available here")) if avail is not None and key not in avail else ""
+    return f"{v['category_name']} · {v['name']} ({v['unit']}){off}"
+
+
+def render_var_picker(state_key: str, options: list[str], cat: dict, theme_name: str = "",
+                      avail: set | None = None) -> str:
+    """Madde 1 · Değişken seçici (kategori sırasıyla; denizde olmayanlar işaretli). Seçili anahtarı döndürür."""
+    if st.session_state.get(state_key) not in options:
+        st.session_state[state_key] = options[0]
+    with st.container(key=f"vp_{state_key}"):
+        # bound: seçici çizilmeyen çalıştırmalarda da (nokta modu, yükleme ekranı) seçim kaybolmaz
+        bound(st.selectbox, state_key, label=L("Analiz edilen değişken", "Variable analysed"), options=options,
+              format_func=lambda k: var_label(k, cat, theme_name, avail))
+    key = st.session_state[state_key]
+    v = cat.get(key)
+    if v:
+        text = html.escape(f"{v['definition']} {v['why']}")
+        st.markdown(f"<div class='var-def'>{inline_svg('info', 12)}<span>{text}</span></div>", unsafe_allow_html=True)
+    return key
+
+
+@functools.lru_cache(maxsize=64)
+def _round_pt(lat: float, lon: float) -> tuple[float, float]:
+    return round(lat * 2) / 2, round(lon * 2) / 2
+
+
+def var_analysis(lat: float, lon: float, key: str) -> dict | None:
+    with st.spinner(L("NASA POWER verisi alınıyor…", "Fetching NASA POWER data…")):
+        return safe(variable_analysis, lat, lon, key, end_year_arg())
+
+
+# ── nokta modu ──
+_COORD = re.compile(r"(-?\d{1,3}(?:[.,]\d+)?)\s*°?\s*([KkNnGgSs])?\s*[,; ]\s*(-?\d{1,3}(?:[.,]\d+)?)\s*°?\s*([DdEeBbWw])?")
+
+
+def parse_latlon(text: str) -> tuple[float, float] | None:
+    """'41 29', '41.0, 29.0', '35N 139E', '35K 139D', '-12,5; 130' → (enlem, boylam); geçersizse None."""
+    m = _COORD.search(text or "")
+    if not m:
+        return None
+    lat, lon = float(m.group(1).replace(",", ".")), float(m.group(3).replace(",", "."))
+    if m.group(2) and m.group(2).lower() in "gs":
+        lat = -abs(lat)
+    if m.group(4) and m.group(4).lower() in "bw":
+        lon = -abs(lon)
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return None
+    return round(lat, 3), round(lon, 3)
+
+
+def set_point(lat: float, lon: float) -> None:
+    st.session_state["point"] = {"lat": lat, "lon": lon}
+    st.session_state["pick"] = False
+
+
+def clear_point() -> None:
+    st.session_state.pop("point", None)
+    st.session_state["pick"] = False
+
+
+def on_point_input() -> None:
+    ll = parse_latlon(st.session_state.get("pt_input", ""))
+    if ll:
+        set_point(*ll)
+    st.session_state["pt_input"] = ""
+
+
+def toggle_pick() -> None:
+    st.session_state["pick"] = not st.session_state.get("pick", False)
+
+
+def render_point_bar() -> None:
+    """Sağ panelin üstünde: koordinat girişi + kürede seçme düğmesi (madde 2)."""
+    if not FEATURE_POINT:
+        return
+    with st.container(key="pt_bar", horizontal=True, gap="small", vertical_alignment="center"):
+        st.text_input(L("Nokta analizi", "Point analysis"), key="pt_input", on_change=on_point_input,
+                      placeholder=L("Nokta analizi: enlem, boylam (ör. 41.0, 29.0)", "Point analysis: lat, lon (e.g. 41.0, 29.0)"),
+                      label_visibility="collapsed")
+        picking = st.session_state.get("pick", False)
+        st.button(":material/my_location:", key="pick_btn", on_click=toggle_pick, type="primary" if picking else "secondary",
+                  help=L("Kürede bir noktaya tıklayarak seç", "Pick a point by clicking the globe"))
+
+
+def point_details() -> None:
+    """Madde 2 · Herhangi bir nokta: başlık, değişken seçici, analiz kutuları, yöntem tablosu, grafik, Giovanni."""
+    pt = st.session_state["point"]
+    lat, lon = pt["lat"], pt["lon"]
+    desc = safe(describe_point, lat, lon, end_year_arg()) or {}
+    en = lang() == "en"
+    label = desc.get("label_en" if en else "label_tr") or f"{lat:.2f}°, {lon:.2f}°"
+    avail = set(desc.get("available_keys") or [])
+    land = desc.get("land")
+    html_block(f"""
+    <div class="city-name">{L('Nokta analizi', 'Point analysis')}<span class="city-country">{'' if land is None else (L('kara', 'land') if land else L('deniz', 'ocean'))}</span></div>
+    <div class="city-theme">{html.escape(label)}</div>
+    """)
+    st.button(L("Bölgeye dön", "Back to region"), key="pt_back", on_click=clear_point, icon=":material/undo:")
+    cat = {v["key"]: v for v in var_catalog()}
+    if not cat:
+        st.caption(L("Değişken kataloğu alınamadı.", "Variable catalogue unavailable."))
+        return
+    key = render_var_picker("pt_var", list(cat), cat, avail=avail or None)
+    va = var_analysis(lat, lon, key)
+    st.session_state["_va"] = {"lat": lat, "lon": lon, "key": key}
+    if not va or not va.get("available"):
+        st.info((va or {}).get("reason") or L("Bu değişken için veri alınamadı.", "No data for this variable."))
+        return
+    unit = va.get("unit", "")
+    var_metric = {"p": "var", "tau": "var", "slope": "var"}
+    html_block(f"""
+    {facts_block(va['mk'], va['sen'], unit, var_metric)}
+    {method_table(va, unit)}
+    <div class="sec-title">{L('ZAMAN SERİSİ', 'TIME SERIES')} · {html.escape(va['name_en' if en else 'name'])} · <span class="ts-kind is-real">NASA POWER</span><button class="vp-gchip" type="button" data-metric="var" title="{L('Grafiği büyüt', 'Enlarge chart')}">{inline_svg('expand', 12)}<span>{L('Büyüt', 'Enlarge')}</span></button></div>
+    """)
+    st.plotly_chart(var_chart_fig(va["chart"]), theme=None, width="stretch", config={"displayModeBar": False},
+                    key="pt_chart")
+    html_block(f"<div class='var-sent'>{html.escape(va['sentence_en' if en else 'sentence_tr'])}</div>"
+               f"<div class='pw-src'>{html.escape(va.get('source', ''))}{gl('merra2')}</div>{giovanni_link(va.get('giovanni_url'))}")
+
+
 def go_region(name: str) -> None:
     st.session_state["city"] = name
 
@@ -4970,6 +5311,10 @@ def city_details(city: str) -> None:
     sel_row = (f"<div class='pw-row'><span>{pw['y1']} {L('yılı ortalaması', 'annual mean')} <b>{pw['last_t']:.1f} °C</b>"
                f" ({pw['last_dev']:+.2f} °C {L('dönem ortalamasına göre', 'vs period mean')})</span>"
                f"<span>{L('Yağış', 'Precip.')} <b>{pw['last_prec']:.0f} mm</b></span></div>") if hist else ""
+    # ── Aşama A: bölgede değişken seçimi (varsayılan tema serisi) ──
+    cat = {v["key"]: v for v in var_catalog()} if FEATURE_VARIABLES else {}
+    va = None
+    vkey = "theme"
     html_block(f"""
     <div class="city-name">{html.escape(rname(city))}<span class="city-country">{html.escape(rarea(spec))}</span></div>
     <div class="city-theme">{html.escape(rtheme(spec))} {chip}</div>
@@ -4977,7 +5322,25 @@ def city_details(city: str) -> None:
     {annual_note}{year_extremes_strip()}
     <div class="wx"><div class="ic">{wx_icon(w, 34)}</div><div class="t">{w['temp']:.1f}°C</div>
       <div class="d">{html.escape(wlabel(w))}{' · ' + ' · '.join(wx_meta) if wx_meta else ''}<br><span>{wx_kind} · {html.escape(wx['source'])}</span></div></div>
-    <div class="facts">
+    """)
+    if cat:
+        vkey = render_var_picker("var_key", ["theme"] + list(cat), cat, rvar(spec))
+        if vkey != "theme":
+            va = var_analysis(spec.lat, spec.lon, vkey)
+            st.session_state["_va"] = {"lat": spec.lat, "lon": spec.lon, "key": vkey}
+            if not va or not va.get("available"):
+                st.info((va or {}).get("reason") or L("Bu değişken için veri alınamadı.", "No data for this variable."))
+                va = None
+    en_ = lang() == "en"
+    if va:
+        top_facts = facts_block(va["mk"], va["sen"], va.get("unit", ""), {"p": "var", "tau": "var", "slope": "var"},
+                                extra=f"<div class='fact'><div class='k'>Risk</div><div class='v'>{risk_label(rep['risk'])}<small>{rep['risk']}</small></div></div>")
+        mtab = method_table(va, va.get("unit", ""))
+    else:
+        top_facts = None
+        mtab = method_table(safe(trend_tests, city), spec.unit) if FEATURE_VARIABLES else ""
+    html_block(f"""
+    <div class="facts" style="{'display:none' if va else ''}">
       <div class="fact clk" data-metric="p" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('p-değeri', 'p-value')}{gl('p')}</div><div class="v">{format_p(r['p'])}</div></div>
       <div class="fact clk" data-metric="tau" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">Kendall τ{gl('tau')}</div><div class="v">{r['Tau']:+.3f}</div></div>
       <div class="fact clk" data-metric="slope" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('Eğilim yönü', 'Direction')}{gl('mann_kendall')}</div><div class="v">{dir_label(r['trend'])}</div></div>
@@ -4985,6 +5348,8 @@ def city_details(city: str) -> None:
       <div class="fact clk" data-metric="slope" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('On yıllık', 'Per decade')}</div><div class="v">{fmt(spec, r['slope_year'] * 10)}<small>{unit}</small></div></div>
       <div class="fact"><div class="k">Risk</div><div class="v">{risk_label(rep['risk'])}<small>{rep['risk']}</small></div></div>
     </div>
+    {top_facts or ''}
+    {mtab}
     <div class="sec-title">NASA POWER · {L('UZUN VADELİ İKLİM', 'LONG-TERM CLIMATE')} ({pw['y0']}–{pw['y1']})<button class="vp-gchip" type="button" data-metric="global" title="{L('Dünya ısınıyor mu? Küresel yıllık sapma 1991–2025', 'Is the world warming? Global annual anomaly 1991–2025')}">{inline_svg('globe2', 12)}<span>{L('Küresel bağlam', 'Global context')}</span></button></div>
     <div class="power">
       <div class="pw-main clk" data-metric="power_t" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('Sıcaklık eğilimi', 'Temperature trend')}</div>
@@ -4996,10 +5361,16 @@ def city_details(city: str) -> None:
         <span>{L('Ort.', 'Mean')} <b>{pw['t_mean']:.1f} °C</b> · <b>{pw['prec_mean']:.0f} mm</b>/{yr}</span></div>
       <div class="pw-src">{html.escape(pw['source'])}{gl('merra2')}</div>
     </div>
-    <div class="sec-title">{L('ZAMAN SERİSİ', 'TIME SERIES')} · {html.escape(rvar(spec))} · <span class="ts-kind {'is-real' if real else 'is-synth'}">{L('GERÇEK VERİ', 'REAL DATA') if real else L('SENTETİK', 'SYNTHETIC')}</span><button class="vp-gchip" type="button" data-metric="series" title="{L('Grafiği büyüt', 'Enlarge chart')}" aria-label="{L('Zaman serisi grafiğini büyüt', 'Enlarge the time-series chart')}">{inline_svg('expand', 12)}<span>{L('Büyüt', 'Enlarge')}</span></button></div>
+    <div class="sec-title">{L('ZAMAN SERİSİ', 'TIME SERIES')} · {html.escape((va['name_en' if en_ else 'name']) if va else rvar(spec))} · <span class="ts-kind {'is-real' if (real or va) else 'is-synth'}">{'NASA POWER' if va else (L('GERÇEK VERİ', 'REAL DATA') if real else L('SENTETİK', 'SYNTHETIC'))}</span><button class="vp-gchip" type="button" data-metric="{'var' if va else 'series'}" title="{L('Grafiği büyüt', 'Enlarge chart')}" aria-label="{L('Zaman serisi grafiğini büyüt', 'Enlarge the time-series chart')}">{inline_svg('expand', 12)}<span>{L('Büyüt', 'Enlarge')}</span></button></div>
     """)
-    st.plotly_chart(build_chart(build_series(city), spec, r), theme=None, width="stretch",
-                    config={"displayModeBar": False})
+    if va:
+        st.plotly_chart(var_chart_fig(va["chart"]), theme=None, width="stretch", config={"displayModeBar": False},
+                        key="var_chart")
+        html_block(f"<div class='var-sent'>{html.escape(va['sentence_en' if en_ else 'sentence_tr'])}</div>"
+                   f"<div class='pw-src'>{html.escape(va.get('source', ''))}{gl('merra2')}</div>{giovanni_link(va.get('giovanni_url'))}")
+    else:
+        st.plotly_chart(build_chart(build_series(city), spec, r), theme=None, width="stretch",
+                        config={"displayModeBar": False})
     titles = REPORT_TITLES_EN if lang() == "en" else REPORT_TITLES
     secs = "".join(f"<h4>{html.escape(titles[k])}</h4><p>{html.escape(v)}</p>"
                    for k, v in rep["s"].items() if k != "diag")
@@ -5087,7 +5458,11 @@ def render_mission_control() -> None:
     st.session_state["camera"] = target_camera(city)
     globe_controller(city, st.session_state["camera"], st.session_state["layer"])
     with right, st.container(key="right_panel"):
-        city_details(city)
+        render_point_bar()
+        if FEATURE_POINT and st.session_state.get("point"):
+            point_details()
+        else:
+            city_details(city)
     with left:
         render_seiron(city)
     chat_autoscroll()
@@ -5154,7 +5529,11 @@ def render_mobile() -> None:
         render_seiron(city, mobile=True)
     with tab_data:
         with st.container(key="m_card"):
-            city_details(city)
+            render_point_bar()
+            if FEATURE_POINT and st.session_state.get("point"):
+                point_details()
+            else:
+                city_details(city)
     chat_autoscroll()
     render_settings()
     render_metric_dialog(city)

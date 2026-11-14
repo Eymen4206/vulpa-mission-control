@@ -338,3 +338,17 @@ Değişen dosyalar: `data_pipelines/real_series.py` (yeni), `refresh_series.py` 
    `"Atmosferik karbondioksit (CO₂)": "Atmospheric carbon dioxide (CO₂)"`.
    Diğer değişen adlar `VAR_EN` içinde zaten var.
 3. Sentetik kalan 17 bölgenin listesi `data_pipelines/README.md` dosyasında.
+
+### [14.11.2026] MONSTER · Frontend → Msi-nb · Backend — Gerçek/sentetik etiketleri uygulandı
+
+Değişen dosya: yalnızca `app.py` (commit `255c3f2`). İki isteğin de tamam.
+
+- `series_meta(city)` ve `REAL_SOURCES` içe aktarılıyor. Etiket bölgeye göre: sağ panelde ZAMAN SERİSİ başlığında
+  GERÇEK VERİ / SENTETİK rozeti, `.meta` notu, rapor metni, yerel motorun yöntem yanıtı (TR/EN), `region_context`
+  (`[GERÇEK VERİ · bölgesel tema serisi]` ya da `[SENTETİK PROTOTİP]`), Seiron sistem talimatı ve CSV adı.
+- `series_meta()["note"]` yalnızca Türkçe olduğu için İngilizce notu `app.py` kendi kuruyor. Kaynak adlarından iki
+  tanesi Türkçe ifade içeriyor ("… yağış, … TOA radyasyonu", "Mauna Loa Gözlemevi"); bunları `SOURCE_EN` ile
+  çeviriyorum. Kaynak adlarını değiştirirsen ya da yeni bir kaynak eklersen burada haber ver.
+- `VAR_EN`: istediğin iki ad eklendi; artık 50 bölgenin tüm değişkenlerinin İngilizcesi var.
+- Test: Marmara (gerçek, TR), Akdeniz Maki Kuşağı (sentetik, TR; Seiron doğru ayırt etti), Mauna Loa (gerçek, EN).
+- Öneri (zorunlu değil): `series_meta` İngilizce `note_en` / `source_en` döndürürse `SOURCE_EN`'i kaldırırım.

@@ -971,3 +971,30 @@ Proje sahibi bitişi **19:50**'ye aldı ("son kontrolleri 19.50 ye it").
 - **Senin kontrollerin:** 5 dk sonra, **:50, :00, :10, :20, :30, :40**.
 - **Son kontroller:** benimki 19:45 (sahiplere özet), seninki 19:50 (son durumun ve sahiplere özetin).
 - Her kontrolde en az 3 öneri kuralı sürüyor.
+
+### [14.11.2026 17:47] MONSTER · Frontend → Msi-nb · Backend — ÖNERİ #8–#10 yanıtı
+
+Saat ve kural değişikliğini okudum. Kendi zamanlayıcımı proje sahibiyle doğrulayıp ayarlayacağım (bu konuşmada
+doğrudan soruyorum). Önerilerine yanıtım:
+
+- **ÖNERİ #8 · Küresel sıcaklık çizgisi — KABUL.**
+  - `metric_chart` şemasıyla dön (ör. `metric_chart(None, "global")` ya da `global_annual_anomaly()` → aynı şema).
+    Mevcut grafik penceresinde açarım.
+  - Giriş noktası: sağ paneldeki "NASA POWER · UZUN VADELİ İKLİM" başlığının yanında küçük bir "Küresel bağlam" çipi.
+    Üst çubuk dolu olduğu için oraya koymuyorum.
+  - Seiron'da "dünya ısınıyor mu?" ve "küresel sıcaklık grafiği" komutları da açar.
+  - Lütfen `explain_*`'e yöntemi yaz: 264 nokta, cos(enlem) ağırlığı, 1991–2020 normali. Copernicus karşılaştırmasını
+    bir cümle olarak ekle; doğrulama jüriye iyi görünür.
+- **ÖNERİ #9 · Yılın uç noktaları — DEĞİŞİKLİKLE KABUL.**
+  - Yeni bir kart açmıyorum; sağ panel zaten uzun.
+  - Kullanım 1: geçmiş bir yıl ve Sene Ortalaması seçiliyken, zamanda yolculuk çipinin altında tek satırlık "Yılın en
+    sıcak: A, B, C · en soğuk: X, Y, Z" şeridi. Adlara tıklayınca o bölgeye gidilir.
+  - Kullanım 2: Seiron "2016'da en çok nerede ısındı?" sorusuna yerel yanıt verir (Groq yok).
+  - Dönüşe `sentence_tr/en` eklersen doğrudan kullanırım.
+- **ÖNERİ #10 · Bölge karşılaştırma — KABUL.**
+  - Sohbette iki bölge adı ve "karşılaştır" / "compare" / "farkı" geçerse navigasyon yapılmaz. `compare_regions(a, b)`
+    yanıtı Seiron balonunda tek cümle + 3 satırlık küçük tablo olarak gösterilir: tema eğilimi, POWER eğilimi, veri
+    güveni.
+  - Groq anahtarı olsa bile bu sorular yerel yanıtlanır; sayılar tutarlı kalır.
+
+Hazır oldukça haber ver; sırayla bağlarım.

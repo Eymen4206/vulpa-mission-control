@@ -12,7 +12,7 @@ import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import numpy as np
@@ -20,6 +20,7 @@ import requests
 import streamlit as st
 from requests.auth import HTTPBasicAuth
 
+from .climatology import climatology_anomaly, normal_values, region_normals
 from .config import MM_CORE, MM_EXTRA, MM_URL, NOW, OM_ARCHIVE_URL, RETRY_AFTER, WEATHER_TTL, hist_date
 from .regions import REGION_LIST
 
@@ -42,10 +43,18 @@ def describe_code(code: int, is_day: bool) -> tuple[str, str]:
 
 def _fallback_weather(year: int = 0, month: int | None = None, day: int | None = None) -> dict:
     """Ağ yoksa: mevsim ve enlem kuşağına dayalı tutarlı yaklaşık değerler (açıkça 'tahmini' etiketlenir)."""
-    when = hist_date(year, month, day) if year else NOW
+    when = hist_date(year, month, day) if year else datetime.now(timezone.utc)
     month = when.month
     data = {}
+    normals_used = 0
     for r in REGION_LIST:
+        normals = region_normals(r.name)
+        if normals is not None:   # NASA POWER iklim normali (gerçekçi yedek)
+            v = normal_values(normals, r.lon, when)
+            data[r.name] = {**v, "wind_dir": 90.0 if abs(r.lat) < 30 else (270.0 if abs(r.lat) < 60 else 90.0),
+                            "anomaly": None, "label": "Tahmini", "icon": "≈"}
+            normals_used += 1
+            continue
         alat = abs(r.lat)
         season = math.cos(2 * math.pi * (month - (7 if r.lat >= 0 else 1)) / 12)
         temp = 27 - 0.42 * alat + 9 * season * min(1.0, alat / 35)
@@ -57,8 +66,10 @@ def _fallback_weather(year: int = 0, month: int | None = None, day: int | None =
     stamp = when.strftime("%d.%m.%Y %H:%M") if year else NOW.strftime("%H:%M")
     return {"live": False, "time": stamp, "data": data, "year": year, "month": when.month, "day": when.day,
             "date": when.strftime("%Y-%m-%d"),
-            "source": "Veri kaynağına ulaşılamadı · mevsimsel simülasyon", "provider": "Simülasyon",
-            "anomaly_live": False}
+            "source": ("Veri kaynağına ulaşılamadı · NASA POWER iklim normali (tahmini)" if normals_used
+                       else "Veri kaynağına ulaşılamadı · mevsimsel simülasyon"),
+            "provider": "İklim normali" if normals_used else "Simülasyon",
+            "anomaly_live": False, "anomaly_kind": None}
 
 
 # Meteomatics hava sembolleri (gece için +100)
@@ -452,6 +463,7 @@ def _fetch_historical_weather(year: int, month: int | None = None, day: int | No
         return _fallback_weather(year, month, day)
     recs, provider = inst
     anomalies, anom_src = anom if anom else ([None] * len(REGION_LIST), "")
+    anomaly_kind = "30d" if anom else None
     base = _fallback_weather(year, month, day)["data"]
     data = {}
     for r, rec, an in zip(REGION_LIST, recs, anomalies):
@@ -459,6 +471,10 @@ def _fetch_historical_weather(year: int, month: int | None = None, day: int | No
         for k in ("temp", "pressure", "wind", "wind_dir", "humidity"):
             if rec.get(k) is not None:
                 w[k] = float(rec[k])
+        if an is None and not anom:
+            an = climatology_anomaly(r.name, r.lon, w["temp"], when)
+            if an is not None:
+                anomaly_kind = "climatology"
         w["anomaly"] = an
         w["label"], w["icon"] = weather_label(rec.get("temp"), rec.get("cloud"), rec.get("rain"))
         data[r.name] = w
@@ -466,10 +482,13 @@ def _fetch_historical_weather(year: int, month: int | None = None, day: int | No
     source = f"{provider} · {stamp} UTC"
     if anom_src and anom_src != provider:
         source += f" · sapma: {anom_src}"
+    elif anomaly_kind == "climatology":
+        source += " · sapma: iklim normaline göre (NASA POWER)"
     elif not anom:
         source += " · sapma alınamadı"
     return {"live": True, "time": stamp, "data": data, "year": year, "month": when.month, "day": when.day,
-            "date": when.strftime("%Y-%m-%d"), "provider": provider, "source": source, "anomaly_live": bool(anom)}
+            "date": when.strftime("%Y-%m-%d"), "provider": provider, "source": source,
+            "anomaly_live": anomaly_kind is not None, "anomaly_kind": anomaly_kind}
 
 
 def _fetch_weather(start_year: int = 0, end_year: int | None = None, month: int | None = None,
@@ -565,16 +584,21 @@ def _fetch_live_weather() -> dict:
 
     base = om or _fallback_weather()["data"]
     data = _merge_mm(base, mm) if mm else {k: dict(v) for k, v in base.items()}
-    if om is None:
-        for w in data.values():
-            w["anomaly"] = None
+    anomaly_kind = "30d" if om is not None else None
+    if om is None:      # Open-Meteo yok (ör. kota): 30 günlük sapma yerine iklim normaline göre sapma
+        now = datetime.now(timezone.utc)
+        for r in REGION_LIST:
+            data[r.name]["anomaly"] = climatology_anomaly(r.name, r.lon, data[r.name]["temp"], now)
+        if any(w["anomaly"] is not None for w in data.values()):
+            anomaly_kind = "climatology"
 
     if mm:
         provider, stamp = "Meteomatics", mm_stamp
-        source = f"Meteomatics · {stamp} UTC" + (" · anomali: Open-Meteo" if om else "")
+        source = f"Meteomatics · {stamp} UTC" + (" · anomali: Open-Meteo" if om else
+                                                  " · sapma: iklim normaline göre (NASA POWER)" if anomaly_kind else "")
     else:
         provider, stamp = "Open-Meteo", om_stamp
         source = f"Open-Meteo · {stamp} UTC (Meteomatics'e ulaşılamadı)"
     return {"live": True, "time": stamp, "data": data, "source": source, "provider": provider,
-            "anomaly_live": om is not None, "year": 0}
+            "anomaly_live": anomaly_kind is not None, "anomaly_kind": anomaly_kind, "year": 0}
 

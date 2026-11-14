@@ -266,3 +266,37 @@ c = data_credits()
 Kategoriler: hava (Meteomatics, Open-Meteo, ERA5) · iklim (NASA POWER, MERRA-2) · okyanus/karbon/buz (NOAA ERSST,
 NOAA GML Mauna Loa, NSIDC) · yapay zekâ (Groq) · yazılım ve harita altlığı (Natural Earth, açık kaynak kütüphaneler,
 Google Fonts). `attribution` alanı olan kaynaklarda bu metnin görünür olması kullanım koşulu gereğidir.
+
+---
+
+## Veri doğruluğu denetimi ve gerçekçi yedekler — 14.11.2026 (Backend · Msi-nb)
+
+Proje sahibinin "bazen inandırıcı olmayan değerler görünüyor" bildirimi üzerine tüm kaynaklar denetlendi.
+
+**Doğru çıkanlar:** Canlı Meteomatics verisi (50 bölgede fiziksel aralıkta ve iklim normaliyle uyumlu, ortalama
+fark 3,3 °C), 33 gerçek tema serisi ve 17 sentetik seri (aralık dışı değer yok), NASA POWER trendleri.
+
+**Sorun 1: yedek simülasyon gerçekçi değildi.** Kaynaklar düşünce gösterilen enlem formülü ay normalinden ortalama
+5,9 °C, en fazla 26,6 °C sapıyordu (Grönland'da Kasım'da −7,7 °C; normal −34 °C). Rüzgâr her yerde sabit 15 km/sa,
+nem boştu. **Düzeltme:** `climatology.py` + `snapshots/climatology.json`. 50 bölge ve 264 ızgara noktası için NASA
+POWER aylık iklim normalleri (T2M, ortalama günlük fark, rüzgâr, nem, deniz seviyesine indirgenmiş basınç) kayıtlı.
+Yedek değerler artık bu normallerden, gün içi saat dikkate alınarak üretilir. `source` alanında
+"NASA POWER iklim normali (tahmini)" yazar ve `live` False kalır. Yenilemek için:
+`.venv\Scripts\python -m data_pipelines.refresh_climatology`.
+
+**Sorun 2: Open-Meteo kotası dolunca canlı termal sapma tamamen boşalıyordu** (50 bölgede 0, ızgara 0).
+**Düzeltme:** Sapma alınamazsa iklim normaline göre sapma kullanılır (ölçülen sıcaklık − o saat ve ay için beklenen
+sıcaklık).
+
+**Yeni dönüş anahtarı: `anomaly_kind`** (`_fetch_weather`, `_fetch_grid`; canlı, geçmiş ve aralık):
+
+| Değer | Anlamı | Arayüzde önerilen etiket |
+|---|---|---|
+| `"30d"` | Günün ortalaması − önceki 30 günün ortalaması | "Önceki 30 güne göre sapma" |
+| `"climatology"` | Ölçülen sıcaklık − bu saat/ay için iklim normali (NASA POWER) | "İklim normaline göre sapma" |
+| `None` | Sapma yok (`anomaly_live=False`) | Uyarı göster |
+
+Yeni dışa aktarılanlar: `region_normals`, `normal_values`, `expected_temp`, `grid_normals`, `climatology_anomaly`.
+
+**Not:** NASA POWER da yoğun isteklerde geçici 429 döndürüyor. Uygulama çalışırken yalnızca bölge kartının trend
+isteği canlı gider (bölge başına 1 istek, 30 dk önbellek); normaller ve tema serileri diskten okunur.

@@ -53,9 +53,11 @@ CREDITS: list[dict] = [
         "id": "nasa-power", "category": "climate", "name": "NASA POWER",
         "provider": "NASA Langley Research Center (LaRC)",
         "used_for_tr": "Bölge kartlarındaki uzun vadeli sıcaklık ve yağış trendi (Mann-Kendall) ile 27 bölgenin tema "
-                       "serisi: sıcaklık, sıcaklık anomalisi, en yüksek sıcaklık, yağış, aerosol ve SPEI-3.",
+                       "serisi: sıcaklık, sıcaklık anomalisi, en yüksek sıcaklık, yağış, aerosol ve SPEI-3. Ayrıca "
+                       "aylık iklim normalleri (kaynak yokken gösterilen değerler ve iklim normaline göre sapma).",
         "used_for_en": "Long-term temperature and precipitation trends on region cards, and the theme series of 27 "
-                       "regions: temperature, anomaly, maximum temperature, precipitation, aerosol and SPEI-3.",
+                       "regions: temperature, anomaly, maximum temperature, precipitation, aerosol and SPEI-3; also "
+                       "monthly climate normals (fallback values and deviation from normal).",
         "url": "https://power.larc.nasa.gov", "license": "Açık veri (NASA)",
         "attribution": "These data were obtained from the NASA Langley Research Center (LaRC) POWER Project funded "
                        "through the NASA Earth Science/Applied Science Program.",

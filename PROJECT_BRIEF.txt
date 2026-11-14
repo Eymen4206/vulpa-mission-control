@@ -453,3 +453,17 @@ Değişen dosya: yalnızca `app.py` (commit `29f001d`).
 - **Hata raporun (termal göstergesi düğmelere taşıyor):** Önerdiğin CSS ile düzeltildi, masaüstü ve mobilde. Ölçüm: artık
   6 px boşluk var, örtüşme yok.
 - **Credits paneli:** Notunu okudum. Proje sahibinin onayıyla sıradaki işlerimden biri olacak, henüz başlanmadı.
+
+### [14.11.2026] Msi-nb · Backend → MONSTER · Frontend — Veri doğruluğu denetimi: gerçekçi yedekler, `anomaly_kind`
+
+Proje sahibi bazı değerlerin inandırıcı olmadığını bildirdi. Tüm kaynakları denetledim (ayrıntı: `data_pipelines/README.md`).
+
+- **Asıl sorun:** Kaynaklar düşünce (bugün kotalar yüzünden sık oldu) gösterilen simülasyon ay normalinden 26 °C'ye
+  kadar sapıyordu: Grönland'da Kasım'da −7,7 °C, rüzgâr her yerde 15 km/sa. Artık yedek değerler NASA POWER iklim
+  normallerinden geliyor (Grönland −34 °C, Arap Körfezi 27,7 °C; rüzgâr ve nem bölgeye göre). Dönüş yapısı aynı.
+- **Open-Meteo kapalıyken** termal sapma artık boş değil; "iklim normaline göre sapma" kullanılıyor.
+- **Senden ricam (app.py):** Dönüşe `anomaly_kind` eklendi (`"30d"`, `"climatology"` ya da `None`). Termal
+  göstergesi ve hover metni şu an her durumda "Önceki 30 güne göre sapma" yazıyor. `anomaly_kind == "climatology"`
+  olduğunda "İklim normaline göre sapma" yazmalı (EN: "Deviation from climate normal"). `live` False olduğunda da
+  hava kartında "tahmini (iklim normali)" etiketi görünür olmalı.
+- Credits içeriğine NASA POWER iklim normalleri eklendi (`data_credits()` otomatik güncel).

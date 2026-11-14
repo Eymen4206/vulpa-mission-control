@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 import numpy as np
 import streamlit as st
 
+from .climatology import grid_climatology_anomaly, grid_normals
 from .config import GRID_LATS, GRID_LONS, GRID_STEP, MM_CORE, WEATHER_TTL, hist_date
 from .weather import (
     DELTA_FIELDS, DataUnavailable, _om_get, anomaly_for, disk_load, disk_save, meteomatics_now, mm_hist,
@@ -18,9 +19,18 @@ from .weather import (
     range_source, range_year,
 )
 
-def _fallback_grid() -> dict:
-    """Ağ yoksa: genel dolaşıma dayalı, açıkça 'tahmini' etiketli kuşaksal alanlar."""
+def _fallback_grid(when: datetime | None = None) -> dict:
+    """Ağ yoksa: NASA POWER iklim normalleri (264 nokta, o ay ve saat), yoksa kuşaksal tahmini alanlar.
+    Her iki durumda da 'live': False döner; arayüz 'tahmini' etiketi göstermelidir."""
+    when = when or datetime.now(timezone.utc)
+    norm = grid_normals(when)
     la, lo = np.meshgrid(GRID_LATS, GRID_LONS, indexing="ij")
+    if norm is not None:
+        alat = np.abs(la)
+        return {"live": False, "time": when.strftime("%H:%M"), "source": "NASA POWER iklim normali (tahmini)",
+                "temp": norm["temp"], "anomaly": np.zeros_like(la), "pressure": norm["pressure"],
+                "wind": norm["wind"], "wind_dir": np.where(alat < 30, 90.0, np.where(alat < 60, 270.0, 90.0)),
+                "anomaly_live": False, "anomaly_kind": None}
     alat = np.abs(la)
     pressure = 1010 + 10 * np.exp(-((alat - 30) / 10) ** 2) - 12 * np.exp(-((alat - 60) / 8) ** 2) \
         + 3 * np.cos(np.radians(lo * 3))
@@ -109,7 +119,7 @@ def _fetch_historical_grid(year: int, month: int | None = None, day: int | None 
     ara değerlenir) önce Open-Meteo arşivinden, olmazsa Meteomatics'ten. Hepsi başarısızsa simülasyon; önbelleğe yazılmaz, RETRY_AFTER sn sonra yeniden denenir.
     """
     when = hist_date(year, month, day)
-    out = _fallback_grid()
+    out = _fallback_grid(when)
     out.update({"time": when.strftime("%d.%m.%Y %H:%M"), "year": year, "month": when.month, "day": when.day,
                 "date": when.strftime("%Y-%m-%d"), "anomaly_live": False})
     inst, anom = run_parallel((("g-inst", year, month, day), _hist_grid_instant, (year, month, day)),
@@ -121,11 +131,16 @@ def _fetch_historical_grid(year: int, month: int | None = None, day: int | None 
     out.update({"live": True, "source": provider})
     if anom is not None:
         out["anomaly"], src = anom
-        out["anomaly_live"] = True
+        out.update({"anomaly_live": True, "anomaly_kind": "30d"})
         if src != provider:
             out["source"] = f"{provider} · sapma: {src}"
     else:
-        out["source"] = f"{provider} · sapma alınamadı"
+        clim = grid_climatology_anomaly(out["temp"], when)
+        if clim is not None:
+            out.update({"anomaly": clim, "anomaly_live": True, "anomaly_kind": "climatology",
+                        "source": f"{provider} · sapma: iklim normaline göre (NASA POWER)"})
+        else:
+            out["source"] = f"{provider} · sapma alınamadı"
     return out
 
 
@@ -214,10 +229,15 @@ def _fetch_live_grid() -> dict:
             raise ValueError("sapma hesaplanamadı")
         coarse = np.where(np.isnan(coarse), np.nanmean(coarse), coarse)
         out["anomaly"] = np.round(_coarse_to_grid(coarse), 3)
-        out["anomaly_live"] = True
+        out.update({"anomaly_live": True, "anomaly_kind": "30d"})
         if "Open-Meteo" not in sources:
             sources.append("Open-Meteo (sapma)")
     except Exception:
-        out["anomaly_live"] = False
+        clim = grid_climatology_anomaly(out["temp"], datetime.now(timezone.utc)) if out.get("live") else None
+        if clim is not None:
+            out.update({"anomaly": clim, "anomaly_live": True, "anomaly_kind": "climatology"})
+            sources.append("sapma: iklim normali (NASA POWER)")
+        else:
+            out.update({"anomaly_live": False, "anomaly_kind": None})
     out["source"] = " + ".join(sources) if sources else "simülasyon"
     return out

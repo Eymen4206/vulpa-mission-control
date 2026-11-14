@@ -3912,11 +3912,15 @@ def _settings_body() -> None:
     html_block(f"<div class='set-about'><button class='vp-credits-btn vp-keys-btn' type='button'>{inline_svg('keys', 13)} "
                f"{L('Kısayollar', 'Shortcuts')} <kbd>?</kbd></button><span>{L('Klavye ve sohbet komutları', 'Keyboard & chat commands')}"
                f"</span></div>")
-    st.button(L("Jüri turunu başlat", "Start the jury tour"), key="tour_start_btn", icon=":material/slideshow:",
-              on_click=start_tour_from_settings, width="stretch",
+    # Modal bir fragment olarak çalışır; geri çağırma yalnızca modalı yeniden çizerdi. Bu yüzden tıklamada tur başlatılır
+    # ve tüm uygulama açıkça yeniden çalıştırılır (bölge, katman ve küre hedefi hemen uygulansın).
+    if st.button(L("Jüri turunu başlat", "Start the jury tour"), key="tour_start_btn", icon=":material/slideshow:",
+              width="stretch",
               help=L("≈60 sn'lik otomatik sunum: en güvenilir gerçek veri bölgeleri, katmanlar ve değer grafikleri. "
                      "Esc ile durur.",
-                     "≈60 s automatic presentation: most reliable real-data regions, layers and value charts. Esc stops it."))
+                     "≈60 s automatic presentation: most reliable real-data regions, layers and value charts. Esc stops it.")):
+        start_tour_from_settings()
+        st.rerun(scope="app")
     # Dil ya da tema değiştiyse tüm sayfa yeniden çizilir (modal açık kalır: settings_open bayrağı).
     if st.session_state.get("_applied") != (lang(), theme()):
         st.rerun()

@@ -2075,10 +2075,10 @@ def qr_png(url: str, target_px: int = 132) -> tuple[bytes, int]:
     return buffer.getvalue(), pil_image.size[0]
 
 
-def render_qr_module(expanded: bool = False) -> None:
+def render_qr_module() -> None:
+    """Mini VULPA QR'ı (Karar 6: yalnızca Ayarlar modalında; Seiron paneli ve mobil görünümde gösterilmez)."""
     url, source = live_app_url()
-    with st.expander(L("Mini VULPA · Mobil erişim", "Mini VULPA · Mobile access"), expanded=expanded,
-                     key="qr_expander"):
+    with st.container(key="qr_settings"):
         if qrcode is None:
             st.caption(L("QR modülü için `pip install qrcode pillow` gereklidir.",
                          "The QR module requires `pip install qrcode pillow`."))
@@ -2384,7 +2384,8 @@ html.vp-globe-only .st-key-globe_panel { background: transparent !important; bor
   background: color-mix(in srgb, var(--dqc) 9%, transparent); outline: none; }
 .dq b { font-weight: 700; }
 .dq-high { --dqc: #f97316; } .dq-medium { --dqc: #fbbf24; } .dq-low { --dqc: #a8a29e; }
-.dq-tip { display: none; position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; width: 270px; padding: .6rem .7rem;
+.dq-tip { display: none; position: absolute; top: calc(100% + 6px); right: 0; left: auto; z-index: 30; width: max-content;
+  max-width: min(260px, calc(100vw - 32px)); white-space: normal; overflow-wrap: anywhere; padding: .6rem .7rem;
   border-radius: 12px; background: rgba(20,17,15,.96); backdrop-filter: blur(14px); border: 1px solid var(--line-strong);
   box-shadow: 0 12px 30px rgba(0,0,0,.45); color: #e7e5e4; font-size: .72rem; line-height: 1.45; cursor: default; }
 .dq:hover .dq-tip, .dq:focus .dq-tip, .dq:focus-within .dq-tip { display: block; }
@@ -2393,6 +2394,8 @@ html.vp-globe-only .st-key-globe_panel { background: transparent !important; bor
 .dq-tip ul { margin: 0; padding: 0; list-style: none; }
 .dq-tip li { display: flex; gap: .4rem; margin: .18rem 0; }
 .dq-tip li b { flex: none; width: .9rem; }
+.dq-tip li { white-space: nowrap; }
+@media (max-width: 640px) { .dq-tip { right: auto; left: 0; } .dq-tip li { white-space: normal; } }
 .dq-tip li.ok b { color: #f97316; } .dq-tip li.no b { color: #a8a29e; } .dq-tip li.no { color: #a8a29e; }
 /* ÖNERİ #5 · Termal imleç okuması */
 .vp-readout { position: fixed; z-index: 1000; pointer-events: none; display: none; flex-direction: column; gap: .12rem;
@@ -2776,7 +2779,6 @@ def icon_css() -> str:
         f".st-key-layer_bar button:nth-of-type(2) p::before {{ {mask('thermo')} }}",
         f".st-key-layer_bar button:nth-of-type(3) p::before {{ {mask('wind')} }}",
         ".st-key-layer_bar button[aria-checked='true'] p::before { background-color: #1c1917; }",
-        f".st-key-qr_expander summary p::before {{ {before} {mask('phone')} }}",
         f"[role='tablist'] [data-testid='stTab'] p::before {{ {before} }}",
         f"[role='tablist'] [data-testid='stTab'][data-key='0'] p::before {{ {mask('globe')} }}",
         f"[role='tablist'] [data-testid='stTab'][data-key='1'] p::before {{ -webkit-mask: none; mask: none; "
@@ -3986,6 +3988,10 @@ def _settings_body() -> None:
           help=L("“Sistemi Başlat”a basınca tarayıcıda sentezlenen kısa, özgün açılış sesi (≈3 sn, düşük düzey).",
                  "A short original launch sound synthesised in the browser when you press “Launch System” (≈3 s, low "
                  "volume)."))
+    if not is_mobile():   # Karar 6 · Mini VULPA QR yalnızca masaüstünde, Ayarlar'da
+        st.markdown(f"<div class='set-sec'>{icon('phone', 16)}{L('Mini VULPA · telefonda aç', 'Mini VULPA · open on your phone')}</div>",
+                    unsafe_allow_html=True)
+        render_qr_module()
     st.markdown(f"<div class='set-sec'>{seiron_logo(18, 'st')} Seiron AI</div>", unsafe_allow_html=True)
     st.markdown(f"<div class='set-lbl'>{L('Groq API anahtarı', 'Groq API key')}</div>", unsafe_allow_html=True)
     bound(st.text_input, "groq_key_input", label="Groq API", type="password", placeholder="gsk_…",
@@ -4708,9 +4714,6 @@ def render_seiron(city: str, mobile: bool = False) -> None:
         <div class="seiron-name">{seiron_logo(28, "hd")}<span>Seiron</span></div>
         <div class="seiron-mode">{(L('Groq destekli', 'Groq-powered') if key else L('Yerel analiz motoru', 'Local analysis engine'))} · {L('iklim, hava ve ekosistem uzmanı', 'climate, weather & ecosystem expert')}</div>
         """)
-        if not mobile:
-            render_qr_module()
-
         box = st.container(key="seiron_msgs", border=False, height=430 if mobile else "content")
         with box:
             render_messages(history)
@@ -4795,8 +4798,10 @@ def quality_chip(city: str, wx: dict, pw: dict) -> str:
     level = q.get("level", "low")
     names = {"high": L("yüksek", "high"), "medium": L("orta", "medium"), "low": L("düşük", "low")}
     rows = "".join(
-        f"<li class='{'ok' if c.get('ok') else 'no'}'><b>{'✓' if c.get('ok') else '✗'}</b>"
-        f"{html.escape(c.get('text_en' if en else 'text_tr', ''))}</li>" for c in q.get("checks", []))
+        f"<li class='{'ok' if c.get('ok') else 'no'}' title=\"{html.escape(c.get('text_en' if en else 'text_tr', ''), quote=True)}\">"
+        f"<b>{'✓' if c.get('ok') else '✗'}</b>"
+        f"{html.escape(c.get('short_en' if en else 'short_tr') or c.get('text_en' if en else 'text_tr', ''))}</li>"
+        for c in q.get("checks", []))
     return (f"<span class='dq dq-{level}' tabindex='0' role='note' "
             f"aria-label='{L('Veri güveni', 'Data confidence')}: {names.get(level, level)} ({q.get('score', 0)}/100)'>"
             f"{inline_svg('shield', 12)}{L('Veri güveni', 'Data confidence')}: <b>{names.get(level, level)}</b>"
@@ -5062,7 +5067,6 @@ def render_mobile() -> None:
     with tab_data:
         with st.container(key="m_card"):
             city_details(city)
-        render_qr_module(expanded=True)
     chat_autoscroll()
     render_settings()
     render_metric_dialog(city)

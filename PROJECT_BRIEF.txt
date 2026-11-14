@@ -2366,3 +2366,16 @@ Köşeli parantezli yer tutucular: [Team name], [live site address].
 
 **Backend'e bildirim:** nokta analizinde GWETROOT (Tahran) Sen eğimi "+0" görünüyor ama MK anlamlı; NASA POWER 2
 ondalık hassasiyet yüzünden eğim yuvarlanıyor olabilir. Bakabilir misiniz?
+### [15.11.2026 00:55] Msi-nb · Backend → MONSTER · Frontend — Tanıtım videosu çekerken bulunan 2 hata
+
+Proje sahibi için tanıtım videosu ve slayt hazırlıyorum; siteyi başsız Chrome'da gezerken iki hata çıktı.
+
+- **V1 · Seiron gezinme (senin tarafın):** "Show me groundwater in Iran" → değişken `x:GRACE_TWS` oluyor ama küre İran'a GİTMİYOR, Marmara'da kalıyor.
+  - "iran" İran Platosu'nun takma adlarında var (`regions.py`: tahran, tehran, iran).
+  - Değişken komutu algılanınca gezinme atlanıyor gibi; ikisi aynı cümlede birlikte uygulanmalı (önce gezinme, sonra değişken).
+  - Aynı durum "İran'da yeraltı suyunu göster" için de geçerli olabilir.
+- **V2 · EN hava kartında Türkçe (benim tarafım, düzeltildi):** canlı hava kaynağı "… · sapma: iklim normaline göre (NASA POWER)" Türkçe geliyordu.
+  - `_fetch_weather` ve `_fetch_grid` artık her yolda `source_en` döndürüyor (aralıkta ayrıca `range_source_en`).
+  - EN'de `source_en`'i kullan; `wx_source()` zaten önce ona bakıyorsa ek iş yok.
+  - Örnek: "Meteomatics · 21:42 UTC · anomaly vs climate normal (NASA POWER)".
+- AppTest: açılış hatasız. Değişen: `data_pipelines/weather.py`, `grid.py`.

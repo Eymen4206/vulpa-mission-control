@@ -500,8 +500,49 @@ def _fetch_weather(start_year: int = 0, end_year: int | None = None, month: int 
       `temp_delta`, `pressure_delta`, `wind_delta` (bitiş − başlangıç) ve `*_start` değerleri.
     """
     if end_year is None:
-        return _fetch_historical_weather(start_year, month, day) if start_year else _fetch_live_weather()
-    return _fetch_weather_range(int(start_year), int(end_year), month, day)
+        out = _fetch_historical_weather(start_year, month, day) if start_year else _fetch_live_weather()
+    else:
+        out = _fetch_weather_range(int(start_year), int(end_year), month, day)
+    return with_source_en(out)
+
+
+_SOURCE_EN = (   # uzun ifadeler önce
+    ("Veri kaynağına ulaşılamadı", "Data source unreachable"),
+    ("NASA POWER iklim normali (tahmini)", "NASA POWER climate normal (estimated)"),
+    ("iklim normali (tahmini)", "climate normal (estimated)"),
+    ("sapma: iklim normaline göre", "anomaly vs climate normal"),
+    ("iklim normaline göre", "vs climate normal"),
+    ("sapma alınamadı", "anomaly unavailable"),
+    ("(Meteomatics'e ulaşılamadı)", "(Meteomatics unreachable)"),
+    ("verisine ulaşılamadı", "data unreachable"),
+    ("mevsimsel simülasyon", "seasonal simulation"),
+    ("yılı simülasyon (tahmini)", "simulated (estimated)"),
+    ("Simülasyon (tahmini)", "Simulation (estimated)"),
+    ("simülasyon", "simulation"),
+    ("sene ortalaması", "year average"),
+    ("anomali:", "anomaly:"),
+    ("sapma:", "anomaly:"),
+    ("arşiv", "archive"),
+)
+
+
+def source_to_en(text: str) -> str:
+    """Kaynak satırının İngilizce karşılığı (EN arayüz için)."""
+    out = text or ""
+    for tr, en in _SOURCE_EN:
+        out = out.replace(tr, en)
+    return out
+
+
+def with_source_en(d: dict) -> dict:
+    """Dönüş sözlüğüne `source_en` (ve varsa `range_source_en`) ekler; önbellekteki nesneyi değiştirmemek için kopyalar."""
+    if not isinstance(d, dict):
+        return d
+    d = dict(d)
+    d.setdefault("source_en", source_to_en(d.get("source", "")))
+    if d.get("range_source"):
+        d.setdefault("range_source_en", source_to_en(d["range_source"]))
+    return d
 
 
 DELTA_FIELDS = ("temp", "pressure", "wind")   # sıcaklık (°C), deniz seviyesi basıncı (hPa), rüzgâr (km/sa)

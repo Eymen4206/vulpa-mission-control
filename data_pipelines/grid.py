@@ -153,8 +153,11 @@ def _fetch_grid(start_year: int = 0, end_year: int | None = None, month: int | N
       `pressure_delta`, `wind_delta` (bitiş − başlangıç, numpy 11×24).
     """
     if end_year is None:
-        return _fetch_historical_grid(start_year, month, day) if start_year else _fetch_live_grid()
-    return _fetch_grid_range(int(start_year), int(end_year), month, day)
+        out = _fetch_historical_grid(start_year, month, day) if start_year else _fetch_live_grid()
+    else:
+        out = _fetch_grid_range(int(start_year), int(end_year), month, day)
+    from .weather import with_source_en
+    return with_source_en(out)
 
 
 def _fetch_grid_range(start_year: int, end_year: int, month: int | None = None, day: int | None = None) -> dict:

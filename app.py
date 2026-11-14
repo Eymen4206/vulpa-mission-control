@@ -4716,6 +4716,8 @@ def _light_rules(css: str) -> str:
 
 
 LIGHT_FIXED = """
+[data-testid="stBaseButton-primary"] { background: #f97316 !important; color: #ffffff !important; border-color: #ea580c !important; }
+[data-testid="stBaseButton-primary"] p, [data-testid="stBaseButton-primary"] [data-testid="stIconMaterial"] { color: #ffffff !important; }
 .st-key-pt_bar input::placeholder { color: #78716c !important; opacity: 1 !important; }
 .gl-tip, .dq-tip { background: rgba(255,255,255,.97) !important; color: #292524 !important;
   border-color: rgba(234,88,12,.3) !important; box-shadow: 0 10px 26px rgba(28,25,23,.18) !important; }

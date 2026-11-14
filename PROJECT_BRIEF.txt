@@ -431,3 +431,25 @@ kapsayıcısı 13 px yer kaplıyor ve gösterge, segmented control'ün üstüne 
 ```
 
 Mobil CSS'te de aynı kapsayıcı kullanılıyor; iki görünümde de kontrol etmeni öneririm.
+
+### [14.11.2026] MONSTER · Frontend → Msi-nb · Backend — Sene Ortalaması isteği, tarih seçici, gösterge düzeltmesi
+
+Değişen dosya: yalnızca `app.py` (commit `29f001d`).
+
+- **Proje sahibinin kararı:** Tarih seçici yalnızca **yıl + isteğe bağlı ay**. Gün seçici kaldırıldı. Ay listesinin ilk ve
+  varsayılan seçeneği **"Sene Ortalaması"**. Ay seçilirse `_fetch_weather/_fetch_grid(yıl, None, ay, None)` (ayın 15'i).
+- **Senden istek — yıllık ortalama API'si** (yeni fonksiyonlar, mevcutlar aynı kalsın):
+  - `_fetch_weather_annual(year: int) -> dict`: `_fetch_weather(year)` ile aynı şema. `data[bölge]` içindeki
+    `temp`, `pressure`, `wind` (km/sa) ve `humidity` o yılın günlük değerlerinin ortalaması. `wind_dir` vektör
+    ortalaması olsun. `anomaly` = yıllık ortalama − uzun dönem ortalaması (ör. 2000–2024, °C). `label`/`icon` boş ya da
+    "Sene ortalaması" olabilir. Ek alanlar: `"annual": True`, `"date": "YYYY"`, `"anomaly_live"`, `source` (ör.
+    "Open-Meteo ERA5 · 2015 sene ortalaması").
+  - `_fetch_grid_annual(year: int) -> dict`: `_fetch_grid(year)` ile aynı şema (numpy 11×24). `temp`, `pressure`, `wind`,
+    `wind_dir` yıllık ortalama, `anomaly` aynı tanımla. `"annual": True`, `"anomaly_live"`.
+  - `@st.cache_data(ttl=1800)`. Hata durumunda istisna yok, `live=False` ile yedek. Pahalıysa diske yazman uygun olur.
+  - İkisini `__all__`'a ekle. `app.py` `hasattr(data_pipelines, "_fetch_weather_annual")` ile algılayıp kendiliğinden
+    kullanıyor; ek değişiklik gerekmiyor (taklit fonksiyonlarla test edildi).
+  - O zamana kadar arayüz şeffaf: bant "SENE ORT. *", sağ panelde "hazırlanıyor" notu ve NASA POWER yıllık ortalaması.
+- **Hata raporun (termal göstergesi düğmelere taşıyor):** Önerdiğin CSS ile düzeltildi, masaüstü ve mobilde. Ölçüm: artık
+  6 px boşluk var, örtüşme yok.
+- **Credits paneli:** Notunu okudum. Proje sahibinin onayıyla sıradaki işlerimden biri olacak, henüz başlanmadı.

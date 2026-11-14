@@ -57,6 +57,7 @@ except ImportError:  # QR modülü isteğe bağlıdır; yoksa kurulum notu göst
 
 # Veri katmanı (Backend asistanının alanı): API'ler, önbellek, bölge veritabanı ve istatistik.
 # Frontend bu modülleri yalnızca içe aktarır; ayrıntılar için data_pipelines/README.md.
+import data_pipelines as _dp  # noqa: E402  (isteğe bağlı API'lerin varlığını denetlemek için)
 from data_pipelines import (  # noqa: E402
     CITY_NAMES, END, GRID_LATS, GRID_LONS, LAST_FULL_YEAR, PERIOD, POWER_SPAN, PROJECTION_MONTHS, REGION_LIST,
     REGIONS, START, WEATHER_TTL, Region, _fetch_grid, _fetch_power, _fetch_weather, analyze, build_series,
@@ -120,7 +121,19 @@ def sel_year() -> int:
     return value if value in YEAR_OPTIONS else 0
 
 
-MONTH_OPTIONS = list(range(0, 13))   # 0 = bugünün takvim günü (eski davranış) · 1–12 = ay
+MONTH_OPTIONS = list(range(0, 13))   # 0 = Sene Ortalaması (varsayılan) · 1–12 = ay (ayın 15'i)
+
+
+def annual_api() -> bool:
+    """Backend yıllık ortalama API'sini sağlıyor mu? (PROJECT_BRIEF §7'de istendi: _fetch_weather_annual /
+    _fetch_grid_annual). Sağlanana dek Sene Ortalaması seçiliyken katmanlar geçici olarak tek günü gösterir."""
+    return hasattr(_dp, "_fetch_weather_annual") and hasattr(_dp, "_fetch_grid_annual")
+
+
+def is_annual() -> bool:
+    """Geçmiş bir yıl seçili ve ay seçilmemiş (Sene Ortalaması)."""
+    year, month, _ = sel_date()
+    return bool(year and not month)
 
 
 def days_in(year: int, month: int) -> int:
@@ -136,12 +149,9 @@ def sel_date() -> tuple[int, int | None, int | None]:
         return 0, None, None
     try:
         month = int(st.session_state.get("month", 0) or 0)
-        day = int(st.session_state.get("day", 0) or 0)
     except Exception:
-        month, day = 0, 0
-    if not 1 <= month <= 12:
-        return year, None, None
-    return year, month, (day if 1 <= day <= days_in(year, month) else None)
+        month = 0
+    return (year, month, None) if 1 <= month <= 12 else (year, None, None)
 
 
 def refusal() -> str:
@@ -798,6 +808,9 @@ def when_text(meta: dict) -> str:
 
 def sel_date_text() -> str:
     """Seçili arşiv tarihinin okunur hali (GG.AA.YYYY); veri katmanının gerçekten kullandığı tarih."""
+    if is_annual():
+        return f"{sel_year()} " + ("sene ortalaması" if annual_api() else
+                                   "sene ortalaması (hazırlanıyor; katmanlarda geçici olarak bugünkü takvim günü)")
     date = str(fetch_weather().get("date") or "")
     return f"{date[8:10]}.{date[5:7]}.{date[:4]}" if len(date) == 10 else str(sel_year())
 
@@ -805,6 +818,8 @@ def sel_date_text() -> str:
 def fetch_weather() -> dict:
     """Seçili zamana (canlı ya da arşiv tarihi) ait 50 bölge verisi."""
     year, month, day = sel_date()
+    if year and not month and annual_api():
+        return _dp._fetch_weather_annual(year)
     return _fetch_weather(year, None, month, day) if year else _fetch_weather(0)
 
 
@@ -942,6 +957,8 @@ def _smooth_sample(field: np.ndarray, lats: np.ndarray, lons: np.ndarray) -> np.
 
 def fetch_grid() -> dict:
     year, month, day = sel_date()
+    if year and not month and annual_api():
+        return _dp._fetch_grid_annual(year)
     return _fetch_grid(year, None, month, day) if year else _fetch_grid(0)
 
 
@@ -990,13 +1007,18 @@ def current_grid() -> tuple[dict, dict]:
     """(ızgara meta verisi, katman dizileri) — seçili zamana göre."""
     year, month, day = sel_date()
     g = fetch_grid()
-    return g, grid_layers(year, f"{g['time']}|{int(g['live'])}|{int(g.get('anomaly_live', True))}", month, day)
+    annual = bool(year and not month and annual_api())
+    return g, grid_layers(year, f"{g['time']}|{int(g['live'])}|{int(g.get('anomaly_live', True))}", month, day, annual)
 
 
 @st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
-def grid_layers(year: int, stamp: str, month: int | None = None, day: int | None = None) -> dict:
+def grid_layers(year: int, stamp: str, month: int | None = None, day: int | None = None,
+                annual: bool = False) -> dict:
     """Izgara verisini katman dizilerine dönüştürür (önbellek, tarih ve veri zamanına bağlı)."""
-    g = _fetch_grid(year, None, month, day) if year else _fetch_grid(0)
+    if annual:
+        g = _dp._fetch_grid_annual(year)
+    else:
+        g = _fetch_grid(year, None, month, day) if year else _fetch_grid(0)
     # 1) Termal gradyan alanı: son 30 güne göre sapma, ~7.5° aralıkla ara değerlenmiş.
     #    Küre üzerinde eşit yoğunluk için boylam aralığı enlemle genişler (kutuplarda noktalar sıkışmasın);
     #    noktalar CSS bulanıklığıyla birleşerek pürüzsüz bir gradyan oluşturur.
@@ -2147,6 +2169,9 @@ div:has(> .st-key-fx_redirect) {
   white-space: nowrap; max-width: 600px; overflow: hidden; }
 .legend-bar span { color: #e7e5e4; }
 .legend-bar.legend-warn { white-space: normal; border-color: rgba(251,191,36,.55); }
+.annual-note { font-size: .7rem; line-height: 1.5; color: #fde68a; background: rgba(251,191,36,.08);
+  border: 1px solid rgba(251,191,36,.35); border-radius: 10px; padding: .35rem .55rem; margin: .35rem 0; }
+.annual-note b { color: #fff7ed; }
 .legend-bar.legend-warn span, .legend-bar.legend-warn em { color: var(--amber, #fbbf24); }
 .legend-bar i { width: 84px; height: 6px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
 .legend-bar em { font-style: normal; overflow: hidden; text-overflow: ellipsis; }
@@ -2269,6 +2294,7 @@ div:has(> .st-key-layer_bar) { position: static !important; }
   width: max-content !important; max-width: 92%; height: auto !important; flex: none !important;
   display: flex; flex-direction: column; align-items: center; gap: .35rem !important; }
 .st-key-layer_bar [data-testid="stElementContainer"] { width: auto !important; }
+.st-key-layer_bar [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }   /* gösterge düğmelere taşmasın */
 .globe-ctl button { font: 500 .74rem 'Inter', sans-serif; color: #fed7aa; cursor: pointer; padding: .32rem .8rem;
   border-radius: 999px; border: 1px solid rgba(249,115,22,.4); background: rgba(28,25,23,.82); transition: all .2s ease; }
 .globe-ctl button:hover { background: rgba(249,115,22,.2); color: #fff; box-shadow: 0 0 16px rgba(249,115,22,.3); }
@@ -2347,6 +2373,8 @@ div:has(> .stHtml .globe-ctl), .stHtml:has(.globe-ctl) { position: static !impor
 .globe-hint { display: none; }
 .st-key-layer_bar { margin-top: .5rem; display: flex; flex-direction: column; align-items: center; gap: .35rem !important; }
 .st-key-layer_bar .legend-bar { max-width: 100%; white-space: normal; border-radius: 12px; }
+/* Streamlit'in varsayılan margin-bottom: -16px'i göstergeyi katman düğmelerinin üstüne 10 px taşırıyordu */
+.st-key-layer_bar [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
 .st-key-layer_bar [data-testid="stButtonGroup"] { border-radius: 16px; justify-content: center; }
 .st-key-layer_bar button { padding: .26rem .5rem !important; min-height: 1.8rem !important; }
 .st-key-layer_bar button p { font-size: .7rem !important; }
@@ -3105,6 +3133,9 @@ def ticker_html() -> str:
 
 def time_label(wx: dict) -> str:
     """Bant etiketi: CANLI · SS:DD UTC / ARŞİV · GG.AA.YYYY / TAHMİNİ."""
+    if wx.get("year") and is_annual():
+        return (L("ARŞİV · ", "ARCHIVE · ") + f"{sel_year()} · " + L("SENE ORT.", "YEAR AVG.")
+                + ("" if annual_api() else " *") + ("" if wx["live"] else L(" · TAHMİNİ", " · EST.")))
     if wx.get("year"):
         return L("ARŞİV · ", "ARCHIVE · ") + wx["time"][:10] + ("" if wx["live"] else L(" · TAHMİNİ", " · EST."))
     return (L("CANLI · ", "LIVE · ") + f"{wx['time']} UTC") if wx["live"] else L("TAHMİNİ", "ESTIMATED")
@@ -3122,54 +3153,36 @@ def render_lang_control() -> None:
 
 def month_label(m: int) -> str:
     if m == 0:
-        return L("📅 Bugün", "📅 Today")
+        return L("📅 Sene Ortalaması", "📅 Year average")
     return (MONTHS_EN if lang() == "en" else MONTHS_TR)[m - 1][:3]
 
 
-def day_label(d: int) -> str:
-    return L("Ay ortası", "Mid-month") if d == 0 else str(d)
-
-
 def render_year_control() -> None:
-    """Zamanda yolculuk: canlı veri ya da son 20 yılın bir tarihi (yıl · isteğe bağlı ay · isteğe bağlı gün)."""
+    """Zamanda yolculuk: canlı veri ya da son 20 yılın bir tarihi (yıl · isteğe bağlı ay)."""
     st.selectbox(L("Yıl", "Year"), YEAR_OPTIONS, key="year", format_func=year_label, label_visibility="collapsed",
                  help=L("Geçmiş bir yıl seçildiğinde hava, termal ve basınç katmanları o tarihe (12:00 UTC) ait arşiv "
                         "verisiyle, uzun vadeli trend ise o yılla biten 20 yıllık NASA POWER verisiyle yeniden "
-                        "hesaplanır. Ay seçilmezse o yılın bugünkü takvim günü, ay seçilip gün seçilmezse ayın 15'i "
-                        "kullanılır.",
+                        "hesaplanır. Ay seçilmezse sene ortalaması, seçilirse o ayın ortası (15'i) kullanılır.",
                         "Choosing a past year reloads weather, thermal and pressure layers with archive data for that "
                         "date (12:00 UTC) and recomputes the long-term trend from the 20 years of NASA POWER data ending "
-                        "that year. Without a month, today's calendar date in that year is used; with a month but no "
-                        "day, the 15th."))
+                        "that year. Without a month the year average is shown; with a month, the middle of that month "
+                        "(the 15th)."))
     year = sel_year()
     if not year:
         return
     st.selectbox(L("Ay", "Month"), MONTH_OPTIONS, key="month", format_func=month_label, label_visibility="collapsed")
-    month = int(st.session_state.get("month", 0) or 0)
-    if month:   # gün yalnızca bir ay seçiliyken anlamlıdır
-        st.selectbox(L("Gün", "Day"), [0] + list(range(1, days_in(year, month) + 1)), key="day",
-                     format_func=day_label, label_visibility="collapsed")
 
 
 def normalize_date_state() -> None:
-    """Ay/gün durumunu widget'lar çizilmeden önce geçerli tutar (ör. 31 Ocak → Şubat seçilince 28/29)."""
+    """Ay durumunu widget'lar çizilmeden önce geçerli tutar."""
     if st.session_state.get("month") not in MONTH_OPTIONS:
         st.session_state["month"] = 0
-    month, year = st.session_state["month"], sel_year()
-    try:
-        day = int(st.session_state.get("day", 0) or 0)
-    except Exception:
-        day = 0
-    if not month:
-        day = 0
-    st.session_state["day"] = min(max(day, 0), days_in(year, month)) if month else 0
 
 
 def render_topbar() -> None:
     with st.container(key="topbar"):
         # Geçmiş bir yılda ay/gün seçicileri de görünür: tarih sütunu genişler, bant (ticker) daralır.
-        has_month = bool(sel_year() and st.session_state.get("month"))
-        widths = ([1.3, 2.5, 1.3, 2.3, 0.62] if has_month else [1.3, 3.0, 1.3, 1.52, 0.62]) if sel_year()             else [1.3, 4.1, 1.3, 0.72, 0.62]
+        widths = [1.3, 3.0, 1.3, 1.52, 0.62] if sel_year() else [1.3, 4.1, 1.3, 0.72, 0.62]
         c1, c2, c3, c4, c5 = st.columns(widths, vertical_alignment="center", gap="small")
         with c1:
             html_block(f"""
@@ -3396,6 +3409,15 @@ def city_details(city: str) -> None:
     if w.get("anomaly") is not None:
         wx_meta.append(L(f"30 gün sapması {w['anomaly']:+.1f} °C", f"30-day dev. {w['anomaly']:+.1f} °C"))
     wx_kind = L("Arşiv hava", "Archive weather") if hist else L("Anlık hava", "Current weather")
+    annual_note = ""
+    if hist and is_annual() and not annual_api():   # Sene Ortalaması: veri katmanı henüz yıllık API sunmuyor
+        annual_note = (f"<div class='annual-note'>* {L('Sene ortalaması veri katmanında hazırlanıyor. Hava ve harita '
+                       'katmanları şimdilik', 'The year average is being prepared in the data layer. For now, the weather '
+                       'and map layers show')} {html.escape(wx['time'][:10])}"
+                       f"{L(' gününü gösteriyor. Yıllık ortalama sıcaklık (NASA POWER):', '. Annual mean temperature (NASA POWER):')} "
+                       f"<b>{fetch_power(city)['last_t']:.1f} °C</b></div>")
+    elif hist and is_annual():
+        wx_kind = L("Sene ortalaması", "Year average")
     chip = (f"<span class='hist-chip'>⏱ {L('ZAMANDA YOLCULUK', 'TIME TRAVEL')} · {wx['time'][:10]}</span>"
             if hist else "")
     pw = fetch_power(city)
@@ -3408,6 +3430,7 @@ def city_details(city: str) -> None:
     <div class="city-name">{html.escape(rname(city))}<span class="city-country">{html.escape(rarea(spec))}</span></div>
     <div class="city-theme">{html.escape(rtheme(spec))} {chip}</div>
     <div class="badge" style="--c:{c}"><i></i>{status_label(status)}</div>
+    {annual_note}
     <div class="wx"><div class="ic">{w['icon']}</div><div class="t">{w['temp']:.1f}°C</div>
       <div class="d">{html.escape(wlabel(w))}{' · ' + ' · '.join(wx_meta) if wx_meta else ''}<br><span>{wx_kind} · {html.escape(wx['source'])}</span></div></div>
     <div class="facts">
@@ -3488,7 +3511,7 @@ def preload_time_data() -> None:
     year, month, day = sel_date()
     if not year or st.session_state.get("_loaded_date") == (year, month, day):
         return
-    when = (f"{day or 15:02d}.{month:02d}.{year}" if month else str(year))
+    when = f"{month_label(month)} {year}" if month else L(f"{year} sene ortalaması", f"{year} year average")
     with st.container(key="loading_overlay"), st.spinner(L(f"{when} arşiv verisi yükleniyor…",
                                                            f"Loading archive data for {when}…")):
         fetch_weather()

@@ -83,21 +83,26 @@ def _series_chart(region: str, metric: str) -> dict:
         pdf = np.exp(-xs ** 2 / 2) / math.sqrt(2 * math.pi)
         crit = 1.959964
         tail = np.where(np.abs(xs) >= abs(z), pdf, 0.0)
+        tiny = float(r["p"]) < 1e-3   # alan gözle görülmeyecek kadar küçük: açıklamada belirtilir
         return {**base, "kind": "density", "value": float(r["p"]), "unit": "",
                 "title_tr": "p-değeri · test istatistiği z", "title_en": "p-value · test statistic z",
                 "x_label_tr": "z", "x_label_en": "z", "y_label_tr": "Olasılık yoğunluğu", "y_label_en": "Probability density",
                 "traces": [{"name_tr": "Eğilim yoksa beklenen dağılım", "name_en": "Expected if no trend",
                             "x": xs.round(3).tolist(), "y": pdf.round(5).tolist(), "style": "line"},
                            {"name_tr": f"p = {r['p']:.4f} (iki taraflı alan)", "name_en": f"p = {r['p']:.4f} (two-sided area)",
-                            "x": xs.round(3).tolist(), "y": tail.round(5).tolist(), "style": "area"}],
+                            "x": xs.round(3).tolist(), "y": [float(f"{v:.4g}") for v in tail], "style": "area"}],
                 "marks": [{"axis": "x", "value": round(z, 3), "label_tr": f"z = {z:+.2f}", "label_en": f"z = {z:+.2f}"},
                           {"axis": "x", "value": crit, "label_tr": f"α = {ALPHA} sınırı", "label_en": f"α = {ALPHA} limit"},
                           {"axis": "x", "value": -crit, "label_tr": "", "label_en": ""}],
                 "explain_tr": ("Gri eğri, gerçekte hiçbir eğilim olmasaydı z'nin dağılımıdır. Gölgeli alan p-değeridir: "
-                               f"bu kadar güçlü bir eğilimin rastlantıyla çıkma olasılığı. ±1,96 dışı (p < {ALPHA}) anlamlıdır."),
+                               f"bu kadar güçlü bir eğilimin rastlantıyla çıkma olasılığı. ±1,96 dışı (p < {ALPHA}) anlamlıdır."
+                               + (f" Burada z = {z:+.2f}: alan gözle görülmeyecek kadar küçük, yani eğilimin "
+                                  "rastlantı olması çok düşük olasılık." if tiny else "")),
                 "explain_en": ("The curve is the distribution of z if there were no trend at all. The shaded area is the "
                                "p-value: the chance of a trend this strong arising by chance. Beyond ±1.96 "
-                               f"(p < {ALPHA}) is significant.")}
+                               f"(p < {ALPHA}) is significant."
+                               + (f" Here z = {z:+.2f}: the area is too small to see, i.e. the trend is very unlikely "
+                                  "to be chance." if tiny else ""))}
 
     # slope: yıllık ortalamalar + Sen doğrusu + 2034 projeksiyonu
     n = len(values)

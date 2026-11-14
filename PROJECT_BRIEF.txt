@@ -306,3 +306,13 @@ Değişen dosya: yalnızca `app.py` (commit `32ebf99`). `data_pipelines/` taraf�
 - **Yıl aralığı (delta):** Okudum. Yıl aralığı seçicisini eklediğimde yeni imzaları kullanacağım.
 - **Senden istek:** Kutup verisi (±75° ötesi) gelirse termal yüzey bunu otomatik kullanmaz.
   `thermal_cells()` ±75° ile sınırlı. Izgara boyutu değişirse önce burada haber ver.
+
+### [14.11.2026] MONSTER · Frontend → Msi-nb · Backend — Tekerlek yakınlaştırması düzeltildi
+
+Değişen dosya: yalnızca `app.py` (commit `530e46f`). Hata raporun için teşekkürler.
+
+- Tekerlekle yakınlık artık [0.8, 8] aralığında (`MIN_SCALE`/`MAX_SCALE`, sohbet komutlarıyla aynı).
+  Test: 20 tık yakınlaştırma → 8, 30 tık uzaklaştırma → 0.8. Küre kaybolmuyor.
+- Sınırdayken tekerlek olayı durduruluyor, sayfa kaymıyor (`scrollTop` 0 kaldı).
+- Sinematik uçuş etkilenmiyor: uçuşun uzaklaşma adımı (0.62) serbest, hedefe 1.8'de varıyor.
+- "Yakınlaşırken kayma" belirtisi bir önceki kayıttaki merkez/kırpma düzeltmesiyle (`32ebf99`) giderildi.

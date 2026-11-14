@@ -68,7 +68,7 @@ _DP_NEEDED = ("CITY_NAMES", "END", "GRID_LATS", "GRID_LONS", "LAST_FULL_YEAR", "
               "_fetch_power", "_fetch_weather", "analyze", "build_series", "REAL_SOURCES", "series_meta", "data_credits",
               "parse_ui_command", "switch_message", "time_text", "metric_chart", "ALLOWED_ACTIONS", "METRICS",
               "sonify", "fetch_events", "EVENT_TYPES", "data_quality",
-              "showcase_regions")
+              "showcase_regions", "global_annual_anomaly", "year_extremes", "compare_regions")
 if not all(hasattr(_dp, _n) for _n in _DP_NEEDED):
     for _m in [m for m in sys.modules if m == "data_pipelines" or m.startswith("data_pipelines.")]:
         del sys.modules[_m]
@@ -78,7 +78,7 @@ from data_pipelines import (  # noqa: E402
     REGIONS, START, WEATHER_TTL, Region, _fetch_grid, _fetch_power, _fetch_weather, analyze, build_series,
     REAL_SOURCES, series_meta, data_credits,
     parse_ui_command, switch_message, time_text, metric_chart, sonify, fetch_events, data_quality,
-    showcase_regions,
+    showcase_regions, year_extremes, compare_regions,
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2342,7 +2342,18 @@ div[role="dialog"]:has(.set-sec) { background: rgba(20,17,15,.92); backdrop-filt
   linear-gradient(to top, var(--orange) 0 100%) center bottom / 2px 100% no-repeat,
   linear-gradient(to top, var(--orange) 0 100%) right bottom / 2px 70% no-repeat; transition: opacity .18s; }
 .fact.clk:hover::after, .pw-main.clk:hover::after { opacity: 1; }
-.st-key-metric_btns { display: none !important; }
+.st-key-metric_btns, .st-key-yx_btns { display: none !important; }
+.vp-gchip { display: inline-flex; align-items: center; gap: .3rem; margin-left: .5rem; padding: .1rem .5rem; border-radius: 999px;
+  border: 1px solid var(--line-strong); background: rgba(249,115,22,.08); color: var(--orange); cursor: pointer;
+  font: 600 .62rem 'Inter', sans-serif; letter-spacing: .03em; text-transform: none; vertical-align: middle; }
+.vp-gchip:hover, .vp-gchip:focus-visible { background: rgba(249,115,22,.18); box-shadow: 0 0 12px rgba(249,115,22,.3); outline: none; }
+.yx { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; margin-top: .55rem; font-size: .7rem; color: #d6d3d1; }
+.yx-k { color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-size: .62rem; margin-right: .1rem; }
+.yx-n { background: rgba(249,115,22,.08); border: 1px solid rgba(249,115,22,.22); color: #e7e5e4; border-radius: 999px;
+  padding: .08rem .45rem; font: 500 .68rem 'Inter', sans-serif; cursor: pointer; }
+.yx-n b { color: var(--orange); font-weight: 600; }
+.yx-n:hover, .yx-n:focus-visible { border-color: var(--orange); outline: none; }
+.yx-s { flex-basis: 100%; color: var(--muted); font-size: .64rem; }
 /* ÖNERİ #3 · Veri güveni rozeti */
 .badge-row { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; }
 .dq { position: relative; display: inline-flex; align-items: center; gap: .3rem; margin-top: .6rem; font-size: .7rem;
@@ -2688,6 +2699,9 @@ _SVG_ICONS = {
     "keys": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' "
             "stroke-width='2' stroke-linejoin='miter'><path d='M2 6h20v12H2Z'/><path d='M6 10h1M10 10h1M14 10h1M18 10h0"
             "M7 14h10'/></svg>",
+    "globe2": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' "
+              "stroke-width='2' stroke-linejoin='miter'><path d='M8.5 3h7L21 8.5v7L15.5 21h-7L3 15.5v-7Z'/>"
+              "<path d='M3 12h18M12 3c-3 3-3 15 0 18M12 3c3 3 3 15 0 18'/></svg>",
     "wave": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' "
             "stroke-width='2.2' stroke-linejoin='miter' stroke-linecap='square'><path d='M2 12h3l2-6 3 12 3-9 2 6 "
             "2-3h5'/></svg>",
@@ -3063,6 +3077,12 @@ GLOBE_CONTROLLER_JS = """
     document.addEventListener("click", function(e) {
       const t = e.target;
       // Sağ paneldeki değer kutuları: tıklanınca gizli Streamlit düğmesine basılır, grafik penceresi açılır.
+      const dc = t.closest && t.closest("[data-click]");
+      if (dc) {
+        const b = document.querySelector(".st-key-" + dc.getAttribute("data-click") + " button");
+        if (b) { e.preventDefault(); b.click(); }
+        return;
+      }
       const son = t.closest && t.closest(".vp-sonify");
       if (son) { e.preventDefault(); playTrend(son); return; }
       const fact = t.closest && t.closest("[data-metric]");
@@ -3928,7 +3948,7 @@ def _settings_body() -> None:
         st.rerun()
 
 
-METRIC_KEYS = ("tau", "p", "slope", "power_t")
+METRIC_KEYS = ("tau", "p", "slope", "power_t", "global")
 
 # ── ÖNERİ #4 · Jüri turu: ≈60 sn'lik otomatik sunum ─────────────────────────────────────────────────────────
 # Duraklar data_quality "high" ve gerçek veri bölgelerinden seçilir (Backend'in isteği). Her durak 3 adım (TOUR_TICK
@@ -4089,6 +4109,8 @@ def close_metric() -> None:
 
 def metric_data(city: str, metric: str) -> dict | None:
     try:
+        if metric == "global":   # ÖNERİ #8 · küresel yıllık sapma (bölgeden bağımsız)
+            return metric_chart(None, "global")
         return metric_chart(city, metric, *power_window()) if metric == "power_t" else metric_chart(city, metric)
     except Exception:
         return None
@@ -4148,8 +4170,9 @@ def _metric_body(city: str, metric: str) -> None:
         st.caption(L("Bu değer için grafik verisi şu an alınamadı.", "Chart data for this value is unavailable right now."))
         return
     en = lang() == "en"
-    st.markdown(f"<div class='mc-sub'>{html.escape(rname(city))} · {html.escape(rtheme(REGIONS[city]))}</div>",
-                unsafe_allow_html=True)
+    sub = (L("Küresel · NASA POWER (MERRA-2) · 264 nokta, alan ağırlıklı", "Global · NASA POWER (MERRA-2) · 264 points, "
+             "area-weighted") if metric == "global" else f"{rname(city)} · {rtheme(REGIONS[city])}")
+    st.markdown(f"<div class='mc-sub'>{html.escape(sub)}</div>", unsafe_allow_html=True)
     st.plotly_chart(metric_figure(d), theme=None, width="stretch", config={"displayModeBar": False},
                     key=f"mc_fig_{metric}")
     explain = d.get("explain_en" if en else "explain_tr")
@@ -4351,6 +4374,48 @@ SUGGESTIONS = ("Eğilim anlamlı mı?", "Hava şu an nasıl?", "Beni Amazon Havz
 SUGGESTIONS_EN = ("Is the trend significant?", "What's the weather now?", "Take me to Greenland", "Go to 2015")
 
 
+GLOBAL_WORDS = ("dünya ısınıyor", "küresel sıcaklık", "küresel ısınma", "küresel sapma", "is the world warming",
+                "global warming", "global temperature")
+EXTREME_WORDS = ("en çok nerede ısın", "en sıcak bölge", "nerede ısındı", "en soğuk bölge", "warmest region",
+                 "where did it warm", "coldest region", "hottest region")
+COMPARE_WORDS = ("karşılaştır", "kıyasla", "farkı ne", "arasındaki fark", "compare", " vs ", "versus")
+
+
+def local_answer(text: str, city: str) -> dict | None:
+    """Sayısal, yerel yanıtı olan sorular (Groq'a gitmez; sayılar panel ve grafiklerle aynı kaynaktan):
+    küresel ısınma (ÖNERİ #8), yılın uç bölgeleri (#9), iki bölge karşılaştırması (#10)."""
+    q = tr_lower(text)
+    en = lang() == "en"
+    try:
+        found = mentioned_cities(text)
+        if len(found) >= 2 and any(w in f" {q} " for w in COMPARE_WORDS):
+            c = compare_regions(found[0], found[1], *power_window())
+            if c:
+                rows = "\n".join(f"| {r['label_en' if en else 'label_tr']} | {r['a_en' if en else 'a']} | "
+                                 f"{r['b_en' if en else 'b']} |" for r in c["rows"])
+                table = f"| | **{rname(c['a'])}** | **{rname(c['b'])}** |\n|---|---|---|\n{rows}"
+                return {"matched": True, "local": f"{c['sentence_en' if en else 'sentence_tr']}\n\n{table}",
+                        "notes": [], "source": L("Yerel analiz · karşılaştırma", "Local analysis · comparison")}
+        if any(w in q for w in EXTREME_WORDS):
+            m = re.search(r"(19|20)\d{2}", q)
+            year = int(m.group(0)) if m else (sel_year() or LAST_FULL_YEAR)
+            x = year_extremes(year)
+            if x:
+                return {"matched": True, "local": x["sentence_en" if en else "sentence_tr"], "notes": [],
+                        "source": L(f"Yerel analiz · {year} sene ortalaması", f"Local analysis · {year} annual mean")}
+        if any(w in q for w in GLOBAL_WORDS):
+            g = metric_chart(None, "global")
+            if g:
+                st.session_state["chart_metric"] = "global"
+                first = (g["explain_en" if en else "explain_tr"]).split(". ")[0].rstrip(".") + "."
+                return {"matched": True, "local": first + " " + L("Grafik açıldı; yöntem ve doğrulama altında.",
+                                                                   "Chart opened; method and validation below it."),
+                        "notes": [], "source": L("Yerel analiz · NASA POWER küresel", "Local analysis · NASA POWER global")}
+    except Exception:
+        return None
+    return None
+
+
 def apply_ui_command(text: str, city: str) -> dict:
     """Zaman, dil, Credits, görünüm ve grafik komutlarını uygular (data_pipelines.parse_ui_command çözer).
 
@@ -4421,6 +4486,10 @@ def submit_question(text: str) -> None:
         # Kullanıcı mesajı doğrudan geçmişe yazılır; turun açılış notu Seiron'un yanıtıdır (dil modeline gitmez)
         st.session_state.setdefault("chat", []).append({"role": "user", "content": text, "source": ""})
         start_tour()
+        return
+    local = local_answer(text, current)
+    if local:   # sayısal yerel yanıt: gezinme ve dil modeli yok
+        st.session_state["pending"] = {"q": text, "nav": None, "zoom": 0, "scale": None, "layer": None, "cmd": local}
         return
     cmd = apply_ui_command(text, current)
     if cmd.get("denied"):   # yönetici isteği: hiçbir şey değiştirilmez, dil modeline gönderilmez
@@ -4522,7 +4591,10 @@ def process_pending(city: str, history: list[dict], box) -> None:
             prefix = "\n\n".join(notes) + "\n\n" if notes else ""
             if prefix:
                 st.markdown(prefix)
-            if cmd.get("denied"):
+            if cmd.get("local"):
+                text, src = cmd["local"], cmd.get("source", L("Yerel analiz", "Local analysis"))
+                st.markdown(text)
+            elif cmd.get("denied"):
                 text, src = "", L("Arayüz komutu · yetki dışı", "Interface command · not permitted")
             elif cmd.get("matched") and not (direction or layer) and is_ui_command_only(question):
                 text, src = "", L("Arayüz komutu", "Interface command")
@@ -4648,6 +4720,41 @@ def quality_chip(city: str, wx: dict, pw: dict) -> str:
             f"</span><ul>{rows}</ul></span></span>")
 
 
+def go_region(name: str) -> None:
+    st.session_state["city"] = name
+
+
+def year_extremes_strip() -> str:
+    """ÖNERİ #9 · Sene Ortalaması seçiliyken yılın en sıcak / en soğuk 3 bölgesi (adlara tıklanınca o bölgeye gidilir)."""
+    year = sel_year()
+    if not (year and is_annual()):
+        return ""
+    try:
+        x = year_extremes(year)
+    except Exception:
+        x = None
+    if not x:
+        return ""
+    def items(rows, off):
+        return " ".join(f"<button type='button' class='yx-n' data-click='yx_{off + i}'>{html.escape(rname(r['region']))} "
+                        f"<b>{r['anomaly']:+.1f}</b></button>" for i, r in enumerate(rows))
+    st.session_state["_yx"] = [r["region"] for r in x["hottest"]] + [r["region"] for r in x["coldest"]]
+    w, n = x.get("warmer_regions"), x.get("regions")
+    warm_txt = (L(f"{w}/{n} bölge 1991–2020 normalinden sıcak · NASA POWER",
+                  f"{w}/{n} regions warmer than the 1991–2020 normal · NASA POWER") if w is not None else "")
+    return (f"<div class='yx'><span class='yx-k'>{L(f'{year} en sıcak', f'{year} warmest')}</span>{items(x['hottest'], 0)}"
+            f"<span class='yx-k'>{L('en soğuk', 'coolest')}</span>{items(x['coldest'], 3)}"
+            f"<span class='yx-s'>{warm_txt}</span></div>")
+
+
+def render_yx_buttons() -> None:
+    names = st.session_state.get("_yx") or []
+    with st.container(key="yx_btns"):
+        for i, n in enumerate(names[:6]):
+            if n in REGIONS:
+                st.button(n, key=f"yx_{i}", on_click=go_region, args=(n,))
+
+
 def sonify_button(city: str) -> str:
     """ÖNERİ #1 · Trendi dinle: yıllık seri sese çevrilir (data_pipelines.sonify), Web Audio ile tarayıcıda çalar.
     Notalar düğmenin data özniteliğinde taşınır; çalarken düğmede o anki yıl ve değer görünür. Tekrar basınca durur."""
@@ -4707,7 +4814,7 @@ def city_details(city: str) -> None:
     <div class="city-name">{html.escape(rname(city))}<span class="city-country">{html.escape(rarea(spec))}</span></div>
     <div class="city-theme">{html.escape(rtheme(spec))} {chip}</div>
     <div class="badge-row"><div class="badge" style="--c:{c}"><i></i>{status_label(status)}</div>{quality_chip(city, wx, pw)}</div>
-    {annual_note}
+    {annual_note}{year_extremes_strip()}
     <div class="wx"><div class="ic">{wx_icon(w, 34)}</div><div class="t">{w['temp']:.1f}°C</div>
       <div class="d">{html.escape(wlabel(w))}{' · ' + ' · '.join(wx_meta) if wx_meta else ''}<br><span>{wx_kind} · {html.escape(wx['source'])}</span></div></div>
     <div class="facts">
@@ -4718,7 +4825,7 @@ def city_details(city: str) -> None:
       <div class="fact clk" data-metric="slope" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('On yıllık', 'Per decade')}</div><div class="v">{fmt(spec, r['slope_year'] * 10)}<small>{unit}</small></div></div>
       <div class="fact"><div class="k">Risk</div><div class="v">{risk_label(rep['risk'])}<small>{rep['risk']}</small></div></div>
     </div>
-    <div class="sec-title">NASA POWER · {L('UZUN VADELİ İKLİM', 'LONG-TERM CLIMATE')} ({pw['y0']}–{pw['y1']})</div>
+    <div class="sec-title">NASA POWER · {L('UZUN VADELİ İKLİM', 'LONG-TERM CLIMATE')} ({pw['y0']}–{pw['y1']})<button class="vp-gchip" type="button" data-metric="global" title="{L('Dünya ısınıyor mu? Küresel yıllık sapma 1991–2025', 'Is the world warming? Global annual anomaly 1991–2025')}">{inline_svg('globe2', 12)}<span>{L('Küresel bağlam', 'Global context')}</span></button></div>
     <div class="power">
       <div class="pw-main clk" data-metric="power_t" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('Sıcaklık eğilimi', 'Temperature trend')}</div>
         <div class="v">{pw['t_dec']:+.2f}<small>°C/{L('10 yıl', 'decade')}</small></div>
@@ -4749,6 +4856,7 @@ def city_details(city: str) -> None:
        "Meteomatics, and the live thermal anomaly from Open-Meteo.")}</div>
     """)
     copy_button(city)
+    render_yx_buttons()
     with st.expander(L("Yöntem ve veri", "Method & data")):
         st.markdown(L(
             "- Mevsimsel Mann-Kendall testi (periyot 12) aylık serideki eğilimin anlamlılığını sınar.\n"

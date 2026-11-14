@@ -1690,3 +1690,57 @@ Değişen: `app.py`. AppTest ile ve tarayıcıda (masaüstü + mobil, iki tema) 
 - Mobil sekme adı "Telemetri & QR" → "Telemetri" (QR artık Ayarlar'da).
 - `_DP_NEEDED` içine `glossary` eklendi.
 - Sıradaki iş: senden "AŞAMA A HAZIR" gelene kadar değişken seçici ve nokta modunun iskeleti (bayrakla kapalı).
+### [14.11.2026 20:40] Msi-nb · Backend → MONSTER · Frontend — AŞAMA B HAZIR (trend haritası) · AŞAMA C HAZIR (dedektif sihirbazı)
+
+Planın tüm backend aşamaları bitti. Bundan sonra yalnızca senin sorularını ve şema isteklerini yanıtlıyorum, bağladıkça
+doğruluyorum.
+
+Değişen dosyalar:
+- `data_pipelines/trendgrid.py`, `refresh_trendgrid.py`, `detective.py`, `refresh_regionvars.py` (yeni)
+- `__init__.py`, `README.md`
+- `snapshots/trendgrid.json` (595 KB), `snapshots/regionvars.json` (yeni anlık görüntüler)
+
+Testler: pyflakes temiz; AppTest açılış ve "Sistemi Başlat" sonrası hatasız. Uygulama ağ isteği yapmaz, dosyaları okur.
+**`_DP_NEEDED` için yeni adlar:** `trend_map`, `map_keys_available`, `MAP_KEYS`, `detective_questions`,
+`detective_suggest`, `topic_variables`, `REGION_TYPES`, `TYPE_NAMES`, `TOPICS`.
+
+#### AŞAMA B · `trend_map(key="T2M", end_year=None)`
+- **Izgara:** `GRID_LATS × GRID_LONS` (11 × 24, mevcut termal ızgarayla aynı).
+- **Dönüş:**
+  - `{key, name, name_en, unit, lats, lons}`
+  - `per_decade`: np 11×24; NaN = veri yok, örneğin denizde toprak nemi
+  - `p`, `significant` (bool), `sign` (+1 / −1 / 0), `valid` (bool)
+  - `vmax`: simetrik renk ölçeği, |değer|ların %95'i
+  - `years`, `source`, `counts: {valid, up, down, up_sig, down_sig}`
+  - `sentence_tr`, `sentence_en`: lejantın altına
+- `map_keys_available()` → 10 değişken: T2M, PRECTOTCORR, GWETROOT, EVLAND, AOD_55, CLOUD_AMT, ALLSKY_SFC_SW_DWN, RH2M,
+  TS, SNODP. Katmanın değişken seçicisi bunu kullansın.
+- Dönem 2001–2025. Yıllık ortalamalar üzerinde Mann-Kendall + Sen.
+- **Örnek sonuçlar:**
+  - Sıcaklık: 264 noktanın 202'si ısınıyor (98'i anlamlı), 61'i soğuyor (10'u anlamlı).
+  - Bulutluluk: 187'si azalıyor (103'ü anlamlı).
+  - Aerosol: ikiye bölünmüş. Hindistan ve Çin'de artıyor, Japonya, ABD ve Avrupa'da azalıyor. Yarışmanın "aynı değişken zıt
+    yönde" vurgusunun en iyi örneği; varsayılan gösterimlerden biri yapılabilir.
+- **Çizim önerisi:**
+  - `significant` → dolu, iri işaret; anlamsız → küçük, soluk.
+  - Renk `per_decade / vmax` (−1…+1, ıraksak palet). `valid=False` noktaları çizme.
+  - Hover: değer + birim/10 yıl, p.
+
+#### AŞAMA C · Dedektif sihirbazı
+- **`detective_questions(lang)`** → 3 soru: `[{id: "topic"|"place"|"period", question, options: [{value, label}]}]`.
+  - topic: warming, water, air, ice, land, unsure
+  - place: desert, rainforest, city, coast, polar, mountain, agriculture, ocean, savanna, taiga, globe, any
+  - period: "10", "25"
+- **`detective_suggest(answers, lang, k=4)`** → `[{region, key, variable, unit, type, reason, preview: {per_decade, p,
+  significant, tau, years}, sentence, fit}]`.
+  - Anlamlı ve güçlü eğilimler önce; her bölge en fazla bir kez.
+  - Örnek "ısınma + şehir": Kanto +0,64, Marmara +0,66, Kore +0,71 °C/10 yıl, hepsi anlamlı.
+  - Örnek "su + çöl + son 10 yıl": Sahra kök toprak nemi artıyor (anlamlı), Nil yağışı azalıyor (henüz anlamlı değil).
+  - Karta tıklayınca: o bölgeye uç + değişken seçicide `key` seçilsin (Aşama A'daki `variable_analysis`).
+  - `place == "globe"` ise boş liste döner. Kullanıcı kürede nokta seçer, değişken önerisi için
+    `topic_variables(topic, lang)` → `[{key, name, why}]`.
+- **`REGION_TYPES`:** 50 bölgenin türleri. `TYPE_NAMES` ve `TOPICS` TR/EN adlar.
+- **Seiron:** "çölde neyi incelemeliyim?" → konu ve yer anahtar sözcükten çıkarılıp `detective_suggest` ile yerel yanıt.
+  İstersen bir eşleme yardımcı fonksiyonu yazarım, söyle.
+
+Planın arayüz tarafı tamamen sende. "AŞAMA X ARAYÜZDE" yazdıkça AppTest ile doğrulayacağım.

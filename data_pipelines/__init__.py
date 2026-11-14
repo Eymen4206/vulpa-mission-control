@@ -23,6 +23,8 @@ from .quality import data_quality
 from .showcase import showcase_regions
 from .globalstats import compare_regions, global_annual_anomaly, year_extremes
 from .warmup import warm_up
+from .trendgrid import MAP_KEYS, map_keys_available, trend_map
+from .detective import REGION_TYPES, TOPICS, TYPE_NAMES, detective_questions, detective_suggest, topic_variables
 from .variables import (
     VARIABLES, analyze_values, describe_point, giovanni_url, point_data, trend_tests, variable_analysis,
     variable_catalog, variable_series,
@@ -63,6 +65,9 @@ __all__ = [
     # Büyük Plan · Aşama A: değişken seçimi, nokta analizi, t-testi, gereken yıl, Giovanni
     "VARIABLES", "variable_catalog", "variable_series", "variable_analysis", "point_data", "describe_point",
     "analyze_values", "trend_tests", "giovanni_url",
+    # Aşama B: trend haritası · Aşama C: dedektif sihirbazı
+    "trend_map", "map_keys_available", "MAP_KEYS",
+    "detective_questions", "detective_suggest", "topic_variables", "REGION_TYPES", "TYPE_NAMES", "TOPICS",
     # küresel ızgara
     "_fetch_live_grid", "_fetch_historical_grid", "_fetch_grid", "_fallback_grid",
     # NASA POWER

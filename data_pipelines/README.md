@@ -475,3 +475,14 @@ Açılış yükleme ekranı içindir. Hava, ızgara, NASA POWER, tema serisi ve 
 - **`trend_tests(region)`:** tema serisi için aynı yöntem karşılaştırması.
 - **`analyze_values(values, start_year)`:** çekirdek analiz. Aylık seri uzunluğu 12'nin katı olmalı; %10'dan az eksik
   ay, aynı takvim ayının ortalamasıyla doldurulur.
+
+## Büyük Plan · Aşama B (trendgrid.py) ve C (detective.py)
+- **`trend_map(key)`:** 15° ızgarada (11×24) on yıllık değişim. Alanlar: `per_decade`, `p`, `significant`, `sign`,
+  `valid`, `vmax`, `counts`, `sentence_tr/en`.
+  - Veri `snapshots/trendgrid.json`'dan gelir: 264 nokta × 15 değişken, yıllık değerler, 2001–2025.
+  - Yenilemek için: `python -m data_pipelines.refresh_trendgrid` (~3–8 dk).
+- **`map_keys_available()`:** haritada seçilebilen değişkenler (`MAP_KEYS` ∩ anlık görüntü).
+- **`detective_questions(lang)`, `detective_suggest(answers, lang, k)`, `topic_variables(topic, lang)`**
+  - Sabitler: `REGION_TYPES`, `TYPE_NAMES`, `TOPICS`.
+  - Ön izleme `snapshots/regionvars.json`'dan gelir: 50 bölge × 15 değişken, yıllık değerler.
+  - Yenilemek için: `python -m data_pipelines.refresh_regionvars` (~1 dk).

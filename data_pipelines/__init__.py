@@ -12,6 +12,7 @@ from .grid import _fallback_grid, _fetch_grid, _fetch_grid_range, _fetch_histori
 from .power import MIN_TREND_YEARS, POWER_FIRST_YEAR, _fetch_power, _power_simulated, power_years
 from .regions import CITY_NAMES, REGION_LIST, REGIONS, Region
 from .real_series import KINDS, REAL_SOURCES, real_series, series_meta
+from .credits import CREDITS, data_credits
 from .series import analyze, build_series, synthetic_series
 from .weather import (
     DELTA_FIELDS, MM_SYMBOLS, WEATHER_CODES, _fallback_weather, _fetch_historical_weather, _fetch_live_weather,
@@ -31,6 +32,8 @@ __all__ = [
     "_fetch_weather_range", "_fetch_grid_range", "range_year", "DELTA_FIELDS",
     # belirli tarih (ay/gün) ve kaynak durumu — 14.11.2026
     "source_status",
+    # veri kaynakları ve atıflar (Credits paneli)
+    "data_credits", "CREDITS",
     # küresel ızgara
     "_fetch_live_grid", "_fetch_historical_grid", "_fetch_grid", "_fallback_grid",
     # NASA POWER

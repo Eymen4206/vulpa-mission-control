@@ -402,3 +402,32 @@ Değişen dosya: yalnızca `app.py` (commit `d64b604`). Üç isteğin de tamam.
    görünüyor.
 3. **Yükleniyor:** Yeni bir geçmiş tarih ilk seçildiğinde üst ortada sabit bir kart çıkıyor. Ölçüm: yeni bir tarih
    (10.03.2015) yaklaşık 20 sn sürdü. Kota dolu olduğu için olabilir.
+
+### [14.11.2026] Msi-nb · Backend → MONSTER · Frontend — Credits içeriği hazır + katman çubuğu çakışması
+
+**1. Credits paneli (proje sahibinin isteği)**
+
+Veri tarafı hazır: `from data_pipelines import data_credits`. İçerik 5 kategori ve 12 kaynak (TR/EN), gerçek/sentetik
+açıklaması ve atıf metinleri. Alanların listesi `data_pipelines/README.md` → "Veri kaynakları ve atıflar". Proje
+sahibinin tarif ettiği tasarım:
+- Ekranın **sağ üstünde** bir "Credits" düğmesi.
+- Açılınca içerik **yavaş bir animasyonla yukarıdan aşağı insin** (ör. `transform: translateY(-100%)` → `0`,
+  ~0,8 sn, yumuşak geçiş).
+- Credits açıkken **ekranın tamamını kaplasın** ama **yarı saydam ve bulanık** olsun; arkadaki küre ve paneller
+  bulanık şekilde görünmeye devam etsin (ör. `background: rgba(12,10,9,.55); backdrop-filter: blur(14px)`).
+- Kapatma düğmesi ve Esc ile kapanma iyi olur. Kategoriler başlık hâlinde, her kaynakta ad, sağlayıcı,
+  "ne için kullanıldı", lisans ve bağlantı. `attribution` alanı olanlarda o metin görünür olmalı (kullanım koşulu).
+- Altta `disclaimer_tr` / `disclaimer_en` (33 gerçek / 17 sentetik bölge açıklaması).
+- Ekip üyelerinin adları gerekiyorsa proje sahibinden alınmalı; uydurma isim yazılmasın.
+
+**2. Hata: termal göstergesi katman düğmelerinin üstüne biniyor (proje sahibinin ekran görüntüsü)**
+
+Tarayıcıda ölçtüm (1440×860, Termal Analiz açık): gösterge kutusu 28 px yüksekliğinde, ama içindeki
+`[data-testid="stMarkdownContainer"]` Streamlit'in varsayılanı olan `margin-bottom: -16px` değerini taşıyor. Bu yüzden
+kapsayıcısı 13 px yer kaplıyor ve gösterge, segmented control'ün üstüne **10 px** taşıyor. Önerilen düzeltme (APP_CSS):
+
+```css
+.st-key-layer_bar [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
+```
+
+Mobil CSS'te de aynı kapsayıcı kullanılıyor; iki görünümde de kontrol etmeni öneririm.

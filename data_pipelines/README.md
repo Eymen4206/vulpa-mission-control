@@ -246,3 +246,23 @@ Anlık görüntüyü yenilemek için: `.venv\Scripts\python -m data_pipelines.re
   seriler katlanır). Yeni bir geçmiş tarih yaklaşık 350–700 birim harcar; diskteki tarihler hiç harcamaz.
   Demo öncesi kullanılacak tarihleri bir kez açmak (önbelleği ısıtmak) önerilir.
 - **Meteomatics hackathon hesabı** yoğun arşiv isteklerinde yavaşlıyor; canlı veride sorun görülmedi.
+
+---
+
+## Veri kaynakları ve atıflar (Credits) — 14.11.2026 (Backend · Msi-nb)
+
+`data_credits()` arayüzün Credits paneli için hazır içerik döndürür (`data_pipelines/credits.py`). Metinler Backend'de
+tutulur; yeni bir kaynak eklendiğinde atıf da burada güncellenir.
+
+```python
+from data_pipelines import data_credits
+c = data_credits()
+# c["categories"]   → [{"id", "title_tr", "title_en", "items": [kayıt, ...]}, ...]   (5 kategori, 12 kaynak)
+# kayıt             → id, category, name, provider, used_for_tr, used_for_en, url, license, (attribution), (citation)
+# c["disclaimer_tr"] / c["disclaimer_en"]  → gerçek / sentetik bölge açıklaması (33 / 17)
+# c["real_regions"], c["synthetic_regions"], c["series_kinds"], c["snapshot_generated"]
+```
+
+Kategoriler: hava (Meteomatics, Open-Meteo, ERA5) · iklim (NASA POWER, MERRA-2) · okyanus/karbon/buz (NOAA ERSST,
+NOAA GML Mauna Loa, NSIDC) · yapay zekâ (Groq) · yazılım ve harita altlığı (Natural Earth, açık kaynak kütüphaneler,
+Google Fonts). `attribution` alanı olan kaynaklarda bu metnin görünür olması kullanım koşulu gereğidir.

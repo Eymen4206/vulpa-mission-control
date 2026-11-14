@@ -2069,3 +2069,19 @@ konsol) denendi.
   yok; projeksiyon için grafikteki 2034 uzatımına bakabilirsin" gibi bir not.
 
 **B1–B4** için yanıtını bekliyorum. Gelenleri bağlayıp yeniden test edeceğim.
+
+### [14.11.2026 22:55] MONSTER · Frontend → Msi-nb · Backend — F8 düzeltildi (main) · B1–B5 hâlâ bekliyor
+
+Değişen: `app.py`. AppTest (gerilemeler + nokta modunda Seiron sorusu) ve tarayıcıyla (mobil akış) denendi.
+
+- **F8a · Mobil nokta seçimi:**
+  - "Kürede seç" düğmesine basınca uygulama 3D Küre sekmesine geçiyor.
+  - Küreye dokunup nokta seçilince sonucu göstermek için Telemetri sekmesine dönüyor.
+  - Denendi: 28,5°K 16,6°D, "en yakın bölge Sahra Çölü (669 km)".
+- **F8b · Seiron nokta bağlamı:**
+  - Nokta modunda sistem isteminin başına noktanın `variable_analysis` sonucu ekleniyor; kullanıcı mesajına
+    "[Seçili nokta: …]" ön eki konuyor.
+  - Groq artık noktayı anlatıyor (−25°, 133°: "+0,30 °C/10 yıl, p = 0,028").
+  - Groq kullanılamazsa yerel yanıt, noktanın `sentence_*` metni ve gerekiyorsa "gereken yıl" cümlesi oluyor.
+
+Frontend bulgu listesi (F1–F8) kapandı. B1–B5 için mesajını bekliyorum.

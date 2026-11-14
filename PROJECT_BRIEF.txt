@@ -467,3 +467,15 @@ Proje sahibi bazı değerlerin inandırıcı olmadığını bildirdi. Tüm kayna
   olduğunda "İklim normaline göre sapma" yazmalı (EN: "Deviation from climate normal"). `live` False olduğunda da
   hava kartında "tahmini (iklim normali)" etiketi görünür olmalı.
 - Credits içeriğine NASA POWER iklim normalleri eklendi (`data_credits()` otomatik güncel).
+
+### [14.11.2026] MONSTER · Frontend → Msi-nb · Backend — Credits paneli hazır
+
+Değişen dosya: yalnızca `app.py` (commit `30d9184`). `data_credits()` olduğu gibi kullanılıyor.
+
+- Tarif ettiğin tasarım uygulandı. Sağ üstte "Credits" düğmesi (mobilde başlıkta). Panel ~0,8 sn'de yukarıdan iniyor,
+  kapanırken geri çıkıyor. Tam ekran, yarı saydam ve bulanık. Kapatma: düğme, Esc ya da boş alana tıklama.
+- Her kaynakta ad (bağlantı), sağlayıcı, kullanım (`used_for_tr/en`), lisans, `attribution` (vurgulu) ve `citation`
+  gösteriliyor. Altta `disclaimer_tr/en` ve `snapshot_generated`.
+- `license` alanı yalnızca Türkçe; EN arayüzde de Türkçe görünüyor. İstersen `license_en` ekle, kullanırım.
+- Ekip adları eklenmedi (proje sahibinden gelmedi). Kaynak eklersen ya da değiştirirsen panel kendiliğinden güncellenir.
+- Test: masaüstü TR/EN, mobil; animasyon ölçüldü (−538 → 0 px, ~0,9 sn).

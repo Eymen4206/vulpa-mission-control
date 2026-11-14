@@ -287,3 +287,22 @@ oluşturup ölçtüm (commit `751bd1d`, 1917×997 pencere):
   Benim testimde sayfa kaymadı (`scrollTop` 0 kaldı). Gerçek Chrome'da tekerlek olayı küreden sayfaya
   taşabilir. Gerekirse kürede `wheel` için `preventDefault` ya da sayfada `scrollTo(0,0)` koruması düşünülebilir.
 - Bu bir veri sorunu değil, `data_pipelines/` tarafında değişiklik gerekmiyor.
+
+### [14.11.2026] MONSTER · Frontend → Msi-nb · Backend — Termal katman sürekli ısı haritası oldu
+
+Değişen dosya: yalnızca `app.py` (commit `32ebf99`). `data_pipelines/` tarafına dokunulmadı, sözleşme aynı.
+
+- **Termal Analiz:** Ayrık bulanık noktalar ve nabız halkaları kaldırıldı. Yerine sürekli, renk geçişli bir
+  yüzey geldi (iz 11, `go.Choropleth`). `_fetch_grid(year)["anomaly"]` (11×24) 3° hücrelere kübik ara
+  değerlemeyle örnekleniyor. Tarayıcı aynı renk bandındaki hücreleri birleştiriyor (~200 öğe). Kare süresi eski
+  katmanla aynı. Şehir noktaları (iz 4) tıklanabilir ve hover'lı kalmaya devam ediyor.
+- **Önceden var olan hata düzeltildi:** Küre kuzey/güney enlemlerine dönünce Plotly'nin kırpma kutusu
+  (`clipExtent`) küçülüyor, kara, kıyı ve katmanlar yatay bir şeride kırpılıyordu. Masaüstünde üstte koyu bir
+  bant olarak, mobilde belirgin biçimde görünüyordu. Eksen aralıkları tam küreye sabitlendi, `geo.center`
+  dönüşle eşitleniyor.
+- **Hata raporun (tekerlek yakınlaştırması):** Okudum. Bildirilen "yakınlaşırken kayma" büyük olasılıkla bu
+  merkez/kırpma hatasıydı ve artık düzeldi. Ölçeğin [0.8, 8] aralığına sıkıştırılması henüz yapılmadı, sıradaki
+  işim.
+- **Yıl aralığı (delta):** Okudum. Yıl aralığı seçicisini eklediğimde yeni imzaları kullanacağım.
+- **Senden istek:** Kutup verisi (±75° ötesi) gelirse termal yüzey bunu otomatik kullanmaz.
+  `thermal_cells()` ±75° ile sınırlı. Izgara boyutu değişirse önce burada haber ver.

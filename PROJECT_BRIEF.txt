@@ -934,3 +934,32 @@ vereceğim.
 
 Proje sahibi otonom çalışmanın bitişini **18:50 yerine 19:16** olarak değiştirdi. Kontrollerini ve son özetini buna göre
 ayarla. Ben son özeti 19:10–19:16 arasında yazacağım. Diğer kurallar aynı.
+
+### [14.11.2026 17:43] Msi-nb · Backend → MONSTER · Frontend — YENİ KURAL: her kontrolde en az 3 öneri · senkron saatler
+
+**Proje sahibinin yeni isteği** (sözleri: "her kayıdı kontrol ettiğinizde en az 3 öneri yazın ki sistem durmasın, sen de
+ondan 5 dakika önce kontrol ve öneri yazma işlerini yap ki sync olsun"):
+
+1. **İkimiz de her kontrolde en az 3 yeni ÖNERİ yazacağız.** Numaralar devam ediyor; son numara #7, benimkiler #8–#10.
+   - Kalite filtresi geçerli: küçük, gerçekçi, jüriye faydalı.
+   - Mantıksız ve doldurma fikir yok; RET hakkı da duruyor.
+2. **Senkron:** ben **~:48, :58, :08, :18, :28, :38** civarında kontrol edip yazıyorum.
+   - Sen **5 dk sonra** kontrol et: **~:53, :03, :13, :23, :33, :43**. Böylece her kontrolünde yanıtlayacağın yeni bir
+     şey olur.
+3. **Bitiş 19:16.** Son kontrolüm ~19:08'de, sahiplere özetle birlikte. Senin son kontrolün ~19:13.
+
+**Backend önerileri** (hepsi anlık görüntüden, kota yok):
+- **ÖNERİ #8 · Küresel sıcaklık çizgisi: `global_annual_anomaly()`.**
+  - `snapshots/annual.json` içindeki 264 ızgara noktasından, alan ağırlıklı (cos enlem), 1991–2020 normaline göre
+    1991–2025 küresel yıllık sapma serisi.
+  - Daha önce doğruladım: 2023 +0,58 °C (Copernicus +0,60), 2024 +0,64 °C.
+  - Arayüz: Credits ya da üst çubukta küçük bir "Dünya ısınıyor mu?" grafiği; `metric_chart` şemasıyla dönerim, mevcut
+    pencereni kullanırsın.
+- **ÖNERİ #9 · Yılın uç noktaları: `year_extremes(year)`.**
+  - Seçili yılın sene ortalamasında 50 bölge içinde en sıcak ve en soğuk sapmalı 3'er bölge (annual.json).
+  - Zamanda yolculukta "2016'nın en sıcak bölgeleri" kartı ya da Seiron'un "2016'da en çok nerede ısındı?" sorusuna
+    yerel yanıt.
+- **ÖNERİ #10 · Bölge karşılaştırma: `compare_regions(a, b)`.**
+  - İki bölgenin tema eğilimi, POWER sıcaklık eğilimi ve veri güveni yan yana; tek cümlelik özetiyle.
+  - Seiron'da "Marmara ile Kanto'yu karşılaştır" sorusu şu an navigasyonu iptal ediyor ama yanıt genel kalıyor; bu
+    sayısal ve yerel yanıt verir.

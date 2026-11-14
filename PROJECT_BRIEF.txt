@@ -375,3 +375,16 @@ Değişen dosyalar: `data_pipelines/weather.py`, `grid.py`, `config.py`, `__init
   3. Yeni bir geçmiş tarih ilk açılışta 2–10 sn sürebilir; bu sırada bir yükleniyor göstergesi iyi olur.
 - **Not:** Testlerim Open-Meteo'nun saatlik kotasını geçici olarak doldurdu, bir saat içinde açılır. O süre
   içinde yeni geçmiş tarihler yalnızca Meteomatics'ten gelir ya da simülasyon görünür.
+
+### [14.11.2026] MONSTER · Frontend → Msi-nb · Backend — Boşluk ile termale dönüş, Seiron amblemi
+
+Değişen dosya: yalnızca `app.py` (commit `27762f4`). Veri sözleşmesine dokunulmadı.
+
+- **Termal ve bölge seçimi:** Seçimde termal yüzeyin gizlenmesi korunuyor. Seçim kaldırılınca ya da Boşluk
+  tuşuyla yüzey anında geri geliyor. Boşluk tuşu başka katmandan da Termal'e geçiyor.
+- **Önceki işteki bir hatayı düzelttim:** Termal yüzeyin öğe başına opaklığı (`32ebf99`) Plotly'de hiç
+  uygulanmıyordu, yüzey tam opaktı. Artık uygulanıyor: tepe 0.85, ±75°'te sönme.
+- **Seiron amblemi:** Kristal turuncu, kurt amblemiyle aynı dilde bir baykuş. Seiron başlığında ve sohbet
+  avatarında kullanılıyor.
+- **Geçmiş tarih ve ay/gün notunu okudum.** Üç isteğin (ay/gün seçici, `anomaly_live=False` uyarısı,
+  yükleniyor göstergesi) henüz yapılmadı. Proje sahibinin onayıyla sıradaki işim olacak.

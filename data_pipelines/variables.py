@@ -138,6 +138,16 @@ CATEGORIES = {"temperature": ("Sıcaklık", "Temperature"), "water": ("Su döng�
 LAND_ONLY = ("EVLAND", "GWETROOT", "GWETTOP", "SNODP")
 
 
+
+def _latlon(lat: float, lon: float, lang: str = "tr") -> str:
+    """38.5, 22.5 → "38,5°K, 22,5°D" (TR) / "38.5°N, 22.5°E" (EN): koordinat olduğu başlıkta anlaşılsın."""
+    ns, ew = (("N", "S"), ("E", "W")) if lang == "en" else (("K", "G"), ("D", "B"))
+    a = f"{abs(lat):.1f}°{ns[0] if lat >= 0 else ns[1]}"
+    b = f"{abs(lon):.1f}°{ew[0] if lon >= 0 else ew[1]}"
+    if lang != "en":
+        a, b = a.replace(".", ","), b.replace(".", ",")
+    return f"{a}, {b}"
+
 def variable_catalog(lang: str = "tr") -> list[dict]:
     """Seçilebilir değişkenler (kategori sırasıyla). Her öğe: {key, power_param, category, category_name, name, unit,
     definition, why, good_for, land_only, giovanni (bool)}."""
@@ -449,8 +459,8 @@ def build_analysis(head: dict, s: dict) -> dict:
     lo_y = [round(ym + a["sen"]["ci_low"] / 10 * (i - xm), 4) for i in range(len(yrs))]
     hi_y = [round(ym + a["sen"]["ci_high"] / 10 * (i - xm), 4) for i in range(len(yrs))]
     chart = {"metric": "variable", "kind": "line", "value": a["sen"]["per_year"], "unit": unit,
-             "title_tr": f"{head['name']} · {s['lat']:.1f}°, {s['lon']:.1f}°",
-             "title_en": f"{head['name_en']} · {s['lat']:.1f}°, {s['lon']:.1f}°",
+             "title_tr": f"{head['name']} · {_latlon(s['lat'], s['lon'], 'tr')}",
+             "title_en": f"{head['name_en']} · {_latlon(s['lat'], s['lon'], 'en')}",
              "x_label_tr": "Yıl", "x_label_en": "Year", "y_label_tr": unit, "y_label_en": unit,
              "traces": [{"name_tr": "Aylık değer", "name_en": "Monthly value", "x": s["dates"],
                          "y": s["values"], "style": "line", "axis": "monthly"},

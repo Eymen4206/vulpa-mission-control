@@ -71,7 +71,7 @@ _DP_NEEDED = ("CITY_NAMES", "END", "GRID_LATS", "GRID_LONS", "LAST_FULL_YEAR", "
               "showcase_regions", "global_annual_anomaly", "year_extremes", "compare_regions", "warm_up",
               "glossary", "variable_catalog", "variable_analysis", "describe_point", "trend_tests",
               "trend_map", "map_keys_available", "detective_questions", "detective_suggest", "topic_variables",
-              "extra_catalog", "extra_analysis", "EXTRA_DATASETS")
+              "extra_catalog", "extra_analysis", "EXTRA_DATASETS", "data_type_label")
 if not all(hasattr(_dp, _n) for _n in _DP_NEEDED):
     for _m in [m for m in sys.modules if m == "data_pipelines" or m.startswith("data_pipelines.")]:
         del sys.modules[_m]
@@ -83,7 +83,7 @@ from data_pipelines import (  # noqa: E402
     parse_ui_command, switch_message, time_text, metric_chart, fetch_events, data_quality,
     showcase_regions, year_extremes, compare_regions, warm_up, glossary, variable_catalog, variable_analysis,
     describe_point, trend_tests, trend_map, map_keys_available, detective_questions, detective_suggest, topic_variables,
-    extra_catalog, extra_analysis, EXTRA_DATASETS,
+    extra_catalog, extra_analysis, EXTRA_DATASETS, data_type_label,
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -3886,7 +3886,8 @@ def render_trend_picker() -> None:
         bound(st.selectbox, "tm_key", label=L("Trend haritası değişkeni", "Trend map variable"), options=keys,
               placeholder=L("Değişken seçin", "Choose a variable"),
               format_func=lambda k: (L("Model (MERRA-2) · ", "Model (MERRA-2) · ") + cat[k]["name"]) if k in cat
-              else (L("Uydu ölçümü · ", "Satellite · ") + extra_name(k)), label_visibility="collapsed")
+              else (safe(data_type_label, k, lang()) or L("Uydu ölçümü", "Satellite")) + " · " + extra_name(k),
+              label_visibility="collapsed")
 
 
 def events_active(layer: str | None = None) -> bool:
@@ -5505,7 +5506,7 @@ def extra_cat(city: str) -> dict:
     out = {}
     for v in safe(extra_catalog, city, lang()) or []:
         out["x:" + v["key"]] = {"key": "x:" + v["key"], "name": v["name"], "unit": v.get("unit", ""),
-                                "category_name": L("Uydu ve yer ölçümü", "Satellite & in-situ"),
+                                "category_name": v.get("type_label") or L("Uydu ve yer ölçümü", "Satellite & in-situ"),
                                 "definition": v.get("definition", ""), "why": v.get("why", ""),
                                 "instrument": v.get("instrument", "")}
     return out

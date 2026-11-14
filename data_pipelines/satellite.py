@@ -24,6 +24,7 @@ EXTRA_PATH = Path(__file__).with_name("snapshots") / "extra_series.json"
 # key → meta (ad, birim, kaynak, kategori, tanım, neden, alet) — yalnızca anlık görüntüde verisi olanlar gösterilir
 DATASETS: dict[str, dict] = {
     "SEAICE_N": {
+        "data_type": "satellite",
         "name_tr": "Arktik deniz buzu yayılımı", "name_en": "Arctic sea-ice extent", "unit": "milyon km²",
         "unit_en": "million km²", "category": "ice", "instrument": "NSIDC Sea Ice Index v4 (SSM/I · SSMIS uydu)",
         "source": "NSIDC Sea Ice Index v4 · Kuzey Yarımküre", "source_en": "NSIDC Sea Ice Index v4 · Northern Hemisphere",
@@ -35,6 +36,7 @@ DATASETS: dict[str, dict] = {
         "bad_dir": "down",
     },
     "GPM": {
+        "data_type": "satellite",
         "name_tr": "Uydu yağışı (GPM IMERG)", "name_en": "Satellite precipitation (GPM IMERG)", "unit": "mm/ay",
         "unit_en": "mm/month", "category": "water", "instrument": "NASA GPM IMERG V07 (aylık, 0,1°)",
         "source": "NASA GES DISC · GPM IMERG V07 aylık", "source_en": "NASA GES DISC · GPM IMERG V07 monthly",
@@ -47,6 +49,7 @@ DATASETS: dict[str, dict] = {
         "regions": "all", "bad_dir": None,
     },
     "SEALEVEL": {
+        "data_type": "insitu",
         "name_tr": "Deniz seviyesi (gelgit ölçer)", "name_en": "Sea level (tide gauge)", "unit": "mm",
         "unit_en": "mm", "category": "water", "instrument": "PSMSL gelgit ölçer (RLR aylık)",
         "source": "PSMSL · Permanent Service for Mean Sea Level (RLR aylık)",
@@ -60,6 +63,7 @@ DATASETS: dict[str, dict] = {
         "regions": "psmsl", "bad_dir": "up",
     },
     "GLDAS_RUNOFF": {
+        "data_type": "model",
         "name_tr": "Toplam akış (GLDAS)", "name_en": "Total runoff (GLDAS)", "unit": "mm/ay", "unit_en": "mm/month",
         "category": "water", "instrument": "NASA GLDAS-2.1 Noah (aylık, 0,25°)",
         "source": "NASA GES DISC · GLDAS-2.1 Noah aylık", "source_en": "NASA GES DISC · GLDAS-2.1 Noah monthly",
@@ -74,6 +78,7 @@ DATASETS: dict[str, dict] = {
         "regions": "all", "bad_dir": None,
     },
     "GLDAS_SOILDEEP": {
+        "data_type": "model",
         "name_tr": "Derin toprak nemi 100–200 cm (GLDAS)", "name_en": "Deep soil moisture 100–200 cm (GLDAS)",
         "unit": "mm", "unit_en": "mm", "category": "soil", "instrument": "NASA GLDAS-2.1 Noah (aylık, 0,25°)",
         "source": "NASA GES DISC · GLDAS-2.1 Noah aylık", "source_en": "NASA GES DISC · GLDAS-2.1 Noah monthly",
@@ -84,6 +89,7 @@ DATASETS: dict[str, dict] = {
         "regions": "all", "bad_dir": "down",
     },
     "GLDAS_SWE": {
+        "data_type": "model",
         "name_tr": "Kar su eşdeğeri (GLDAS)", "name_en": "Snow water equivalent (GLDAS)", "unit": "mm", "unit_en": "mm",
         "category": "ice", "instrument": "NASA GLDAS-2.1 Noah (aylık, 0,25°)",
         "source": "NASA GES DISC · GLDAS-2.1 Noah aylık", "source_en": "NASA GES DISC · GLDAS-2.1 Noah monthly",
@@ -94,6 +100,7 @@ DATASETS: dict[str, dict] = {
         "regions": "all", "bad_dir": "down",
     },
     "AIRS_T850": {
+        "data_type": "satellite",
         "name_tr": "Alt atmosfer sıcaklığı 850 hPa (AIRS)", "name_en": "Lower-troposphere temperature 850 hPa (AIRS)", "unit": "°C", "unit_en": "°C", "category": "atmosphere",
         "instrument": "NASA AIRS v7 (Aqua uydusu, aylık, 1°)",
         "source": "NASA GES DISC · AIRS3STM v7 aylık · 850 hPa", "source_en": "NASA GES DISC · AIRS3STM v7 monthly · 850 hPa",
@@ -102,6 +109,7 @@ DATASETS: dict[str, dict] = {
         "why_tr": "Yaklaşık 1,5 km yükseklik: yüzey etkilerinden arınmış troposfer ısınmasını gösterir.", "why_en": "About 1.5 km up: shows tropospheric warming free of surface effects.", "regions": "all", "bad_dir": "up",
     },
     "AIRS_T300": {
+        "data_type": "satellite",
         "name_tr": "Üst troposfer sıcaklığı 300 hPa (AIRS)", "name_en": "Upper-troposphere temperature 300 hPa (AIRS)", "unit": "°C", "unit_en": "°C", "category": "atmosphere",
         "instrument": "NASA AIRS v7 (Aqua uydusu, aylık, 1°)",
         "source": "NASA GES DISC · AIRS3STM v7 aylık · 300 hPa", "source_en": "NASA GES DISC · AIRS3STM v7 monthly · 300 hPa",
@@ -110,6 +118,7 @@ DATASETS: dict[str, dict] = {
         "why_tr": "Yaklaşık 9 km: tropiklerde üst troposferin yüzeyden hızlı ısınması beklenir.", "why_en": "About 9 km: in the tropics the upper troposphere is expected to warm faster than the surface.", "regions": "all", "bad_dir": "up",
     },
     "AIRS_T70": {
+        "data_type": "satellite",
         "name_tr": "Alt stratosfer sıcaklığı 70 hPa (AIRS)", "name_en": "Lower-stratosphere temperature 70 hPa (AIRS)", "unit": "°C", "unit_en": "°C", "category": "atmosphere",
         "instrument": "NASA AIRS v7 (Aqua uydusu, aylık, 1°)",
         "source": "NASA GES DISC · AIRS3STM v7 aylık · 70 hPa", "source_en": "NASA GES DISC · AIRS3STM v7 monthly · 70 hPa",
@@ -118,6 +127,7 @@ DATASETS: dict[str, dict] = {
         "why_tr": "Yaklaşık 18 km: sera gazları troposferi ısıtırken stratosferi soğutur; seviyeler arası zıt yönlü trendin klasik örneği.", "why_en": "About 18 km: greenhouse gases warm the troposphere but cool the stratosphere; the classic example of opposite trends between levels.", "regions": "all", "bad_dir": None,
     },
     "AIRS_O3": {
+        "data_type": "satellite",
         "name_tr": "Toplam ozon (AIRS)", "name_en": "Total ozone (AIRS)", "unit": "DU", "unit_en": "DU",
         "category": "atmosphere", "instrument": "NASA AIRS v7 (Aqua uydusu, aylık, 1°)",
         "source": "NASA GES DISC · AIRS3STM v7 aylık", "source_en": "NASA GES DISC · AIRS3STM v7 monthly",
@@ -128,6 +138,7 @@ DATASETS: dict[str, dict] = {
         "regions": "all", "bad_dir": "down",
     },
     "OMI_NO2": {
+        "data_type": "satellite",
         "name_tr": "Troposferik NO₂ (OMI)", "name_en": "Tropospheric NO₂ (OMI)", "unit": "10¹⁵ molekül/cm²",
         "unit_en": "10¹⁵ molecules/cm²", "category": "atmosphere", "instrument": "NASA OMI (Aura uydusu, günlük L3, 0,25°)",
         "source": "NASA GES DISC · OMI/Aura OMNO2d · ayda 4 gün örneklemi",
@@ -143,6 +154,7 @@ DATASETS: dict[str, dict] = {
         "regions": "all", "bad_dir": "up",
     },
     "MODIS_NDVI": {
+        "data_type": "satellite",
         "name_tr": "Bitki örtüsü indeksi NDVI (MODIS)", "name_en": "Vegetation index NDVI (MODIS)", "unit": "NDVI",
         "unit_en": "NDVI", "category": "soil", "instrument": "NASA MODIS Terra MOD13C2 v061 (aylık, 0,05°)",
         "source": "NASA LP DAAC · MODIS MOD13C2 v061 aylık", "source_en": "NASA LP DAAC · MODIS MOD13C2 v061 monthly",
@@ -155,6 +167,7 @@ DATASETS: dict[str, dict] = {
         "regions": "all", "bad_dir": "down",
     },
     "GRACE_TWS": {
+        "data_type": "satellite",
         "name_tr": "Toplam su depolaması (GRACE/GRACE-FO)", "name_en": "Total water storage (GRACE/GRACE-FO)",
         "unit": "cm su", "unit_en": "cm water", "category": "water",
         "instrument": "NASA/DLR GRACE ve GRACE-FO uyduları (JPL mascon RL06.3)",
@@ -202,6 +215,23 @@ def write_extra(key: str, period: tuple[int, int], regions: dict[str, list], gri
     return EXTRA_PATH
 
 
+# veri türü: jüri / öğrenci için "doğrudan ölçüm mü, model mi?" ayrımı (GLDAS bir kara yüzeyi modelidir, ölçüm değil)
+DATA_TYPES = {
+    "satellite": ("Uydu ölçümü", "Satellite"),
+    "model": ("Model", "Model"),
+    "insitu": ("Yerinde ölçüm", "In-situ"),
+}
+
+
+def data_type_label(key: str, lang: str = "tr") -> str:
+    """Ek veri setinin tür etiketi: "Uydu ölçümü" / "Model (GLDAS)" / "Yerinde ölçüm" (EN: Satellite / Model (GLDAS) / In-situ)."""
+    m = DATASETS.get(key) or {}
+    t = m.get("data_type", "satellite")
+    tr, en = DATA_TYPES.get(t, DATA_TYPES["satellite"])
+    label = en if lang == "en" else tr
+    return f"{label} ({key.split('_')[0]})" if t == "model" else label
+
+
 def _rec(key: str, region: str) -> tuple[list | None, list[int] | None]:
     s = (load_extra().get("series") or {}).get(key)
     if not s:
@@ -221,7 +251,8 @@ def extra_catalog(region: str, lang: str = "tr") -> list[dict]:
         out.append({"key": key, "name": m["name_en" if en else "name_tr"], "unit": m["unit_en" if en else "unit"],
                     "category": m["category"], "instrument": m["instrument"],
                     "definition": m["definition_en" if en else "definition_tr"], "why": m["why_en" if en else "why_tr"],
-                    "source": m["source_en" if en else "source"], "bad_dir": m.get("bad_dir")})
+                    "source": m["source_en" if en else "source"], "bad_dir": m.get("bad_dir"),
+                    "data_type": m.get("data_type", "satellite"), "type_label": data_type_label(key, lang)})
     return out
 
 

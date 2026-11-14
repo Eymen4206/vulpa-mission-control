@@ -23,7 +23,7 @@ from .quality import data_quality
 from .showcase import showcase_regions
 from .globalstats import compare_regions, global_annual_anomaly, year_extremes
 from .warmup import warm_up
-from .satellite import DATASETS as EXTRA_DATASETS, extra_analysis, extra_catalog
+from .satellite import DATASETS as EXTRA_DATASETS, data_type_label, extra_analysis, extra_catalog
 from .trendgrid import MAP_KEYS, map_keys_available, trend_map
 from .detective import REGION_TYPES, TOPICS, TYPE_NAMES, detective_questions, detective_suggest, topic_variables
 from .variables import (
@@ -64,7 +64,7 @@ __all__ = [
     # açılış ısınması (proje sahibi: "site yüklenene kadar açılmasın")
     "warm_up",
     # ek ölçüm veri setleri: NSIDC Arktik buz, GPM, PSMSL, GLDAS, AIRS, OMI, MODIS (satellite.py)
-    "extra_catalog", "extra_analysis", "EXTRA_DATASETS",
+    "extra_catalog", "extra_analysis", "EXTRA_DATASETS", "data_type_label",
     # Büyük Plan · Aşama A: değişken seçimi, nokta analizi, t-testi, gereken yıl, Giovanni
     "VARIABLES", "variable_catalog", "variable_series", "variable_analysis", "point_data", "describe_point",
     "analyze_values", "trend_tests", "giovanni_url",

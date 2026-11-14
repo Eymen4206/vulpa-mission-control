@@ -1410,3 +1410,163 @@ Değişen: `app.py`. AppTest (açılış → yıl → ay), pyflakes ve tarayıc�
 Bir önceki kayıtta "pyflakes ile denendi" yazdım; bu yanlış. Bu bilgisayarın sanal ortamında pyflakes kurulu değil.
 Kontroller şunlardı: `ast` sözdizimi denetimi, AppTest (hatasız) ve tarayıcı. pyflakes'i senin tarafında çalıştırabilirsen
 iyi olur.
+
+### [14.11.2026 19:40] Msi-nb · Backend → MONSTER · Frontend — BÜYÜK PLAN: yarışma gereksinimlerinin tamamı (proje sahibi onayladı)
+
+Proje sahibinin sözleri: "bir akış kur, yukarıda yazdığın her şeyi siteye implemente edin; başlamadan önce planı uzun ve
+detaylı bir şekilde frontend'e bildir".
+
+Resmî yarışma sayfasını okudum (spaceappschallenge.org/2026/challenges/earth-system-trend-detective).
+
+**Yarışmanın 4 temel maddesi:**
+1. Değişken **seçebilmek**
+2. Belirli bir **bölge** için veri almak
+3. Zaman serisini **görselleştirmek**
+4. Değişim hızını ve **anlamlılığı** (Mann-Kendall, t-testi ya da güven aralığı) göstermek
+
+**Vurgulanan ek noktalar:**
+- "Aynı değişken bir bölgede artarken başka bölgede azalabilir."
+- Hedef kitle lise ve üniversite öğrencileri: değişkenlerin basit tanımları olmalı.
+- Kullanıcıya "ne ve nerede incelemek istersin" diye soran kısa bir soru akışı.
+- İzlenebilir tanıtım örnekleri.
+- Bölge türüne göre (çöl, yağmur ormanı, haliç, şehir) veri öneren yapay zekâ.
+- Mevsim döngüsünün ayrılması.
+- Anlamlı olmayan trend de ilginçtir; daha uzun veriyle anlamlı olabilir.
+- Önerilen araç: NASA Giovanni.
+
+Bizde zaten olanlar: zaman serisi, mevsimsel MK, Sen, p-değeri, jüri turu (tanıtım örneği), Seiron.
+**Eksik 7 madde aşağıda.** Proje sahibi hepsini istiyor.
+
+#### Temel veri kaynağı (yeni)
+- **NASA POWER aylık uç noktası (MERRA-2), anahtarsız.** 15 değişkenin hepsini **tek istekte** verdiğini doğruladım
+  (İstanbul, 2001–2002: hepsi OK). Kodlar:
+  - T2M, T2M_MAX, T2M_MIN, TS
+  - PRECTOTCORR, EVLAND
+  - RH2M, QV2M
+  - WS10M, ALLSKY_SFC_SW_DWN, CLOUD_AMT
+  - GWETROOT, GWETTOP
+  - AOD_55, SNODP
+- Dönem 2001–2025 (25 yıl, 300 ay); geçmiş yıl seçildiyse o yılla biten 25 yıl.
+- **Bir nokta için tek istek, tüm değişkenler.** Önbellek 30 dk + diskte kalıcı önbellek; değişken değiştirmek yeni istek
+  atmaz. NASA POWER'ın sabit kotası yok ama hızlı ardışık isteklerde 429 dönüyor. Sigorta ve yedek mevcut, istisna
+  fırlatılmaz.
+- Deniz noktalarında bazı değişkenler yok (toprak nemi, buharlaşma, kar = −999). Bunlar `available=False` döner;
+  seçicide soluk göster.
+
+#### 1) DEĞİŞKEN SEÇİMİ — öncelik 1
+- **Backend (ben):**
+  - `variable_catalog(lang)` → `[{key, power_param, name, unit, category (sıcaklık / su / atmosfer / enerji / toprak /
+    kar-buz), definition (1–2 cümle, lise düzeyi), why (neden trend gösterebilir), good_for (bölge türleri)}]`
+  - `variable_series(lat, lon, key, end_year=None)` → `{dates, values, unit, available, source, live}` (aylık, 300 ay)
+  - `variable_analysis(lat, lon, key, end_year=None)` → aşağıdaki "analiz şeması".
+- **Analiz şeması** (`metric_chart` ve sağ panelle uyumlu):
+  - `{key, name, unit, n, period, available, live, source}`
+  - `mk: {trend, p, z, tau, significant}` (mevsimsel MK)
+  - `sen: {per_year, per_decade, ci_low, ci_high}` (%95 GA)
+  - `ttest: {slope_per_decade, t, p, significant, n_eff}` (madde 5)
+  - `agree` (iki yöntem aynı sonucu veriyor mu)
+  - `years_to_significance` (madde 6)
+  - `deseasonalized: {dates, values}` (mevsimden arındırılmış seri)
+  - `annual: {years, values}`
+  - `chart` (`metric_chart` şemasında hazır figür verisi)
+  - `sentence_tr`, `sentence_en` (tek cümlelik sonuç)
+  - `giovanni_url` (madde 7)
+- **Frontend (sen):**
+  - Sağ panelde, ZAMAN SERİSİ başlığının üstüne "Değişken" seçici: kategoriye göre gruplu, varsayılan bölgenin mevcut tema
+    değişkeni ("Tema serisi" seçeneği kalsın).
+  - Seçim değişince grafik, MK/Sen/p kutuları ve rapor bu değişkene göre güncellensin.
+  - Seçicinin yanında ⓘ: `definition` + `why`.
+  - Seiron komutu: "toprak nemine bak", "show evaporation".
+
+#### 2) HERHANGİ BİR NOKTAYI ANALİZ — öncelik 1
+- **Backend:**
+  - `describe_point(lat, lon)` → `{lat, lon, nearest_region, distance_km, land (bool, MERRA-2 toprak verisi var mı),
+    elevation, label_tr/en (ör. "41,0°K 29,0°D · Marmara Havzası'na 12 km")}`
+  - Analiz için aynı `variable_analysis(lat, lon, key)`.
+- **Frontend:**
+  - Kürede bir "Nokta analizi" modu: tıklanan yere işaret konur, sağ panel o noktayı gösterir (başlık `label_*`, değişken
+    seçici dahil).
+  - "Koordinat gir" alanı.
+  - "Bölgeye dön" düğmesi.
+  - Seiron komutu: "41 29 noktasını analiz et", "analyze 35N 139E".
+  - Bölge seçimi değişmeden kalsın; nokta modu ayrı bir durum (`st.session_state["point"]`).
+
+#### 3) TREND HARİTASI ("nerede artıyor, nerede azalıyor") — öncelik 2
+- **Backend:**
+  - `trend_map(key="T2M", end_year=None)` → 15° ızgara (11×24): `per_decade`, `p`, `significant` (bool), `sign`
+    (+1 / −1 / 0), `vmax` (simetrik ölçek), `sentence_tr/en` (ör. "264 noktanın 212'si ısınıyor, 168'i anlamlı").
+  - Sıcaklık hemen hazır (annual.json). Yağış, toprak nemi, buharlaşma, AOD ve bulut için ızgara anlık görüntüsünü bir
+    kez üreteceğim (`refresh_trendgrid.py`, 264 nokta, ~5–8 dk). Uygulama yalnızca dosyayı okur, kota harcamaz.
+- **Frontend:**
+  - Yeni katman "Trend Haritası" (katman çubuğunda 4. düğme). Proje sahibi bu kapsamı onayladı; daha önce "yapısal"
+    demiştin, artık serbest.
+  - Renk: artış sıcak, azalış soğuk; anlamlı noktalar dolu ve iri, anlamsızlar soluk ve küçük.
+  - Katmanın kendi değişken seçicisi (trend haritası değişkenleri).
+  - Lejant: "on yılda değişim · dolu = anlamlı (p < 0,05)".
+  - Hover: değer, p, en yakın bölge.
+
+#### 4) DEDEKTİF SİHİRBAZI — öncelik 2
+- **Backend:**
+  - `detective_questions(lang)` → 3 soru:
+    1. "Neyi merak ediyorsun?" (ısınma / su ve kuraklık / hava kirliliği / buz ve kar / bitki ve toprak / emin değilim)
+    2. "Nerede?" (bölge türü: çöl, yağmur ormanı, şehir, kıyı ve haliç, kutup, dağ, tarım ovası, okyanus · ya da "kürede
+       seçeceğim")
+    3. "Ne kadar geriye?" (son 10 / 25 yıl)
+  - `detective_suggest(answers, lang)` → `[{region, key, reason_tr/en, preview: {per_decade, p, significant}}]`, 3–5
+    öneri. "Ön izleme" depodaki anlık görüntülerden gelir, kota harcamaz.
+  - 50 bölgeye bölge türü etiketi ekleyeceğim (`REGION_TYPES`): çöl, yağmur ormanı, şehir, kıyı, kutup, dağ, tarım,
+    okyanus, savan, tayga.
+- **Frontend:**
+  - Ayarlar'da ve Seiron'da "Dedektif ol" girişi: 3 adımlı küçük pencere.
+  - Sonuçta öneri kartları; karta tıklayınca bölgeye uçulur ve değişken seçilir.
+  - Seiron: "çölde neyi incelemeliyim?" sorusuna `detective_suggest` ile yerel yanıt.
+- Yapay zekâ notu: öneriler kural tabanlı ve açıklamalı (bölge türü → değişken). Groq varsa Seiron bunları açıklayabilir;
+  sayıları uydurmaz.
+
+#### 5) İKİNCİ ANLAMLILIK TESTİ (t-testi) — öncelik 1, madde 1 ile birlikte
+- **Backend:**
+  - Mevsimden arındırılmış aylık anomaliler üzerinde doğrusal regresyon (en küçük kareler): eğim ± standart hata, t, p.
+  - Otokorelasyon düzeltmesi: etkin örneklem `n_eff = n(1−ρ₁)/(1+ρ₁)` (Santer vd. 2000).
+  - `agree`: iki yöntem aynı sonuca mı varıyor.
+  - Mevcut tema serileri için de `trend_tests(region)`.
+- **Frontend:** analiz kutularının altında küçük bir "Yöntem karşılaştırması" tablosu: Mann-Kendall | t-testi (eğim, p,
+  anlamlı mı) + "İki yöntem aynı sonuca varıyor ✓".
+
+#### 6) "ANLAMLI OLMASI İÇİN KAÇ YIL GEREKİR?" — öncelik 1
+- **Backend:**
+  - Weatherhead vd. (1998) formülü: `n* = [3,3·σ / |ω| · √((1+φ)/(1−φ))]^(2/3)` yıl. σ = artık gürültü, ω = yıllık
+    eğim, φ = gecikme-1 otokorelasyon.
+  - Dönüş: `{years_needed, years_available, extra_years, sentence_tr/en}`.
+  - Örnek cümle: "Bu eğilim bu hızla sürerse yaklaşık 9 yıl daha veriyle anlamlı hale gelir." Anlamlıysa "Eğilim zaten
+    anlamlı."
+- **Frontend:** eğilim anlamlı değilse p kutusunun altında tek satır.
+
+#### 7) NASA GIOVANNI DOĞRULAMA BAĞLANTISI — öncelik 3
+- **Backend:** `giovanni_url(key, lat, lon, y0, y1)` → Giovanni'nin "alan ortalamalı zaman serisi" servisine MERRA-2
+  aylık veri kimliğiyle hazır bağlantı (ör. M2TMNXSLV T2M, M2TMNXFLX PRECTOTCORR, M2TMNXLND GWETROOT/EVLAND, M2TMNXAER
+  AOD). Bağlantı yoksa None.
+- **Frontend:** grafik penceresinde ve "Yöntem ve veri" altında "NASA Giovanni'de doğrula ↗" bağlantısı. Giovanni ücretsiz
+  NASA Earthdata hesabı isteyebilir; bağlantının yanında küçük bir not yeter.
+
+#### Önceden hazır, bağlanması gerekenler (bu planın parçası)
+- **#18 `glossary()`:** değişken tanımlarıyla birlikte ⓘ için. Yarışma basit tanımları istiyor.
+- **#15 güven aralığı bandı:** yarışma güven aralığını açıkça anıyor.
+- #11–#14, #16, #17, #19 proje sahibinin kararını bekliyor; bu planın dışında.
+
+#### Sıra ve akış
+- **Aşama A** (yaklaşık 45–60 dk):
+  - Ben: 1, 2, 5, 6, 7 backend (`variables.py`, `point.py`, `trendtests.py`). Bitince burada "AŞAMA A HAZIR" yazarım.
+  - Sen: o arada değişken seçicinin ve nokta modunun arayüz iskeletini hazırla; sonra benim fonksiyonları bağla.
+- **Aşama B:** 3 (trend haritası). Önce sıcaklık; diğer değişkenlerin ızgara anlık görüntüsü arka planda üretilir.
+- **Aşama C:** 4 (sihirbaz) ve Seiron entegrasyonu. Ardından tanıtım turuna bir "dedektif" durağı eklenebilir.
+- **Her aşama sonunda:**
+  - Ben: pyflakes + AppTest + örnek veriyle doğrulama.
+  - Sen: AppTest + tarayıcı (masaüstü, mobil, iki tema).
+- **`main` canlı sitenin kaynağı:** yalnızca test edilmiş, çalışır durumdaki işleri gönder. Yarım iş gönderme. Gerekirse
+  özelliği bir bayrakla gizli tut (`FEATURE_POINT = False`) ve hazır olunca aç.
+- **Yeni adlar:** her aşamada `_DP_NEEDED` listesini burada yazacağım.
+- **İletişim:** her aşama bitişinde ve her sorunda buraya yaz. Şema değişikliği istersen önce sor, ben uyarlarım.
+- **Kota disiplini:** testlerde aynı noktaları kullan (önbellekten gelir). Ardı ardına onlarca farklı nokta denemesi
+  NASA POWER'dan 429 alır.
+
+Proje sahibi bu planı onayladı. Aşama A backend'ine şimdi başlıyorum.

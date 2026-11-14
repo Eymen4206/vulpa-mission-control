@@ -24,6 +24,7 @@ Veri kaynakları (tümü 30 dakikalık önbellekle, hata durumunda simülasyon y
 
 from __future__ import annotations
 
+import functools
 import html
 import io
 import json
@@ -839,6 +840,40 @@ def weather_extremes() -> dict:
 # ─────────────────────────────────────────────────────────────────────────────
 FIELD_STEP = 7.5                                             # termal alan ve izobarlar için ara değerleme adımı
 ISOBAR_STEP = 4                                              # hPa
+THERMAL_CELL = 3.0                                           # sürekli termal yüzeyin hücre boyu (°)
+
+
+@functools.lru_cache(maxsize=1)
+def thermal_cells() -> tuple[dict, np.ndarray, np.ndarray]:
+    """Sürekli termal yüzeyin hücre ızgarası: (meta, merkez enlemleri, merkez boylamları), satır öncelikli.
+
+    ±75° arasını THERMAL_CELL boyutunda hücrelere böler. Geometri tarayıcıda kurulur: denetleyici aynı renk
+    bandına düşen komşu hücreleri birleştirip bant başına tek bir MultiPolygon çizer (Plotly choropleth'in
+    maliyeti öğe sayısıyla hızla arttığı için 6.000 ayrı hücre yerine ~40–80 öğe).
+    """
+    c = THERMAL_CELL
+    lat0s = np.arange(GRID_LATS[0], GRID_LATS[-1] - 1e-6, c)
+    lon0s = np.arange(-180.0, 180.0 - 1e-6, c)
+    la, lo = np.meshgrid(lat0s + c / 2, lon0s + c / 2, indexing="ij")
+    meta = {"lat0": float(lat0s[0]), "lon0": -180.0, "cell": c, "rows": len(lat0s), "cols": len(lon0s)}
+    return meta, la.ravel(), lo.ravel()
+
+
+def _smooth_sample(field: np.ndarray, lats: np.ndarray, lons: np.ndarray) -> np.ndarray:
+    """15° ızgarayı verilen noktalarda kübik ara değerlemeyle örnekler (tarih çizgisinde dikişsiz).
+
+    Boylam ekseni her iki yanda 3 sütun dolgulanır ki kübik çekirdek 180°'de de iki taraflı komşu görsün.
+    Kübik yöntem kullanılamazsa doğrusal yönteme düşer. Yeni veri üretmez, yalnızca ara değerler.
+    """
+    from scipy.interpolate import RegularGridInterpolator
+    pad = 3
+    ext = np.concatenate([field[:, -pad:], field, field[:, :pad]], axis=1)
+    ext_lons = np.concatenate([GRID_LONS[-pad:] - 360, GRID_LONS, GRID_LONS[:pad] + 360])
+    pts = np.column_stack([lats, lons])
+    try:
+        return RegularGridInterpolator((GRID_LATS, ext_lons), ext, method="cubic")(pts)
+    except Exception:
+        return RegularGridInterpolator((GRID_LATS, ext_lons), ext, method="linear")(pts)
 
 
 def fetch_grid() -> dict:
@@ -916,6 +951,11 @@ def grid_layers(year: int, stamp: str) -> dict:
     field = {"lon": np.round(f_lon, 2).tolist(), "lat": np.round(f_lat, 2).tolist(),
              "color": [blend(THERMAL_STOPS, (v + 8) / 16) for v in vals],
              "pcolor": [blend(PRESSURE_FIELD_STOPS, (v - 975) / 60) for v in p_vals]}
+    # 1b) Sürekli termal yüzey: hücre merkezlerinde kübik ara değerlenmiş sapma (°C), renk skalası Plotly'de
+    cell_meta, c_lat, c_lon = thermal_cells()
+    surface = np.clip(_smooth_sample(g["anomaly"], c_lat, c_lon), -12, 12)
+    field["z"] = np.round(surface, 1).tolist()
+    field["zgrid"] = cell_meta
     # 2) İzobarlar: 4 hPa aralıklı basınç eğrileri
     pres, p_lats, p_lons = _resample(g["pressure"], FIELD_STEP)
     lo_lvl = int(np.floor(pres.min() / ISOBAR_STEP) * ISOBAR_STEP)
@@ -1985,6 +2025,10 @@ div:has(> .st-key-fx_redirect) {
 /* Termal alan: üst üste binen noktalar bulanıklaştırılarak pürüzsüz bir sıcaklık gradyanına dönüşür */
 .vp-field { filter: blur(9px); opacity: .5; }
 [data-layer="wind"] .vp-field { opacity: .42; filter: blur(12px); }
+/* Sürekli termal yüzey (iz 11): hücre kenarları hafif bulanıklıkla erir; tıklama/hover şehir noktalarına geçer */
+.st-key-globe_panel g.trace.choropleth { filter: blur(var(--vp-tblur, 6px)); pointer-events: none; }
+.st-key-globe_panel g.trace.choropleth path { pointer-events: none; shape-rendering: crispEdges; }
+[data-layer="thermal"] g.layer.coastlines path { stroke: rgba(12,10,9,.7) !important; stroke-width: 1.1px !important; }
 .vp-pulse path.point { animation: vp-pulse 1.8s ease-in-out infinite; }
 @keyframes vp-pulse { 0%,100% { stroke-width: 1px; stroke-opacity: .95; fill-opacity: .22; }
                       50% { stroke-width: 9px; stroke-opacity: .18; fill-opacity: .04; } }
@@ -2313,11 +2357,12 @@ def layer_label(key: str, short: bool = False) -> str:
 #  0 seçili halka · 1 etiket · 2 klasik pinler
 #  3 termal gradyan alanı (küresel ızgara) · 4 termal şehir noktaları · 5 termal ısı halkaları (nabız)
 #  6 izobarlar (akan dalga) · 7 rüzgâr vektörleri (akış) · 8 rüzgâr okları · 9 A/Y basınç merkezleri (yayılan dalga)
-#  10 şehir basınç noktaları
+#  10 şehir basınç noktaları · 11 sürekli termal yüzey (choropleth; Plotly onu her zaman noktaların altına çizer)
+# Termalde 3 (nokta alanı) ve 5 (nabız halkaları) kapalıdır; yerlerini 11'deki sürekli yüzey alır.
 LAYER_VISIBILITY = {
-    "classic": [True, True, True, False, False, False, False, False, False, False, False],
-    "thermal": [True, True, False, True, True, True, False, False, False, False, False],
-    "wind":    [True, True, False, True, False, False, True, True, True, True, True],
+    "classic": [True, True, True, False, False, False, False, False, False, False, False, False],
+    "thermal": [True, True, False, False, True, False, False, False, False, False, False, True],
+    "wind":    [True, True, False, True, False, False, True, True, True, True, True, False],
 }
 # Termal skala (meteorolojik gelenek): soğuk sapma mavi → camgöbeği → yeşil → sarı → turuncu → kırmızı (sıcak sapma)
 THERMAL_STOPS = ((0.0, "#1e40af"), (0.2, "#0ea5e9"), (0.4, "#4ade80"), (0.55, "#facc15"),
@@ -2397,17 +2442,25 @@ def globe_figure() -> go.Figure:
         hovertemplate="%{hovertext}<extra></extra>",
         marker={"size": [8] * n, "color": ["#a8a29e"] * n, "line": {"color": "rgba(12,10,9,0.9)", "width": 1}},
         **clickable))
+    fig.add_trace(go.Choropleth(  # 11 · sürekli termal yüzey (bant geometrisi ve değerleri denetleyiciden gelir)
+        geojson={"type": "FeatureCollection", "features": []}, featureidkey="id", locations=[], z=[],
+        colorscale=[[p, c] for p, c in THERMAL_STOPS], zmin=-8, zmax=8, showscale=False,
+        marker={"line": {"width": 0}}, hoverinfo="skip", showlegend=False, visible=False))
     fig.update_geos(
         projection_type="orthographic",
         projection_rotation={"lon": INTRO_CAMERA["lon"], "lat": INTRO_CAMERA["lat"], "roll": 0},
         projection_scale=INTRO_CAMERA["scale"],
+        center={"lon": INTRO_CAMERA["lon"], "lat": INTRO_CAMERA["lat"]},
         showocean=True, oceancolor="#15110e",
         showland=True, landcolor="#2b231d",
         showlakes=False, showcountries=True, countrycolor="rgba(251,191,36,0.13)", countrywidth=0.5,
         showcoastlines=True, coastlinecolor="rgba(249,115,22,0.5)", coastlinewidth=0.7,
         showframe=False, bgcolor="rgba(0,0,0,0)",
-        lataxis={"showgrid": True, "gridcolor": "rgba(249,115,22,0.06)", "dtick": 30},
-        lonaxis={"showgrid": True, "gridcolor": "rgba(249,115,22,0.06)", "dtick": 30},
+        # Aralıklar açıkça tam küre verilir: Plotly ortografikte varsayılanı "dönüş ± 90°" alır (ör. 40° K için
+        # −49…131), 90°'yi aşan kısmı kırpar ve kırpma kutusu (clipExtent) küçülür. Sonuçta kuzey/güney enlemlere
+        # dönüldüğünde kara, kıyı ve termal yüzey yatay bir şeride kırpılıyordu.
+        lataxis={"showgrid": True, "gridcolor": "rgba(249,115,22,0.06)", "dtick": 30, "range": [-90, 90]},
+        lonaxis={"showgrid": True, "gridcolor": "rgba(249,115,22,0.06)", "dtick": 30, "range": [-180, 180]},
     )
     fig.update_layout(
         uirevision="vulpa", autosize=True, margin={"l": 0, "r": 0, "t": 0, "b": 0},
@@ -2497,13 +2550,16 @@ GLOBE_CONTROLLER_JS = """
   const ease = s => s < 0.5 ? 4 * s * s * s : 1 - Math.pow(-2 * s + 2, 3) / 2;
   const plot = () => {
     const gd = document.querySelector('.st-key-globe_panel .js-plotly-plot');
-    return gd && gd._fullLayout && gd._fullLayout.geo && gd.data && gd.data.length >= 11 ? gd : null;
+    return gd && gd._fullLayout && gd._fullLayout.geo && gd.data && gd.data.length >= 12 ? gd : null;
   };
   const camera = gd => {
     const p = gd._fullLayout.geo.projection;
     return {lon: p.rotation.lon, lat: p.rotation.lat, scale: p.scale};
   };
-  const frame = (lon, lat, scale) => ({layout: {geo: {projection: {rotation: {lon: lon, lat: lat, roll: 0}, scale: scale}}}});
+  // Merkez dönüşle birlikte taşınır: eksen aralıkları tam küre verildiğinden (bkz. globe_figure) Plotly merkezi
+  // kendiliğinden dönüşe eşitlemez; eşitlenmezse yakınlaştırılmış görünüm hedeften kayar.
+  const frame = (lon, lat, scale) => ({layout: {geo: {center: {lon: lon, lat: lat},
+                                                      projection: {rotation: {lon: lon, lat: lat, roll: 0}, scale: scale}}}});
   // Google Earth tarzı sinematik geçiş: 1) uzaklaş  2) hedefe kay  3) hedefe yaklaş.
   function flyTo(gd, end) {
     const s = camera(gd);
@@ -2537,12 +2593,54 @@ GLOBE_CONTROLLER_JS = """
   // Animasyon sınıfları: iz grupları bağlı veriden (trace.index) tanınır; her çizimden sonra yeniden uygulanır
   const ANIM_CLASS = {3: "vp-field", 4: "vp-heat", 5: "vp-pulse", 6: "vp-isobar", 7: "vp-flow", 9: "vp-wave"};
   function tag(gd) {
+    // Plotly choropleth'i (termal yüzey, "backplot") kıyı çizgilerinin üstüne çizer; kıyılar yüzeyin üstüne,
+    // noktaların ("frontplot") altına alınır ki termal haritada coğrafya okunabilsin. Plotly her çizimde katman
+    // sırasını geri yüklediği için bu, her çizimden sonra (plotly_afterplot) yeniden uygulanır.
+    const coast = gd.querySelector("g.layer.coastlines"), front = gd.querySelector("g.layer.frontplot");
+    if (coast && front && coast.nextSibling !== front) front.parentNode.insertBefore(coast, front);
     gd.querySelectorAll("g.trace.scattergeo").forEach(function(g) {
       const d = g.__data__, idx = d && d[0] && d[0].trace ? d[0].trace.index : -1;
       Object.entries(ANIM_CLASS).forEach(function([i, cls]) { g.classList.toggle(cls, idx === Number(i)); });
     });
   }
   const T_layer = () => (window.__vulpaTarget || {}).layer;
+  // Sürekli termal yüzey (iz 11). Hücre değerleri 48 renk bandına ayrılır; aynı banttaki yan yana hücreler
+  // satır satır tek bir dörtgen şeride birleşir ve her bant tek bir MultiPolygon öğesi olur. Şeritlerin üst ve
+  // alt kenarları hücre başına bir köşeyle çizilir (uzun kenar büyük daire yayı gibi bükülmesin). Halkalar saat
+  // yönündedir: d3-geo ters yönlü halkayı kürenin geri kalanı olarak yorumlar. Veri ±75° ile sınırlı olduğundan
+  // son 12°'lik kuşakta opaklık sıfıra iner (sert kenar olmasın).
+  const T_BANDS = 48, T_OPACITY = 0.62, T_FADE = 12;
+  const tBand = v => Math.max(0, Math.min(T_BANDS - 1, Math.floor((v + 8) / 16 * T_BANDS)));
+  function thermalBands(z, g) {
+    const groups = {};
+    for (let r = 0; r < g.rows; r++) {
+      const la0 = g.lat0 + r * g.cell, la1 = la0 + g.cell, mid = la0 + g.cell / 2;
+      const op = Math.round(100 * T_OPACITY * Math.max(0, Math.min(1, (75 - Math.abs(mid)) / T_FADE))) / 100;
+      if (op <= 0) continue;
+      let c = 0;
+      while (c < g.cols) {
+        const b = tBand(z[r * g.cols + c]);
+        let e = c + 1;
+        while (e < g.cols && tBand(z[r * g.cols + e]) === b) e++;
+        const ring = [];
+        for (let k = c; k <= e; k++) ring.push([g.lon0 + k * g.cell, la1]);
+        for (let k = e; k >= c; k--) ring.push([g.lon0 + k * g.cell, la0]);
+        ring.push(ring[0]);
+        const key = b + "_" + op;
+        (groups[key] = groups[key] || {b: b, op: op, polys: []}).polys.push([ring]);
+        c = e;
+      }
+    }
+    const features = [], ids = [], zs = [], ops = [];
+    Object.keys(groups).forEach(function(key) {
+      const G = groups[key];
+      features.push({type: "Feature", id: key, properties: {}, geometry: {type: "MultiPolygon", coordinates: G.polys}});
+      ids.push(key);
+      zs.push(-8 + (G.b + 0.5) * 16 / T_BANDS);
+      ops.push(G.op);
+    });
+    return {geojson: {type: "FeatureCollection", features: features}, ids: ids, z: zs, op: ops};
+  }
   async function applyData(gd, D) {
     const f = D.field, t = D.thermal, w = D.wind, c = D.centers, p = D.pressure;
     await P().restyle(gd, {lon: [f.lon], lat: [f.lat], "marker.color": [T_layer() === "wind" ? f.pcolor : f.color]}, [3]);
@@ -2555,6 +2653,10 @@ GLOBE_CONTROLLER_JS = """
                            "marker.line.color": [c.color]}, [9]);
     await P().restyle(gd, {"marker.color": [p.color], hovertext: [p.hover]}, [10]);
     if (D.pins) await P().restyle(gd, {hovertext: [D.pins]}, [2]);
+    if (f.z && f.zgrid) {
+      const tb = thermalBands(f.z, f.zgrid);
+      await P().restyle(gd, {geojson: [tb.geojson], locations: [tb.ids], z: [tb.z], "marker.opacity": [tb.op]}, [11]);
+    }
     gd.__vpFieldScale = null;
   }
   // Termal alan noktaları komşularıyla üst üste binecek boyutta tutulur (7.5° aralık), yakınlaştıkça büyür
@@ -2563,6 +2665,9 @@ GLOBE_CONTROLLER_JS = """
     if (gd.__vpFieldScale && Math.abs(gd.__vpFieldScale - scale) / scale < 0.05) return;
     gd.__vpFieldScale = scale;
     const side = Math.min(gd.clientWidth, gd.clientHeight) || 400;
+    // Sürekli termal yüzey: bulanıklık, bir hücrenin (3°) ekrandaki boyunun ~%45'i; hücre kenarları her yakınlıkta erir
+    const cellPx = (side / 2) * scale * (3 * Math.PI / 180);
+    gd.style.setProperty("--vp-tblur", Math.max(3, Math.min(22, 0.45 * cellPx)).toFixed(1) + "px");
     await P().restyle(gd, {"marker.size": Math.max(10, Math.round(0.09 * side * scale))}, [3]);
   }
   async function applySelection(gd, T) {
@@ -2595,7 +2700,16 @@ GLOBE_CONTROLLER_JS = """
     const T = window.__vulpaTarget, gd = plot();
     if (busy || !T || !gd || !P()) return;
     if (gd.getBoundingClientRect().width < 10) return;     // gizli sekmede bekle; sekme açılınca uygulanır
-    if (!gd.__vpTagged) { gd.on("plotly_afterplot", function() { tag(gd); }); gd.__vpTagged = true; }
+    if (!gd.__vpTagged) {
+      gd.on("plotly_afterplot", function() { tag(gd); });
+      // Fareyle sürüklerken Plotly yalnızca dönüşü günceller; merkez sessizce (yeniden çizmeden) eşitlenir ki
+      // sürükleme bittiğindeki son çizimde harita kaymasın.
+      gd.on("plotly_relayouting", function(e) {
+        const lon = e["geo.projection.rotation.lon"], lat = e["geo.projection.rotation.lat"];
+        if (lon !== undefined && lat !== undefined && gd.layout.geo) gd.layout.geo.center = {lon: lon, lat: lat};
+      });
+      gd.__vpTagged = true;
+    }
     busy = true;
     try {
       if (gd.__vulpaNonce !== T.nonce) {                     // yeni bölge / yakınlık hedefi

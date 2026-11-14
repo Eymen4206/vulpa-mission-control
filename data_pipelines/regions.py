@@ -1,0 +1,251 @@
+"""50 stratejik iklim/ekoloji bölgesi — `app.py` içindeki tanımların birebir kopyası.
+
+Arayüze özgü yardımcılar (rname, rarea, rtheme, rvar, VAR_EN …) app.py'de kalır.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class Region:
+    name: str
+    country: str
+    slug: str
+    lat: float
+    lon: float
+    theme: str
+    archetype: str
+    variable: str
+    unit: str
+    source: str
+    base: float
+    season_amp: float
+    peak_month: int
+    trend_per_year: float
+    noise: float
+    ar: float
+    seed: int
+    bad_dir: str  # "up": artış olumsuzdur · "down": azalış olumsuzdur
+    decimals: int
+    floor: float | None = None
+    aliases: tuple[str, ...] = ()
+    en: tuple[str, str, str] = ("", "", "")   # İngilizce: ad, kapsadığı ülkeler, tema
+
+
+def _r(*args, **kwargs) -> Region:
+    return Region(*args, **kwargs)
+
+
+REGION_LIST: tuple[Region, ...] = (
+    # ── Avrupa ve Orta Doğu ──
+    _r("Marmara Havzası", "Türkiye", "marmara", 40.75, 28.6, "Megakent Isı Adası", "urban",
+       "Yüzey sıcaklığı", "°C", "Landsat 9 · MODIS", 16.4, 10.2, 7, 0.056, 0.6, 0.4, 4101, "up", 2,
+       None, ("marmara", "istanbul", "türkiye", "turkey"),
+       en=("Marmara Basin", "Türkiye", "Megacity Heat Island")),
+    _r("Batı Avrupa Ovası", "Fransa · Belçika · Almanya", "bati_avrupa", 48.6, 3.5, "Avrupa İklim Anomalisi",
+       "anomaly", "Sıcaklık anomalisi", "°C", "GISTEMP · MERRA-2", 0.62, 0.35, 7, 0.038, 0.48, 0.5, 4804, "up", 3,
+       None, ("paris", "fransa", "france", "belçika", "belgium", "western europe"),
+       en=("Western European Plain", "France · Belgium · Germany", "European Climate Anomaly")),
+    _r("Britanya Adaları", "Birleşik Krallık · İrlanda", "britanya", 53.8, -3.0, "Kuzey Atlantik Salınımı Etkisi",
+       "oscillation", "Sıcaklık anomalisi", "°C", "ERA5", 0.4, 0.3, 7, 0.006, 0.75, 0.55, 5111, "up", 3,
+       None, ("londra", "london", "ingiltere", "england", "britanya", "britain", "irlanda", "ireland"),
+       en=("British Isles", "United Kingdom · Ireland", "North Atlantic Oscillation Influence")),
+    _r("Sibirya Taygası", "Rusya", "sibirya", 61.0, 100.0, "Tayga Ekosistem Değişimi", "boreal",
+       "Yüzey sıcaklığı anomalisi", "°C", "MODIS · ERA5-Land", 0.9, 0.6, 1, 0.06, 0.9, 0.45, 5516, "up", 3,
+       None, ("sibirya", "siberia", "siberian taiga", "moskova", "moscow", "rusya", "russia"),
+       en=("Siberian Taiga", "Russia", "Taiga Ecosystem Change")),
+    _r("Akdeniz Maki Kuşağı", "Yunanistan · Türkiye · İtalya", "akdeniz_maki", 38.6, 22.5,
+       "Akdeniz Orman Yangını Riski", "wildfire", "Yangın hava indeksi (FWI)", "FWI", "Copernicus EFFIS · VIIRS",
+       18.0, 16.0, 7, 0.22, 4.0, 0.45, 3724, "up", 2, 0.0,
+       ("akdeniz", "mediterranean", "atina", "athens", "yunanistan", "greece", "ege", "aegean"),
+       en=("Mediterranean Maquis Belt", "Greece · Türkiye · Italy", "Mediterranean Wildfire Risk")),
+    _r("İber Platosu", "İspanya · Portekiz", "iber", 40.0, -4.0, "İber Sıcak Hava Dalgaları", "anomaly",
+       "Aylık en yüksek sıcaklık", "°C", "MODIS · Meteosat-11", 21.0, 9.5, 7, 0.052, 0.75, 0.4, 7101, "up", 2,
+       None, ("madrid", "ispanya", "spain", "iber", "iberia", "iberian", "portekiz", "portugal"),
+       en=("Iberian Meseta", "Spain · Portugal", "Iberian Heatwaves")),
+    _r("Apenin Yarımadası", "İtalya", "apenin", 42.5, 13.0, "Akdeniz Kuraklığı", "drought",
+       "Kuraklık indeksi (SPEI-3)", "SPEI", "GPM IMERG · SMAP", 0.2, 0.2, 2, -0.028, 0.55, 0.6, 7102, "down", 3,
+       None, ("roma", "rome", "italya", "italy", "apenin", "apennine", "italian peninsula"),
+       en=("Italian Peninsula", "Italy", "Mediterranean Drought")),
+    _r("Alp Kuşağı", "İsviçre · Avusturya · Fransa · İtalya", "alpler", 46.5, 10.0, "Alp Isınma Eğilimi",
+       "anomaly", "Sıcaklık anomalisi", "°C", "ERA5 · MeteoSwiss", 0.7, 0.4, 7, 0.033, 0.7, 0.5, 7103, "up", 3,
+       None, ("alpler", "alps", "alp", "alpine", "isviçre", "switzerland", "avusturya", "austria"),
+       en=("Alpine Belt", "Switzerland · Austria · France · Italy", "Alpine Warming Trend")),
+    _r("Antarktika Yarımadası", "Antarktika", "antarktika", -65.5, -62.0, "Weddell Denizi Buz Örtüsü",
+       "cryosphere", "Deniz buzu örtüsü (Weddell Denizi)", "%", "Sentinel-1 · AMSR2", 38.0, 30.0, 9, -0.55, 6.0, 0.5,
+       7104, "down", 1, 0.0, ("antarktika", "antarctica", "antarktik", "antarctic", "weddell"),
+       en=("Antarctic Peninsula", "Antarctica", "Weddell Sea Ice Cover")),
+    _r("Grönland Buz Tabakası", "Grönland (Danimarka)", "gronland", 72.0, -40.0, "Buz Tabakası Erimesi",
+       "cryosphere", "Kar ve buz örtüsü", "%", "GRACE-FO · ICESat-2", 62.0, 26.0, 2, -0.42, 4.5, 0.5, 6408, "down", 1,
+       None, ("grönland", "greenland", "izlanda", "iceland", "reykjavik"),
+       en=("Greenland Ice Sheet", "Greenland (Denmark)", "Ice Sheet Melt")),
+    _r("Nil Deltası ve Vadisi", "Mısır", "nil", 30.5, 31.0, "Çölleşme İndeksi", "desert",
+       "Bitki örtüsü indeksi (NDVI)", "NDVI", "MODIS · Landsat 8", 0.21, 0.04, 3, 0.0005, 0.016, 0.45, 3009, "down", 4,
+       None, ("nil", "nile", "kahire", "cairo", "mısır", "egypt"),
+       en=("Nile Delta & Valley", "Egypt", "Desertification Index")),
+    _r("Arap Körfezi Kıyı Çölü", "BAE · Katar", "korfez", 24.6, 54.0, "Aşırı Sıcaklık ve Kuraklık", "desert",
+       "Aylık en yüksek sıcaklık", "°C", "MODIS · Meteosat-11", 35.2, 7.5, 7, 0.048, 0.6, 0.4, 2525, "up", 2,
+       None, ("dubai", "bae", "uae", "emirates", "katar", "qatar", "abu dabi", "abu dhabi", "körfez", "persian gulf"),
+       en=("Arabian Gulf Coastal Desert", "UAE · Qatar", "Extreme Heat & Drought")),
+    _r("Necd Platosu", "Suudi Arabistan", "necd", 24.5, 45.0, "Arap Yarımadası Aşırı Sıcaklığı", "desert",
+       "Aylık en yüksek sıcaklık", "°C", "MODIS · Meteosat-11", 34.0, 9.0, 7, 0.044, 0.7, 0.4, 7105, "up", 2,
+       None, ("riyad", "riyadh", "suudi", "saudi", "arabistan", "arabia", "necd", "najd"),
+       en=("Najd Plateau", "Saudi Arabia", "Arabian Peninsula Extreme Heat")),
+    _r("İran Platosu", "İran", "iran", 33.0, 53.0, "Yeraltı Suyu Tükenmesi", "drought",
+       "Yeraltı suyu seviyesi değişimi", "m", "GRACE-FO · Sentinel-1", 0.0, 0.4, 4, -0.95, 0.35, 0.7, 7106, "down", 2,
+       None, ("tahran", "tehran", "iran"),
+       en=("Iranian Plateau", "Iran", "Groundwater Depletion")),
+    # ── Afrika ──
+    _r("Sahra Çölü", "Kuzey Afrika", "sahra", 23.4, 13.0, "Kuraklık ve Toz Fırtınası", "desert",
+       "Toz aerosol optik derinliği", "AOD", "CALIPSO · MODIS", 0.42, 0.17, 6, 0.0, 0.085, 0.45, 2301, "up", 4, 0.03,
+       ("sahra", "sahara", "libya", "çad", "chad", "nijer çölü"),
+       en=("Sahara Desert", "North Africa", "Drought & Dust Storms")),
+    _r("Doğu Afrika Savanları", "Kenya · Tanzanya", "dogu_afrika", -2.5, 35.5, "Doğu Afrika Kuraklık Hattı",
+       "drought", "Kuraklık indeksi (SPEI-3)", "SPEI", "GPM IMERG · MODIS", 0.3, 0.25, 4, -0.012, 0.55, 0.6, 3616,
+       "down", 3, None, ("nairobi", "kenya", "tanzanya", "tanzania", "serengeti", "kilimanjaro", "east africa"),
+       en=("East African Savanna", "Kenya · Tanzania", "East African Drought Belt")),
+    _r("Cape Floristik Bölgesi", "Güney Afrika", "cape", -33.8, 19.8, "Su Krizi ve Kuraklık", "drought",
+       "Aylık yağış", "mm", "GPM IMERG · GRACE-FO", 48.0, 38.0, 6, -0.65, 18.0, 0.3, 3321, "down", 1, 0.0,
+       ("cape town", "kap kenti", "güney afrika", "south africa", "fynbos", "cape"),
+       en=("Cape Floristic Region", "South Africa", "Water Crisis & Drought")),
+    _r("Nijer Deltası", "Nijerya", "nijer", 5.0, 6.2, "Kıyı Erozyonu ve Deniz Seviyesi", "coastal",
+       "Göreli deniz seviyesi anomalisi", "mm", "Jason-3 · Sentinel-6", 0.0, 30.0, 8, 4.1, 20.0, 0.6, 7107, "up", 1,
+       None, ("lagos", "nijerya", "nigeria", "nijer deltası", "niger delta"),
+       en=("Niger Delta", "Nigeria", "Coastal Erosion & Sea Level")),
+    _r("Kongo Havzası", "Kongo DC · Kongo · Kamerun", "kongo", -1.0, 21.0, "Yağmur Ormanı Yangın Mevsimi",
+       "tropical_forest", "Aerosol optik derinliği", "AOD", "MODIS MAIAC · VIIRS", 0.30, 0.14, 7, 0.0035, 0.03, 0.45,
+       7108, "up", 4, 0.03, ("kongo", "congo", "kinshasa", "kinşasa", "kinsasa", "kamerun", "cameroon"),
+       en=("Congo Basin", "DR Congo · Congo · Cameroon", "Rainforest Fire Season")),
+    _r("Etiyopya Yaylası", "Etiyopya", "etiyopya", 9.5, 38.5, "Yayla Yağış Rejimi", "hydro",
+       "Aylık yağış", "mm", "GPM IMERG · CHIRPS", 140.0, 95.0, 7, -0.7, 28.0, 0.25, 7109, "down", 1, 0.0,
+       ("addis", "addis ababa", "etiyopya", "ethiopia", "ethiopian highlands"),
+       en=("Ethiopian Highlands", "Ethiopia", "Highland Rainfall Regime")),
+    # ── Asya ve Okyanusya ──
+    _r("Kanto Ovası", "Japonya", "kanto", 35.9, 139.6, "Megakent Isınma Yükü", "urban",
+       "Aylık ortalama sıcaklık", "°C", "Himawari-9 · MODIS", 16.3, 10.6, 8, 0.041, 0.7, 0.35, 3503, "up", 2,
+       None, ("kanto", "tokyo", "japonya", "japan"),
+       en=("Kanto Plain", "Japan", "Megacity Warming Load")),
+    _r("Kuzey Çin Ovası", "Çin", "kuzey_cin", 37.0, 116.0, "Hava Kalitesi ve Partikül Yükü", "air_quality",
+       "İnce partikül madde (PM2.5)", "µg/m³", "MODIS · TROPOMI", 98.0, 32.0, 1, -2.1, 14.0, 0.5, 3910, "up", 1, 8.0,
+       ("pekin", "beijing", "çin", "china", "north china", "hebei"),
+       en=("North China Plain", "China", "Air Quality & Particulate Load")),
+    _r("Kore Yarımadası", "Güney Kore", "kore", 36.5, 127.8, "Kentsel Mikro İklim", "urban",
+       "Aylık ortalama sıcaklık", "°C", "GK-2A · MODIS", 12.7, 13.5, 8, 0.045, 0.7, 0.35, 3719, "up", 2,
+       None, ("seul", "seoul", "kore", "korea"),
+       en=("Korean Peninsula", "South Korea", "Urban Microclimate")),
+    _r("Yangtze Deltası", "Çin", "yangtze", 31.3, 121.0, "Delta Kıyı Riski", "coastal",
+       "Göreli deniz seviyesi anomalisi", "mm", "Jason-3 · SWOT", 0.0, 35.0, 8, 4.6, 18.0, 0.6, 7110, "up", 1,
+       None, ("yangtze", "shanghai", "şanghay", "sanghay"),
+       en=("Yangtze River Delta", "China", "Delta Coastal Risk")),
+    _r("Batı Ghatlar", "Hindistan", "ghatlar", 16.5, 74.0, "Muson Yağış Dengesizliği", "hydro",
+       "Aylık yağış", "mm", "GPM IMERG · INSAT-3D", 200.0, 260.0, 7, 0.9, 70.0, 0.15, 1918, "up", 1, 0.0,
+       ("mumbai", "bombay", "ghat", "ghats", "western ghats", "konkan", "kerala"),
+       en=("Western Ghats", "India", "Monsoon Rainfall Imbalance")),
+    _r("Hint-Ganj Ovası", "Hindistan · Pakistan", "ganj", 27.5, 79.5, "Kış Duman Kirliliği", "air_quality",
+       "İnce partikül madde (PM2.5)", "µg/m³", "MODIS · TROPOMI", 110.0, 60.0, 11, 0.9, 22.0, 0.5, 7111, "up", 1,
+       10.0, ("delhi", "new delhi", "yeni delhi", "hindistan", "india", "ganj", "ganges", "indo-gangetic"),
+       en=("Indo-Gangetic Plain", "India · Pakistan", "Winter Smog")),
+    _r("İndus Havzası", "Pakistan", "indus", 26.5, 68.5, "Güney Asya Sıcak Hava Dalgaları", "anomaly",
+       "Aylık en yüksek sıcaklık", "°C", "MODIS · INSAT-3D", 32.0, 5.5, 6, 0.05, 0.6, 0.4, 7112, "up", 2,
+       None, ("karachi", "karaçi", "karaci", "pakistan", "indus", "sind", "sindh"),
+       en=("Indus Basin", "Pakistan", "South Asian Heatwaves")),
+    _r("Ganj-Brahmaputra Deltası", "Bangladeş · Hindistan", "bengal_delta", 23.0, 90.0, "Delta Taşkınları ve Muson",
+       "hydro", "Aylık yağış", "mm", "GPM IMERG", 180.0, 190.0, 7, 1.6, 60.0, 0.2, 7113, "up", 1, 0.0,
+       ("dhaka", "dakka", "bangladeş", "bangladesh", "brahmaputra", "sundarban", "sundarbans", "bengal"),
+       en=("Ganges–Brahmaputra Delta", "Bangladesh · India", "Delta Floods & Monsoon")),
+    _r("Chao Phraya Deltası", "Tayland", "chao_phraya", 14.0, 100.4, "Zemin Çökmesi ve Taşkın", "coastal",
+       "Zemin yüksekliği değişimi", "mm", "Sentinel-1 · GNSS", 0.0, 3.0, 9, -18.0, 4.0, 0.7, 7114, "down", 1,
+       None, ("bangkok", "tayland", "thailand", "chao phraya"),
+       en=("Chao Phraya Delta", "Thailand", "Land Subsidence & Flooding")),
+    _r("Malakka Boğazı", "Malezya · Singapur · Endonezya", "malakka", 2.5, 101.5, "Ekvatoral Deniz Isınması",
+       "marine", "Deniz yüzeyi sıcaklığı", "°C", "Himawari-9 · GHRSST", 28.6, 0.8, 5, 0.019, 0.25, 0.6, 1315, "up", 2,
+       None, ("singapur", "singapore", "malezya", "malaysia", "malakka", "malacca"),
+       en=("Strait of Malacca", "Malaysia · Singapore · Indonesia", "Equatorial Ocean Warming")),
+    _r("Cava Kuzey Kıyısı", "Endonezya", "cava", -6.4, 108.0, "Deniz Seviyesi ve Zemin Çökmesi", "coastal",
+       "Zemin yüksekliği değişimi", "mm", "Sentinel-1 · GNSS", 0.0, 4.0, 3, -48.0, 6.0, 0.7, 623, "down", 1,
+       None, ("jakarta", "cava", "java", "endonezya", "indonesia"),
+       en=("North Java Coast", "Indonesia", "Sea Level & Land Subsidence")),
+    _r("Filipin Denizi", "Filipinler", "filipin", 14.5, 125.5, "Tayfun Kuşağı ve Deniz Isınması", "marine",
+       "Deniz yüzeyi sıcaklığı", "°C", "Himawari-9 · GHRSST", 28.4, 1.2, 5, 0.017, 0.3, 0.6, 7115, "up", 2,
+       None, ("manila", "filipin", "filipinler", "philippines", "philippine sea"),
+       en=("Philippine Sea", "Philippines", "Typhoon Belt & Ocean Warming")),
+    _r("Moğol Bozkırı ve Gobi", "Moğolistan · Çin", "gobi", 45.5, 105.0, "Bozkır Çölleşmesi", "desert",
+       "Bitki örtüsü indeksi (NDVI)", "NDVI", "MODIS · Landsat 8", 0.26, 0.15, 7, -0.0016, 0.03, 0.45, 7116, "down", 4,
+       0.02, ("gobi", "moğolistan", "mongolia", "ulaanbaatar", "ulan bator", "ulan batur"),
+       en=("Mongolian Steppe & Gobi", "Mongolia · China", "Steppe Desertification")),
+    _r("Büyük Set Resifi", "Avustralya", "set_resifi", -18.0, 147.5, "Mercan Ağarması ve Okyanus Isınması", "marine",
+       "Deniz yüzeyi sıcaklığı", "°C", "GHRSST · Coral Reef Watch", 26.0, 2.6, 2, 0.022, 0.35, 0.6, 6107, "up", 2,
+       None, ("büyük set resifi", "great barrier reef", "avustralya", "australia", "queensland", "sydney"),
+       en=("Great Barrier Reef", "Australia", "Coral Bleaching & Ocean Warming")),
+    # ── Kuzey Amerika ──
+    _r("Mauna Loa (Kuzey Pasifik)", "ABD · Hawaii", "mauna_loa", 19.54, -155.58, "Atmosferik Karbon", "carbon",
+       "Atmosferik karbondioksit (XCO₂)", "ppm", "OCO-2 · OCO-3 · NOAA", 370.5, 3.4, 5, 2.25, 0.45, 0.55, 3802, "up", 2,
+       None, ("mauna loa", "hawaii", "washington", "vaşington"),
+       en=("Mauna Loa (North Pacific)", "USA · Hawaii", "Atmospheric Carbon")),
+    _r("ABD Doğu Kıyısı", "ABD", "dogu_kiyisi", 38.5, -75.5, "Kıyı Deniz Seviyesi Anomalisi", "coastal",
+       "Göreli deniz seviyesi anomalisi", "mm", "Jason-3 · SWOT", 0.0, 45.0, 9, 3.6, 22.0, 0.6, 4012, "up", 1,
+       None, ("new york", "newyork", "nyc", "chesapeake", "doğu kıyısı", "east coast"),
+       en=("US East Coast", "USA", "Coastal Sea-Level Anomaly")),
+    _r("Kanada Kuzey Ormanları", "Kanada", "kanada_boreal", 52.0, -86.0, "Kuzey Ormanı Stresi", "boreal",
+       "Bitki örtüsü indeksi (NDVI)", "NDVI", "VIIRS · Landsat", 0.42, 0.3, 7, 0.0004, 0.03, 0.45, 4321, "down", 4,
+       None, ("kanada", "canada", "toronto", "ontario", "canadian boreal"),
+       en=("Canadian Boreal Forest", "Canada", "Boreal Forest Stress")),
+    _r("Meksika Vadisi", "Meksika", "meksika", 19.4, -99.1, "Havza Sıcaklık Sıkışması", "urban",
+       "Yüzey sıcaklığı", "°C", "Landsat 9 · GOES-16", 17.5, 3.2, 5, 0.05, 0.45, 0.4, 1922, "up", 2,
+       None, ("mexico city", "meksiko", "mexico", "meksika"),
+       en=("Valley of Mexico", "Mexico", "Basin Heat Trapping")),
+    _r("Kaliforniya Çaparalı", "ABD", "kaliforniya", 35.0, -119.0, "Kaliforniya Yangın Mevsimi", "wildfire",
+       "Yangın hava indeksi (FWI)", "FWI", "GOES-18 · VIIRS", 22.0, 14.0, 9, 0.26, 4.5, 0.45, 7117, "up", 2, 0.0,
+       ("los angeles", "kaliforniya", "california", "chaparral", "çaparal"),
+       en=("California Chaparral", "USA", "California Fire Season")),
+    _r("Büyük Göller Havzası", "ABD · Kanada", "buyuk_goller", 45.0, -84.5, "Büyük Göller Kış Isınması", "anomaly",
+       "Kış sıcaklığı anomalisi", "°C", "ERA5 · GOES-16", 0.5, 0.5, 1, 0.03, 0.9, 0.5, 7118, "up", 3,
+       None, ("büyük göller", "great lakes", "chicago", "michigan", "detroit"),
+       en=("Great Lakes Basin", "USA · Canada", "Great Lakes Winter Warming")),
+    _r("Florida Everglades", "ABD", "everglades", 25.8, -80.9, "Kıyı Taşkınları ve Deniz Seviyesi", "coastal",
+       "Göreli deniz seviyesi anomalisi", "mm", "Jason-3 · NOAA", 0.0, 50.0, 10, 5.2, 24.0, 0.6, 7119, "up", 1,
+       None, ("everglades", "florida", "miami"),
+       en=("Florida Everglades", "USA", "Coastal Flooding & Sea Level")),
+    _r("Pasifik Kıyı Dağları", "Kanada", "kiyi_daglari", 50.5, -123.5, "Kıyı Dağları Kar Paketi", "cryosphere",
+       "Kar örtüsü (kıyı dağları)", "%", "MODIS · Sentinel-2", 45.0, 38.0, 2, -0.38, 7.0, 0.5, 7120, "down", 1, 0.0,
+       ("vancouver", "britanya kolumbiyası", "british columbia", "coast mountains"),
+       en=("Pacific Coast Mountains", "Canada", "Coast Mountain Snowpack")),
+    _r("Alaska Permafrost Kuşağı", "ABD", "alaska", 64.8, -150.0, "Arktik Isınma ve Permafrost", "boreal",
+       "Yüzey sıcaklığı anomalisi", "°C", "MODIS · ERA5-Land", 1.1, 0.8, 1, 0.075, 1.1, 0.45, 7121, "up", 3,
+       None, ("alaska", "anchorage", "fairbanks", "yukon"),
+       en=("Alaskan Permafrost Belt", "USA", "Arctic Warming & Permafrost")),
+    # ── Güney Amerika ──
+    _r("Amazon Havzası", "Brezilya · Peru · Kolombiya", "amazon", -3.5, -62.2, "Ormansızlaşma ve Yangın Aerosolü",
+       "tropical_forest", "Aerosol optik derinliği", "AOD", "MODIS MAIAC",
+       0.22, 0.09, 9, 0.009, 0.018, 0.45, 3303, "up", 4, 0.02,
+       ("amazon", "amazonlar", "amazonia", "amazonya", "brezilya", "brazil", "manaus"),
+       en=("Amazon Basin", "Brazil · Peru · Colombia", "Deforestation & Fire Aerosols")),
+    _r("Atlantik Ormanı", "Brezilya", "mata_atlantica", -22.5, -44.5, "Tropikal Yağış Rejimi", "hydro",
+       "Aylık yağış", "mm", "GPM IMERG", 105.0, 70.0, 1, 0.0, 38.0, 0.2, 2213, "up", 1, 0.0,
+       ("rio", "rio de janeiro", "são paulo", "sao paulo", "mata atlântica", "mata atlantica", "atlantic forest"),
+       en=("Atlantic Forest", "Brazil", "Tropical Rainfall Regime")),
+    _r("Pampa Ovaları", "Arjantin · Uruguay", "pampa", -35.0, -61.0, "Güney Yarımküre Isınma Eğilimi", "anomaly",
+       "Aylık ortalama sıcaklık", "°C", "ERA5 · MODIS", 17.9, 6.3, 1, 0.025, 0.6, 0.4, 3417, "up", 2,
+       None, ("pampa", "pampas", "buenos aires", "arjantin", "argentina", "uruguay"),
+       en=("Pampas", "Argentina · Uruguay", "Southern Hemisphere Warming Trend")),
+    _r("Humboldt Akıntısı", "Peru · Şili kıyıları", "humboldt", -12.0, -79.5, "El Niño Kıyı Etkisi", "marine",
+       "Deniz yüzeyi sıcaklığı", "°C", "GHRSST · GOES-16", 18.5, 2.2, 2, 0.0, 0.9, 0.75, 7122, "up", 2,
+       None, ("humboldt", "lima", "peru"),
+       en=("Humboldt Current", "Peru · Chile coast", "El Niño Coastal Impact")),
+    _r("Orta Şili", "Şili", "orta_sili", -34.0, -71.0, "Orta Şili Mega Kuraklığı", "drought",
+       "Aylık yağış", "mm", "GPM IMERG · GRACE-FO", 28.0, 30.0, 6, -0.55, 14.0, 0.3, 7123, "down", 1, 0.0,
+       ("santiago", "şili", "chile", "central chile"),
+       en=("Central Chile", "Chile", "Central Chile Megadrought")),
+    _r("Kuzey And Paramoları", "Kolombiya · Ekvador", "paramo", 4.6, -74.0, "And Yaylası Yağış Rejimi", "hydro",
+       "Aylık yağış", "mm", "GPM IMERG · CHIRPS", 80.0, 35.0, 10, 0.0, 30.0, 0.25, 7124, "down", 1, 0.0,
+       ("bogota", "bogotá", "kolombiya", "colombia", "ekvador", "ecuador", "páramo", "paramo"),
+       en=("Northern Andes Páramo", "Colombia · Ecuador", "Andean Highland Rainfall")),
+    _r("Tropikal And Buzulları", "Bolivya · Peru", "and_buzullari", -16.2, -68.2, "And Buzullarının Erimesi",
+       "cryosphere", "Buzul kaplı alan (Cordillera Real)", "%", "Landsat 8 · Sentinel-2", 70.0, 6.0, 8, -0.6, 2.2, 0.6,
+       7125, "down", 1, None, ("la paz", "bolivya", "bolivia", "titicaca", "cordillera real", "andean glaciers"),
+       en=("Tropical Andean Glaciers", "Bolivia · Peru", "Andean Glacier Retreat")),
+)
+REGIONS: dict[str, Region] = {r.name: r for r in REGION_LIST}
+CITY_NAMES = list(REGIONS.keys())   # iç kimlikler (Türkçe bölge adları); görünen ad dile göre rname() ile

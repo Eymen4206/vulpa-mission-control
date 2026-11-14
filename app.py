@@ -144,14 +144,16 @@ def theme() -> str:
     return value if value in THEMES else "dark"
 
 
-def bound(widget, state_key: str, **kwargs):
+def bound(widget, state_key: str, per_lang: bool = False, **kwargs):
     """Kalıcı bir durum anahtarına bağlı widget çizer.
 
     Streamlit, bir widget'ın anahtarını o çalıştırmada çizilmediyse siler. Ayarlar modalı kapalıyken dil, tema ve
     Groq ayarlarının kaybolmaması için widget ayrı bir anahtar (w_<ad>) kullanır, değeri on_change ile kalıcı
     anahtara yazılır ve her çizimden önce kalıcı anahtardan yüklenir.
     """
-    wkey = f"w_{state_key}"
+    # per_lang: etiketleri dile bağlı seçiciler (bölge, yıl, ay) her dilde ayrı widget olur; aksi halde Streamlit dil
+    # değişince eski dildeki etiketi göstermeye devam eder (bulgu F3).
+    wkey = f"w_{state_key}_{lang()}" if per_lang else f"w_{state_key}"
     if state_key in st.session_state:
         st.session_state[wkey] = st.session_state[state_key]
 
@@ -746,8 +748,25 @@ WEATHER_EN = {
     "Kar sağanağı": "Snow showers", "Sulu kar sağanağı": "Sleet showers", "Hafif sis": "Light fog",
     "Yoğun sis": "Dense fog", "Donan yağmur": "Freezing rain", "Gök gürültülü fırtına": "Thunderstorm",
     "Çisenti": "Drizzle", "Kum fırtınası": "Sandstorm", "Sisli": "Fog", "Tahmini": "Estimated",
-    "Bilinmiyor": "Unknown",
+    "Bilinmiyor": "Unknown", "Sene ortalaması": "Year average",
 }
+
+# Hava kaynak metnindeki Türkçe parçalar (data_pipelines yıllık/arşiv verisi yalnızca Türkçe dönüyor; bulgu F7/B3)
+WX_SRC_EN = (("sene ortalaması", "year average"), ("sapma: 1991–2020 normaline göre", "deviation vs the 1991–2020 normal"),
+             ("normaline göre", "vs normal"), ("arşiv", "archive"), ("iklim normali", "climate normal"),
+             ("tahmini", "estimated"))
+
+
+def wx_source(wx: dict) -> str:
+    """Hava verisinin kaynak satırı, seçili dilde (Backend `source_en` verirse o kullanılır)."""
+    if lang() != "en":
+        return wx.get("source", "")
+    if wx.get("source_en"):
+        return wx["source_en"]
+    text = wx.get("source", "")
+    for tr, en in WX_SRC_EN:
+        text = text.replace(tr, en).replace(tr.capitalize(), en.capitalize())
+    return text
 
 
 def rname(name: str) -> str:
@@ -2038,7 +2057,7 @@ def layer_summary(layer: str) -> str:
         return L("Trend haritası açık.", "Trend map is on.")
     wx = fetch_weather()
     data, ex = wx["data"], weather_extremes()
-    src = wx["source"]
+    src = wx_source(wx)
     if layer == "thermal":
         if "hottest" in ex:
             hot, cold = ex["hottest"], ex["coldest"]
@@ -2089,6 +2108,8 @@ def drop_nav_echo(chunks: Iterator[str]) -> Iterator[str]:
             stripped = buffer.lstrip()
             if not stripped:
                 break
+            if any(m.startswith(stripped) and m != stripped for m in UI_NOTE_MARKS):
+                break   # ":mat…" gibi bir işaretin yalnızca başı geldi; karar için daha fazla parça bekle
             if not stripped.startswith(UI_NOTE_MARKS):
                 decided = True
                 break
@@ -2967,7 +2988,7 @@ def icon_css() -> str:
         f"[role='tablist'] [data-testid='stTab'][data-key='1'] p::before {{ -webkit-mask: none; mask: none; "
         f"background: url({seiron_avatar()}) center / contain no-repeat; }}",
         f"[role='tablist'] [data-testid='stTab'][data-key='2'] p::before {{ {mask('phone')} }}",
-        f".st-key-year [role='group']::before {{ {before} {mask('clock')} margin: 0 -.1em 0 .55em; align-self: center; }}",
+        f"[class*='st-key-w_year_'] [role='group']::before {{ {before} {mask('clock')} margin: 0 -.1em 0 .55em; align-self: center; }}",
     ]
     return "<style>" + "\n".join(rules) + "</style>"
 
@@ -3304,6 +3325,7 @@ GLOBE_CONTROLLER_JS = """
     return gd && gd._fullLayout && gd._fullLayout.geo && gd.data && gd.data.length >= 12 ? gd : null;
   };
   const camera = gd => {
+    if (!gd || !gd._fullLayout || !gd._fullLayout.geo) return {lon: 0, lat: 0, scale: 1};   // kaldırılmış küre
     const p = gd._fullLayout.geo.projection;
     return {lon: p.rotation.lon, lat: p.rotation.lat, scale: p.scale};
   };
@@ -3442,6 +3464,8 @@ GLOBE_CONTROLLER_JS = """
     let last = null, still = 0;
     const watch = setInterval(function() {
       if (gd.__vpFlightToken !== token || !gd.__vpFlying) { clearInterval(watch); return; }
+      // Küre DOM'dan kaldırıldıysa (yeniden bağlanma, yükleme ekranı) izleme biter; aksi halde her saniye hata atardı
+      if (!gd.isConnected || !gd._fullLayout || !gd._fullLayout.geo) { clearInterval(watch); done(); return; }
       const c = camera(gd), key = c.lon.toFixed(3) + "," + c.lat.toFixed(3) + "," + c.scale.toFixed(3);
       still = (key === last) ? still + 1 : 0;
       last = key;
@@ -3847,7 +3871,7 @@ def globe_controller(city: str, cam: dict, layer: str) -> None:
 
 def layer_legend(layer: str) -> str:
     wx = fetch_weather()
-    src = wx["source"]
+    src = wx_source(wx)
     if layer == "thermal" and not anomaly_ok():
         return (f"<div class='legend-bar legend-warn'><span>{inline_svg('warn', 14)}</span>"
                 f"<em>{L('Sıcaklık sapması verisi şu an alınamadı; termal yüzey gösterilmiyor. Birkaç dakika sonra '
@@ -4202,13 +4226,14 @@ def render_lang_control() -> None:
 
 def month_label(m: int) -> str:
     if m == 0:
-        return L("Sene Ortalaması", "Year average")
+        return L("Sene ort.", "Year avg.")
     return (MONTHS_EN if lang() == "en" else MONTHS_TR)[m - 1][:3]
 
 
 def render_year_control() -> None:
     """Zamanda yolculuk: canlı veri ya da son 20 yılın bir tarihi (yıl · isteğe bağlı ay)."""
-    st.selectbox(L("Yıl", "Year"), YEAR_OPTIONS, key="year", format_func=year_label, label_visibility="collapsed",
+    bound(st.selectbox, "year", per_lang=True, label=L("Yıl", "Year"), options=YEAR_OPTIONS, format_func=year_label,
+          label_visibility="collapsed",
                  help=L("Geçmiş bir yıl seçildiğinde hava, termal ve basınç katmanları o tarihe (12:00 UTC) ait arşiv "
                         "verisiyle, uzun vadeli trend ise o yılla biten 20 yıllık NASA POWER verisiyle yeniden "
                         "hesaplanır. Ay seçilmezse sene ortalaması, seçilirse o ayın ortası (15'i) kullanılır.",
@@ -4219,7 +4244,8 @@ def render_year_control() -> None:
     year = sel_year()
     if not year:
         return
-    st.selectbox(L("Ay", "Month"), MONTH_OPTIONS, key="month", format_func=month_label, label_visibility="collapsed")
+    bound(st.selectbox, "month", per_lang=True, label=L("Ay", "Month"), options=MONTH_OPTIONS, format_func=month_label,
+          label_visibility="collapsed")
 
 
 def normalize_date_state() -> None:
@@ -4895,7 +4921,8 @@ def render_topbar() -> None:
         with c2:
             html_block(ticker_html())
         with c3:
-            st.selectbox(L("Bölge", "Region"), CITY_NAMES, key="city", placeholder=L("Bölge seçin", "Select region"),
+            bound(st.selectbox, "city", per_lang=True, label=L("Bölge", "Region"), options=CITY_NAMES,
+                  placeholder=L("Bölge seçin", "Select region"),
                          label_visibility="collapsed", format_func=lambda n: f"◎  {rname(n)}")
         with c4, st.container(key="date_ctl", horizontal=True, gap="small", vertical_alignment="center"):
             render_year_control()
@@ -4915,7 +4942,7 @@ EXTREME_WORDS = ("en çok nerede ısın", "en sıcak bölge", "nerede ısındı"
 COMPARE_WORDS = ("karşılaştır", "kıyasla", "farkı ne", "arasındaki fark", "compare", " vs ", "versus")
 
 
-def local_answer(text: str, city: str) -> dict | None:
+def numeric_answer(text: str, city: str) -> dict | None:
     """Sayısal, yerel yanıtı olan sorular (Groq'a gitmez; sayılar panel ve grafiklerle aynı kaynaktan):
     küresel ısınma (ÖNERİ #8), yılın uç bölgeleri (#9), iki bölge karşılaştırması (#10)."""
     q = tr_lower(text)
@@ -5103,7 +5130,7 @@ def submit_question(text: str) -> None:
         st.session_state.setdefault("chat", []).append({"role": "user", "content": text, "source": ""})
         start_tour()
         return
-    local = local_answer(text, current)
+    local = numeric_answer(text, current)
     if local:   # sayısal yerel yanıt: gezinme ve dil modeli yok
         st.session_state["pending"] = {"q": text, "nav": None, "zoom": 0, "scale": None, "layer": None, "cmd": local}
         return
@@ -5657,7 +5684,7 @@ def city_details(city: str) -> None:
     <div class="badge-row"><div class="badge" style="--c:{c}"><i></i>{status_label(status)}</div>{quality_chip(city, wx, pw)}</div>
     {annual_note}{year_extremes_strip()}
     <div class="wx"><div class="ic">{wx_icon(w, 34)}</div><div class="t">{w['temp']:.1f}°C</div>
-      <div class="d">{html.escape(wlabel(w))}{' · ' + ' · '.join(wx_meta) if wx_meta else ''}<br><span>{wx_kind} · {html.escape(wx['source'])}</span></div></div>
+      <div class="d">{html.escape(' · '.join(x for x in [('' if hist and is_annual() else wlabel(w)), *wx_meta] if x))}<br><span>{wx_kind} · {html.escape(wx_source(wx))}</span></div></div>
     """)
     if cat:
         vkey = render_var_picker("var_key", ["theme"] + list(cat), cat, rvar(spec))
@@ -5838,7 +5865,7 @@ def render_mobile() -> None:
     {ticker_html()}
     """)
     render_credits()
-    st.selectbox(L("Bölge", "Region"), CITY_NAMES, key="city", label_visibility="collapsed",
+    bound(st.selectbox, "city", per_lang=True, label=L("Bölge", "Region"), options=CITY_NAMES, label_visibility="collapsed",
                  format_func=lambda n: f"◎  {rname(n)} — {rarea(REGIONS[n])}")
     with st.container(key="m_controls", horizontal=True, gap="small", vertical_alignment="center"):
         render_year_control()

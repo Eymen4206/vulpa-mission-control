@@ -238,3 +238,15 @@ Merhaba! Proje sahibinin kararıyla **artık sen Frontend'sin, ben Backend'im.**
 - **Bilgi:** `PROJECT_BRIEF.md` bu dosyanın eski kopyası, depoda yok. Ortak dosya bu `.txt` dosyasıdır.
 
 Bu mesajı okuduğunu, altına kısa bir onay kaydı ekleyip `git push` yaparak bildirirsen sevinirim.
+
+### [14.11.2026] MONSTER · Frontend → Msi-nb · Backend
+
+Mesajını okudum, proje sahibi rol değişikliğini onayladı. **Artık Frontend benim.**
+
+- Bundan sonra yalnızca `app.py` ve `components/` içinde çalışıyorum. `data_pipelines/` klasörüne yazmayacağım.
+- `data_pipelines/` (commit `975fac4`) ve sözleşme (`__all__` ile `README.md`) artık senin. Değişikliklerini
+  bu bölümden takip edeceğim.
+- Sıradaki işim: Termal Analiz katmanını ayrık daireler yerine sürekli, renk geçişli bir ısı haritası yüzeyine
+  çevirmek. Bunu `_fetch_grid` sözleşmesini bozmadan, yalnızca `app.py` içinde yapacağım. Daha sık bir ızgara
+  gerekirse bunu burada yeni bir fonksiyon önerisi olarak yazarım.
+- Kendi değişikliklerimi her görevin sonunda bu bölüme kaydedeceğim.

@@ -692,3 +692,37 @@ Güvenli sürüm etiketlendi: `v-guvenli-14kasim` (0c1aeed).
     eklemek yapısal bir değişiklik.
   - Lütfen en fazla ~150 olay dön: `{"id", "title", "type", "lat", "lon", "date", "source_url"}`. Çok noktalı (fırtına
     izi) olaylarda yalnızca son konum yeterli.
+
+### [14.11.2026 17:10] MONSTER · Frontend → Msi-nb · Backend — Öncelik 1–4 bitti (otonom dalı)
+
+Değişen: `app.py`. Masaüstünde (8502) tarayıcı ve AppTest ile denendi.
+
+1. **Merhaba yalnızca bir kez.**
+   - Tam karşılama oturumda ilk açılışta ve dil Ayarlar'dan değişince bir kez gösterilir.
+   - Bölge geçişlerinde `switch_message(city, lang(), year, month or 0)` notu çıkar. Baştaki 🧭, Material "explore" simgesiyle
+     değiştirildi (emojisiz).
+   - Geçiş sohbetle yapıldıysa ek not yok.
+   - AppTest: 2 bölge değişimi + 7 komutta 1 karşılama.
+2. **`parse_ui_command`.** `submit_question` içinde widget'lardan önce çalışır.
+   - Uygulananlar: yıl, ay, dil (yeniden Merhaba yok), Credits aç/kapat (JS, Ayarlar modalının üstünde), `reset_view`
+     (kamera sayacı), `chart` (pencereyi açar), `notes` ve `denied` (dil modeline gitmez).
+   - Salt komutta Groq çağrılmaz; not "Zaman: Mart 2015" biçiminde (`time_text`).
+   - Sistem istemine yetki cümlesi eklendi. SUGGESTIONS'a "2015'e git" / "Go to 2015" eklendi.
+   - `_DP_NEEDED` içine 6 ad eklendi.
+3. **Değer grafikleri penceresi.**
+   - p, τ, yön/Sen/on yıllık ve NASA POWER kutuları tıklanabilir; köşede küçük grafik işareti var, klavyeyle Enter da çalışır.
+   - Pencere `st.dialog` (large): ortada, ✕ ve Esc ile kapanır, arka plan bulanık.
+   - Altında `explain_*` gösterilir; power_t'de kaynak da var. Risk tıklanamaz.
+   - Renkler turuncu tonlarında, mavi/mor yok.
+4. **Açılış sesi.**
+   - Web Audio ile özgün sentez, dosya yok:
+     - 55 Hz uğultu
+     - filtresi açılan A majör akor
+     - 1,57 kHz ping ve iki kısa bip
+     - gürültü dürtüsüyle yankı
+   - Toplam ≈3 sn, ana düzey 0,2. Yalnızca "Sistemi Başlat" tıklamasında çalar.
+   - Ayarlar'da "Açılış sesi" anahtarı var; tercih `localStorage`'da saklanır. Motor `window.__vpAudio`; ÖNERİ #1
+     (sonify) bunu kullanacak.
+
+Not: p grafiğinde z çok büyükse (ör. 5,87) gölgeli alan eksen dışında kalıyor. İstersen `x` aralığını |z|+1'e kadar
+genişlet (senin alanın).

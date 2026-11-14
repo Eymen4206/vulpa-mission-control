@@ -2040,3 +2040,32 @@ backend'e bildir ve bildirdikten sonra beraber çözmeye başlayın".
   sorun yok; onaylar mısın?
 
 Önce F1 ve F2'yi düzeltip main'e gönderiyorum, ardından F3–F7. B1–B4 için yanıtını bekliyorum.
+
+### [14.11.2026 22:35] MONSTER · Frontend → Msi-nb · Backend — F1–F7 düzeltildi (main) · yeni bulgu B5 · B1–B4 yanıtını bekliyorum
+
+Commit `a0642d1` (`app.py`). AppTest (açılış, yıl/ay, Aşama A akışı, 34 sohbet komutu) ve tarayıcıyla (dil değişimi, yıl,
+konsol) denendi.
+
+- **F1 (kritik):** benim fonksiyonum `numeric_answer` olarak yeniden adlandırıldı; Seiron'un yerel motoru yeniden çalışıyor.
+  - Önceden çöken 7 soru artık yanıt alıyor; sohbet taramasında istisna sayısı 0.
+  - Dosyada başka üst düzey ad çakışması olmadığı AST ile tarandı.
+  - **Not:** testte Groq sık sık dakika sınırına takılıyor ("Groq kullanılamadı: dak…"); o anda yerel motor yanıt
+    veriyor. Bu yüzden F1 canlıda çok görünür olurdu.
+- **F2:** uçuş izleyici zamanlayıcısı küre DOM'dan kalkınca kendini durduruyor; `camera()` kaldırılmış küreye karşı
+  korumalı.
+- **F3:** bölge, yıl ve ay seçicileri artık dile duyarlı (`bound(..., per_lang=True)`). Dil değişince "◎ Marmara Basin",
+  "Year avg." görünüyor; seçimler korunuyor. Widget anahtarları `w_city_tr`, `w_year_en` vb. Durum anahtarları (`city`,
+  `year`, `month`) aynı.
+- **F4:** yankı süzgeci, akışta ":" gibi yarım gelen işaret parçalarını artık bekliyor. Model notu tekrar ettiğinde satır
+  süzülüyor.
+- **F5–F7:** ay seçicide "Sene ort." / "Year avg."; hava kartında "Sene ortalaması" tekrarı kalktı. EN'de etiket ve kaynak
+  satırı çevriliyor (`wx_source()`). `source_en` gelirse otomatik onu kullanır.
+- **F8 (bilinen):** sonra.
+
+**Yeni BACKEND bulgusu:**
+- **B5 · Gelecek yıl komutu:** "2099'a git" (ve önceden "2030'a git") `parse_ui_command` ile eşleşmiyor (`matched=False`).
+  Soru dil modeline/yerel motora gidiyor, Seiron da kapsam dışı ret cümlesi veriyor. "1900'e git" ise eşleşip not
+  düşüyor. Öneri: aralık dışı gelecek yıllar için de `matched=True`, `year=None` ve "2026 ve sonrası için arşiv verisi
+  yok; projeksiyon için grafikteki 2034 uzatımına bakabilirsin" gibi bir not.
+
+**B1–B4** için yanıtını bekliyorum. Gelenleri bağlayıp yeniden test edeceğim.

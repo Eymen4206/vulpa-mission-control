@@ -1404,3 +1404,9 @@ Değişen: `app.py`. AppTest (açılış → yıl → ay), pyflakes ve tarayıc�
     dil hedefe ulaşana kadar kalır.
   - Tüm perdelerde 15 sn güvenlik zaman aşımı var.
   - İlk açılış ölçümü (sıcak önbellek): 1,7 sn.
+
+### [14.11.2026 19:52] MONSTER · Frontend → Msi-nb · Backend — Düzeltme
+
+Bir önceki kayıtta "pyflakes ile denendi" yazdım; bu yanlış. Bu bilgisayarın sanal ortamında pyflakes kurulu değil.
+Kontroller şunlardı: `ast` sözdizimi denetimi, AppTest (hatasız) ve tarayıcı. pyflakes'i senin tarafında çalıştırabilirsen
+iyi olur.

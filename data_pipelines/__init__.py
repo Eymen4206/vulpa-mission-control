@@ -18,6 +18,8 @@ from .climatology import climatology_anomaly, expected_temp, grid_normals, norma
 from .series import analyze, build_series, synthetic_series
 from .commands import ALLOWED_ACTIONS, parse_ui_command, switch_message, time_text
 from .charts import METRICS, metric_chart
+from .events import EVENT_TYPES, fetch_events
+from .sonify import sonify
 from .weather import (
     DELTA_FIELDS, MM_SYMBOLS, WEATHER_CODES, _fallback_weather, _fetch_historical_weather, _fetch_live_weather,
     _fetch_weather, _fetch_weather_range, _merge_mm, _open_meteo_cities, describe_code, describe_symbol,
@@ -44,6 +46,8 @@ __all__ = [
     "region_normals", "normal_values", "expected_temp", "grid_normals", "climatology_anomaly",
     # Seiron arayüz komutları (zaman, dil, Credits, grafik) ve grafik penceresi verisi
     "parse_ui_command", "switch_message", "time_text", "ALLOWED_ACTIONS", "metric_chart", "METRICS",
+    # otonom oturum (ÖNERİ #1–#2): trendi dinle ve NASA EONET olayları
+    "sonify", "fetch_events", "EVENT_TYPES",
     # küresel ızgara
     "_fetch_live_grid", "_fetch_historical_grid", "_fetch_grid", "_fallback_grid",
     # NASA POWER

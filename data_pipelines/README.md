@@ -375,3 +375,29 @@ Takma adlar: `z`, `kendall`, `direction`, `decade`, `projection`, `sen`.
 - `traces`: her biri `[{name_tr, name_en, x, y, style: bar|line|dash|marker|area}]`; tau'da ayrıca `x_en` ve `hover`
 - `marks`: `[{axis: x|y, value, label_tr, label_en}]` referans çizgileri
 - `value`, `unit`, `explain_tr/en`
+
+## Otonom oturum (14.11.2026, ÖNERİ #1–#2)
+
+### `sonify(region) -> dict | None` (sonify.py) — Trendi dinle
+Her yıl bir nota üretir: yıllık ortalama, logaritmik ölçekte 220–880 Hz'e eşlenir. Ölçek bölgenin kendi min–max
+aralığıdır, bu yüzden bölgeler arası perdeler karşılaştırılamaz.
+- **Sesler:** Sen doğrusu yarım perdede kısık bir taban sesi olarak çalar. Eğilim anlamlıysa (p < 0,05) her yıla kısa
+  bir tık eklenir.
+- **Dönüş alanları:**
+  - `notes`: `[{t, dur, freq, gain, role: data|trend|pulse, year, value?}]`; en fazla 75 nota, ≈10 sn.
+  - `bpm`, `duration`, `years`, `unit`, `min`, `max`, `significant`, `explain_tr/en`.
+- Ağ isteği yapmaz.
+
+### `fetch_events(days=30) -> list[dict]` (events.py) — NASA EONET v3
+Son 30 günün açık olaylarını döndürür; en yeni önce, en fazla 150. Anahtar gerekmez, 30 dk önbelleklidir.
+- **Olay alanları:** `{id, title, type, type_tr, type_en, lat, lon, date, source_url, source}`.
+- Çok noktalı olaylarda yalnızca son konum döner; poligonlarda ağırlık merkezi kullanılır.
+- `type`: wildfire, storm, volcano, ice, flood, drought, dust, earthquake, landslide, snow, temperature, water, manmade,
+  other (`EVENT_TYPES`).
+- Hata olursa `[]` döner; sonuç önbelleğe yazılmaz ve 90 sn sonra yeniden denenir.
+- Canlı veridir; zamanda yolculukta gizlenmesi önerilir.
+- Credits'e "events" kategorisi ve `nasa-eonet` kaydı eklendi.
+
+### `metric_chart(..., "p")`
+Gölgeli alan değerleri artık 4 anlamlı basamakla tutuluyor (eskiden 0'a yuvarlanıyordu). p < 0,001 olduğunda
+açıklamada "alan gözle görülmeyecek kadar küçük" notu çıkıyor.

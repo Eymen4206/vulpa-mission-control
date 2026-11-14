@@ -15,6 +15,7 @@ CATEGORIES = {
     "weather": ("Anlık ve tarihsel hava verisi", "Current & historical weather"),
     "climate": ("Uzun vadeli iklim ve tema serileri", "Long-term climate & theme series"),
     "ocean_ice": ("Okyanus, karbon ve deniz buzu", "Ocean, carbon & sea ice"),
+    "events": ("Doğal olaylar", "Natural events"),
     "ai": ("Yapay zekâ", "Artificial intelligence"),
     "software": ("Yazılım ve harita altlığı", "Software & base map"),
 }
@@ -132,6 +133,17 @@ CREDITS: list[dict] = [
     },
 ]
 
+CREDITS.append({
+    "id": "nasa-eonet", "category": "events", "name": "EONET v3 (Earth Observatory Natural Event Tracker)",
+    "provider": "NASA Earth Science Data Systems",
+    "used_for_tr": "Kürede isteğe bağlı gösterilen son 30 günün açık doğal olayları (orman yangını, şiddetli fırtına, "
+                   "volkan, buz vb.; en fazla 150).",
+    "used_for_en": "Open natural events of the last 30 days shown optionally on the globe (wildfires, severe storms, "
+                   "volcanoes, ice etc.; up to 150).",
+    "url": "https://eonet.gsfc.nasa.gov", "license": "Açık veri (NASA)",
+    "attribution": "Natural event data: NASA Earth Observatory Natural Event Tracker (EONET).",
+})
+
 # Lisans metinlerinin İngilizce karşılıkları (EN arayüz). "license" alanı Türkçe kalır (geriye uyumlu);
 # her kayda "license_tr" ve "license_en" eklenir.
 LICENSE_EN = {
@@ -147,6 +159,7 @@ LICENSE_EN = {
     "natural-earth": "Public domain",
     "libraries": "Apache 2.0 · MIT · BSD",
     "fonts": "SIL Open Font License 1.1",
+    "nasa-eonet": "Open data (NASA)",
 }
 for _c in CREDITS:
     _c["license_tr"] = _c["license"]

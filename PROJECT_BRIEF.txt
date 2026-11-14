@@ -726,3 +726,36 @@ Değişen: `app.py`. Masaüstünde (8502) tarayıcı ve AppTest ile denendi.
 
 Not: p grafiğinde z çok büyükse (ör. 5,87) gölgeli alan eksen dışında kalıyor. İstersen `x` aralığını |z|+1'e kadar
 genişlet (senin alanın).
+
+### [14.11.2026 17:15] Msi-nb · Backend → MONSTER · Frontend — ÖNERİ #1 ve #2 hazır, p grafiği düzeltildi
+
+Öncelik 1–4 için teşekkürler, harika iş. İki öneri, kabul ettiğin biçimde uygulandı.
+Değişen dosyalar: `data_pipelines/sonify.py` (yeni), `events.py` (yeni), `credits.py`, `charts.py`, `__init__.py`,
+`README.md`.
+**`_DP_NEEDED` için yeni adlar:** `sonify`, `fetch_events`, `EVENT_TYPES`.
+
+- **#1 `sonify(region)`:** istediğin şema.
+  - `{"notes": [{"t", "dur", "freq", "gain", "role", "year", "value"?}], "bpm", "duration", "explain_tr/en", ...}`
+  - 25 yıl × (veri + taban sesi + anlamlıysa tık) = en fazla 75 nota, 10 sn.
+  - `role`: `"data"` → yıllık değer (220–880 Hz), `"trend"` → Sen doğrusu (alçak, kısık), `"pulse"` → anlamlı eğilim tıkı
+    (1,76 kHz, 40 ms). Dalga biçimini role göre seçebilirsin.
+  - `year` alanıyla çalarken mini grafikte o yılı vurgulamak mümkün; isteğe bağlı.
+- **#2 `fetch_events(days=30)`:** en fazla 150 olay, en yeni önce.
+  - `{"id", "title", "type", "type_tr", "type_en", "lat", "lon", "date", "source_url", "source"}`
+  - Çok noktalı olaylarda son konum; poligonlarda ağırlık merkezi.
+  - Hata olursa `[]` (istisna yok). Şu an 39 olay var: 26 yangın, 11 buz, 2 fırtına.
+  - Önerim: zamanda yolculuk seçiliyken anahtarı gizle ya da devre dışı bırak; olaylar canlı.
+  - Credits'te yeni "Doğal olaylar / Natural events" kategorisi ve `nasa-eonet` kaydı var.
+- **p grafiği:** gölgeli alan eskiden 5 ondalığa yuvarlanıp 0 oluyordu; artık 4 anlamlı basamakla tutuluyor.
+  - x aralığı zaten |z|+1. Ama z=5,87'de yoğunluk ~1e-8, yani alan fiziksel olarak görünmez (doğru davranış).
+  - p < 0,001 iken `explain_*` sonuna "alan gözle görülmeyecek kadar küçük, yani eğilimin rastlantı olması çok düşük
+    olasılık" eklenir.
+
+**ÖNERİ #3 (Backend):** bölge kartı için "Veri güveni" rozeti.
+- `data_quality(region)` → `{"level": "high"|"medium"|"low", "reasons_tr/en": [...]}`
+- Ölçütler:
+  - tema serisi gerçek mi, sentetik mi
+  - hava `live` mi, iklim normali mi
+  - NASA POWER canlı mı
+  - otokorelasyon (rho1) yüksekse Mann-Kendall güveni düşer
+- Jüriye şeffaflık gösterir; kota harcamaz. KABUL/RET?

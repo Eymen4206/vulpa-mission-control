@@ -61,7 +61,7 @@ import data_pipelines as _dp  # noqa: E402  (isteğe bağlı API'lerin varlığ�
 from data_pipelines import (  # noqa: E402
     CITY_NAMES, END, GRID_LATS, GRID_LONS, LAST_FULL_YEAR, PERIOD, POWER_SPAN, PROJECTION_MONTHS, REGION_LIST,
     REGIONS, START, WEATHER_TTL, Region, _fetch_grid, _fetch_power, _fetch_weather, analyze, build_series,
-    REAL_SOURCES, series_meta,
+    REAL_SOURCES, series_meta, data_credits,
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2203,6 +2203,50 @@ div:has(> .st-key-loading_overlay:not(:has([data-testid="stSpinner"]))) { displa
 /* Zamanda yolculuk seçicileri (yıl · ay · gün) tek satırda kalır; üst çubuk 42 px */
 .st-key-date_ctl { flex-wrap: nowrap !important; }
 .st-key-date_ctl > div { flex: 1 1 0 !important; min-width: 0 !important; }
+/* ── Credits ─────────────────────────────────────────────────────────────── */
+.vp-credits-btn { font-family: 'Inter', sans-serif; font-size: .72rem; font-weight: 600; letter-spacing: .05em;
+  color: #fed7aa; background: rgba(28,25,23,.62); border: 1px solid var(--line); border-radius: 999px;
+  padding: .32rem .75rem; cursor: pointer; backdrop-filter: blur(14px); white-space: nowrap; line-height: 1.2; }
+.vp-credits-btn:hover, .vp-credits-btn:focus-visible { border-color: var(--orange); color: #fff7ed;
+  box-shadow: 0 0 14px rgba(249,115,22,.35); outline: none; }
+.st-key-credits, div:has(> .st-key-credits) { position: absolute !important; width: 0 !important; height: 0 !important;
+  margin: 0 !important; padding: 0 !important; }
+.vp-credits { position: fixed; inset: 0; z-index: 3000; display: flex; justify-content: center;
+  background: rgba(12,10,9,.55); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  transform: translateY(-100%); visibility: hidden;
+  transition: transform .8s cubic-bezier(.22,.8,.24,1), visibility 0s linear .8s; }
+html.vp-credits-open .vp-credits { transform: translateY(0); visibility: visible;
+  transition: transform .8s cubic-bezier(.22,.8,.24,1), visibility 0s; }
+.vp-credits-panel { width: min(1180px, 100%); height: 100%; overflow-y: auto; padding: 28px 24px 40px;
+  box-sizing: border-box; }
+.vp-credits-head { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.vp-credits-head svg { flex: none; filter: drop-shadow(0 0 8px rgba(249,115,22,.45)); }
+.vp-credits-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.7rem; font-weight: 700; color: var(--orange);
+  letter-spacing: .04em; line-height: 1.1; }
+.vp-credits-sub { font-size: .78rem; color: var(--muted); }
+.vp-credits-close { margin-left: auto; font-family: 'Inter', sans-serif; font-size: .78rem; color: #fed7aa;
+  background: rgba(28,25,23,.72); border: 1px solid var(--line); border-radius: 999px; padding: .4rem .85rem;
+  cursor: pointer; white-space: nowrap; }
+.vp-credits-close:hover { border-color: var(--orange); color: #fff7ed; }
+.vp-credits-close kbd { font-size: .66rem; color: var(--muted); border: 1px solid rgba(168,162,158,.4);
+  border-radius: 4px; padding: 0 .3rem; margin-left: .3rem; background: transparent; }
+.vp-credits-grid { columns: 3 300px; column-gap: 18px; }
+.vp-cat { break-inside: avoid; margin-bottom: 18px; }
+.vp-cat-t { font-size: .74rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--orange);
+  margin: 0 0 .5rem; }
+.vp-src { background: rgba(28,25,23,.66); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
+  margin-bottom: 10px; break-inside: avoid; }
+.vp-src a.n { color: #fff7ed !important; font-weight: 600; font-size: .9rem; text-decoration: none; }
+.vp-src a.n:hover { color: var(--orange) !important; }
+.vp-src .p { color: var(--muted); font-size: .72rem; }
+.vp-src .u { color: #d6d3d1; font-size: .76rem; line-height: 1.5; margin: .35rem 0; }
+.vp-src .l { color: var(--muted); font-size: .68rem; }
+.vp-src .a { color: #fde68a; font-size: .72rem; border-left: 2px solid var(--orange); padding-left: .45rem; margin-top: .4rem; }
+.vp-src .c { color: var(--muted); font-size: .66rem; font-style: italic; margin-top: .3rem; line-height: 1.45; }
+.vp-credits-foot { margin-top: 8px; padding: 12px 14px; border-radius: 12px; font-size: .74rem; line-height: 1.6;
+  color: #d6d3d1; background: rgba(249,115,22,.07); border: 1px solid var(--line); }
+.m-right { display: inline-flex; align-items: center; gap: .45rem; }
+@media (max-width: 640px) { .vp-credits-panel { padding: 18px 16px 32px; } .vp-credits-title { font-size: 1.35rem; } }
 </style>
 """
 
@@ -2710,6 +2754,28 @@ def process_globe_selection() -> None:
 GLOBE_CONTROLLER_JS = """
 (function() {
   document.documentElement.lang = (window.__vulpaTarget || {}).lang || "tr";
+  // Credits paneli: durum belge kökünün (html öğesi) sınıfında tutulur (Streamlit yeniden çizse de korunur); olaylar belgeye bir kez bağlanır.
+  if (!window.__vpCredits) {
+    window.__vpCredits = true;
+    const root = document.documentElement;
+    const isOpen = () => root.classList.contains("vp-credits-open");
+    const close = () => root.classList.remove("vp-credits-open");
+    document.addEventListener("click", function(e) {
+      const t = e.target;
+      if (t.closest && t.closest(".vp-credits-btn")) {
+        e.preventDefault();
+        const panel = document.querySelector(".vp-credits-panel");
+        if (panel) panel.scrollTop = 0;
+        root.classList.add("vp-credits-open");
+      } else if (isOpen() && t.closest && (t.closest(".vp-credits-close") || t.classList.contains("vp-credits")
+                                          || t.classList.contains("vp-credits-panel"))) {
+        close();                                   // kapatma düğmesi ya da kartların dışındaki boş alan
+      }
+    });
+    document.addEventListener("keydown", function(e) {
+      if (e.key === "Escape" && isOpen()) { e.preventDefault(); e.stopPropagation(); close(); }
+    }, true);
+  }
   if (window.__vulpaCtl) return;
   const P = () => window.Plotly;
   const ANIM = {frame: {duration: 30, redraw: true}, transition: {duration: 0}, mode: "immediate"};
@@ -2892,6 +2958,7 @@ GLOBE_CONTROLLER_JS = """
     window.__vpSpace = true;
     document.addEventListener("keydown", function(e) {
       if (e.code !== "Space" || e.repeat || e.ctrlKey || e.altKey || e.metaKey) return;
+      if (document.documentElement.classList.contains("vp-credits-open")) return;   // Credits açıkken arka plan değişmesin
       const el = e.target;
       if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
       const gd = plot();
@@ -3179,10 +3246,60 @@ def normalize_date_state() -> None:
         st.session_state["month"] = 0
 
 
+def credits_button() -> str:
+    """Sağ üstteki Credits düğmesi (açma/kapama tarayıcıda; bkz. GLOBE_CONTROLLER_JS)."""
+    return ("<button class='vp-credits-btn' type='button' aria-haspopup='dialog' aria-controls='vp-credits'>"
+            "Credits</button>")
+
+
+def render_credits() -> None:
+    """Credits paneli: veri kaynakları ve atıflar (içerik data_pipelines.data_credits'ten, metin uydurulmaz).
+
+    Panel her zaman sayfada durur ama gizlidir; düğmeyle yukarıdan aşağı ~0,8 sn'de iner, kapanırken geri çıkar.
+    Tam ekran, yarı saydam ve bulanık: arkadaki küre ve paneller görünmeye devam eder. Kapatma: düğme, Esc ya da
+    panelin boş alanına tıklama. Durum tarayıcıda tutulur; Streamlit'in yeniden çalışması paneli kapatmaz.
+    """
+    c, en = data_credits(), lang() == "en"
+    esc = html.escape
+    cats = []
+    for cat in c["categories"]:
+        items = []
+        for it in cat["items"]:
+            extra = ""
+            if it.get("attribution"):
+                extra += f"<div class='a'>{esc(it['attribution'])}</div>"
+            if it.get("citation"):
+                extra += f"<div class='c'>{esc(it['citation'])}</div>"
+            items.append(
+                f"<div class='vp-src'><a class='n' href='{esc(it['url'], quote=True)}' target='_blank' "
+                f"rel='noopener noreferrer'>{esc(it['name'])} ↗</a><div class='p'>{esc(it['provider'])}</div>"
+                f"<div class='u'>{esc(it['used_for_en'] if en else it['used_for_tr'])}</div>"
+                f"<div class='l'>{L('Lisans / koşul', 'License / terms')}: {esc(it['license'])}</div>{extra}</div>")
+        cats.append(f"<div class='vp-cat'><div class='vp-cat-t'>{esc(cat['title_en'] if en else cat['title_tr'])}"
+                    f"</div>{''.join(items)}</div>")
+    snap = (f" · {L('Gerçek seri anlık görüntüsü', 'Real-series snapshot')}: {esc(c['snapshot_generated'])}"
+            if c.get("snapshot_generated") else "")
+    with st.container(key="credits"):
+        html_block(f"""
+        <div class="vp-credits" id="vp-credits" role="dialog" aria-modal="true" aria-label="Credits">
+          <div class="vp-credits-panel">
+            <div class="vp-credits-head">{logo(34, "cr")}
+              <div><div class="vp-credits-title">Credits</div>
+              <div class="vp-credits-sub">{L('Veri kaynakları ve atıflar', 'Data sources & attributions')} · VULPA ·
+              NASA Space Apps Challenge 2026</div></div>
+              <button class="vp-credits-close" type="button">✕ {L('Kapat', 'Close')} <kbd>Esc</kbd></button>
+            </div>
+            <div class="vp-credits-grid">{''.join(cats)}</div>
+            <div class="vp-credits-foot">{esc(c['disclaimer_en'] if en else c['disclaimer_tr'])}{snap}</div>
+          </div>
+        </div>
+        """)
+
+
 def render_topbar() -> None:
     with st.container(key="topbar"):
         # Geçmiş bir yılda ay/gün seçicileri de görünür: tarih sütunu genişler, bant (ticker) daralır.
-        widths = [1.3, 3.0, 1.3, 1.52, 0.62] if sel_year() else [1.3, 4.1, 1.3, 0.72, 0.62]
+        widths = [1.3, 2.55, 1.3, 1.52, 1.07] if sel_year() else [1.3, 3.65, 1.3, 0.72, 1.07]
         c1, c2, c3, c4, c5 = st.columns(widths, vertical_alignment="center", gap="small")
         with c1:
             html_block(f"""
@@ -3198,8 +3315,11 @@ def render_topbar() -> None:
                          label_visibility="collapsed", format_func=lambda n: f"◎  {rname(n)}")
         with c4, st.container(key="date_ctl", horizontal=True, gap="small", vertical_alignment="center"):
             render_year_control()
-        with c5, st.container(key="lang_ctl"):
-            render_lang_control()
+        with c5, st.container(key="top_right", horizontal=True, gap="small", vertical_alignment="center",
+                              horizontal_alignment="right"):
+            with st.container(key="lang_ctl", width="content"):
+                render_lang_control()
+            html_block(credits_button())
 
 
 SUGGESTIONS = ("Eğilim anlamlı mı?", "Hava şu an nasıl?", "Beni Amazon Havzası'na götür")
@@ -3526,6 +3646,7 @@ def render_mission_control() -> None:
     preload_time_data()
 
     render_topbar()
+    render_credits()
     left, center, right = st.columns([1.05, 1.7, 1.15], gap="small")
     with center, st.container(key="globe_panel"):
         # Sabit anahtar + sabit figür: küre bir kez kurulur, sonraki tüm değişiklikler yerinde uygulanır.
@@ -3568,9 +3689,10 @@ def render_mobile() -> None:
     wx = fetch_weather()
     html_block(f"""
     <div class="m-head"><div class="m-brand">{logo(30, "m")}<span class="word">VULPA</span></div>
-    <span class="live">{time_label(wx)}</span></div>
+    <span class="m-right"><span class="live">{time_label(wx)}</span>{credits_button()}</span></div>
     {ticker_html()}
     """)
+    render_credits()
     st.selectbox(L("Bölge", "Region"), CITY_NAMES, key="city", label_visibility="collapsed",
                  format_func=lambda n: f"◎  {rname(n)} — {rarea(REGIONS[n])}")
     with st.container(key="m_controls", horizontal=True, gap="small", vertical_alignment="center"):

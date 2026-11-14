@@ -2122,15 +2122,38 @@ def drop_nav_echo(chunks: Iterator[str]) -> Iterator[str]:
         yield buffer
 
 
+def point_context() -> str:
+    """Nokta analizi açıkken Seiron'a o noktanın analizini de verir (yoksa boş). Sayılar uydurulmasın diye
+    yalnızca variable_analysis sonucunun kendisi aktarılır."""
+    pt = st.session_state.get("point") if FEATURE_POINT else None
+    if not pt:
+        return ""
+    v = st.session_state.get("_va") or {}
+    key = v.get("key") or st.session_state.get("pt_var", "T2M")
+    a = safe(variable_analysis, pt["lat"], pt["lon"], key, end_year_arg()) or {}
+    desc = safe(describe_point, pt["lat"], pt["lon"], end_year_arg()) or {}
+    label = desc.get("label_tr") or f"{pt['lat']:.2f}°, {pt['lon']:.2f}°"
+    body = a.get("sentence_tr") if a.get("available") else (a.get("reason") or "veri yok")
+    yts = ((a.get("years_to_significance") or {}).get("sentence_tr")) if a.get("available") else None
+    return ("NOKTA ANALİZİ (ÖNCELİKLİ: kullanıcı şu an bir bölgeye değil, kürede seçtiği bir noktaya bakıyor. Yanıtı "
+            "bu noktanın aşağıdaki sayılarına dayandır; seçili bölge bağlamını yalnızca arka plan olarak kullan): "
+            f"{label}. Değişken: {a.get('name', key)}. Sonuç: {body}"
+            + (f" {yts}" if yts else "") + f" Kaynak: {a.get('source', 'NASA POWER')}.\n\n")
+
+
 def answer(question: str, city: str, history: list[dict], navigated: bool) -> tuple[str, str]:
     """Yanıtı sohbet balonuna yazar; (metin, kaynak etiketi) döndürür."""
     key, _ = resolve_api_key()
     model = st.session_state.get("groq_model", GROQ_MODEL)
     note = ""
+    pctx = point_context()
     if key:
-        messages = [{"role": "system", "content": system_prompt(city, mentioned_cities(question))}]
+        messages = [{"role": "system", "content": pctx + system_prompt(city, mentioned_cities(question))}]
         messages += [{"role": m["role"], "content": m["content"]} for m in history[-10:]]
-        messages.append({"role": "user", "content": question})
+        # Nokta modunda soru da noktaya bağlanır (geçmişteki bölge mesajları modeli bölgeye çekmesin)
+        pt = st.session_state.get("point") if pctx else None
+        q = (f"[Seçili nokta: {pt['lat']:.2f}°, {pt['lon']:.2f}° · bölge değil] {question}" if pt else question)
+        messages.append({"role": "user", "content": q})
         for candidate in dict.fromkeys([model, GROQ_FALLBACK_MODEL]):
             try:
                 text = st.write_stream(drop_nav_echo(groq_stream(messages, key, candidate)))
@@ -2140,7 +2163,19 @@ def answer(question: str, city: str, history: list[dict], navigated: bool) -> tu
                 note = str(exc)
             except requests.RequestException as exc:
                 note = f"akış kesildi ({exc.__class__.__name__})"
-    text = local_answer(question, city, navigated)
+    if pctx:   # nokta modunda yerel yanıt: noktanın kendi analiz cümlesi (bölge raporu değil)
+        pt = st.session_state["point"]
+        v = st.session_state.get("_va") or {}
+        a = safe(variable_analysis, pt["lat"], pt["lon"], v.get("key") or st.session_state.get("pt_var", "T2M"),
+                 end_year_arg()) or {}
+        en = lang() == "en"
+        text = ((a.get("sentence_en" if en else "sentence_tr") if a.get("available") else a.get("reason"))
+                or L("Bu nokta için veri alınamadı.", "No data for this point."))
+        yts = (a.get("years_to_significance") or {}).get("sentence_en" if en else "sentence_tr")
+        if yts and a.get("available") and not (a.get("years_to_significance") or {}).get("significant_now"):
+            text += " " + yts
+    else:
+        text = local_answer(question, city, navigated)
     st.markdown(text)
     label = L("Yerel analiz motoru", "Local analysis engine")
     if note:
@@ -3315,6 +3350,18 @@ GLOBE_CONTROLLER_JS = """
     const T0 = window.__vulpaTarget || {};
     if (typeof T0.sound === "boolean") localStorage.setItem("vulpa_sound", T0.sound ? "1" : "0");
     document.documentElement.classList.toggle("vp-picking", !!T0.pick);   // kürede nokta seçme imleci
+    if (T0.pick && !window.__vpPickPrev) {   // mobil: küre başka sekmedeyse seç modu açılınca 3D Küre sekmesine geç
+      const tab = document.querySelector("[role='tablist'] [data-testid='stTab'][data-key='0']");
+      if (tab && tab.getAttribute("aria-selected") !== "true") tab.click();
+    }
+    window.__vpPickPrev = !!T0.pick;
+    // mobil: yeni bir nokta seçilince sonucu göstermek için Telemetri sekmesine dön (yalnızca nokta değiştiğinde)
+    const ptN = String(T0.nonce || "").startsWith("pt|") ? String(T0.nonce).split("|").slice(0, 3).join("|") : null;
+    if (ptN && window.__vpPtNonce !== undefined && ptN !== window.__vpPtNonce) {
+      const tel = document.querySelector("[role='tablist'] [data-testid='stTab'][data-key='2']");
+      if (tel && tel.getAttribute("aria-selected") !== "true") setTimeout(function() { tel.click(); }, 900);
+    }
+    window.__vpPtNonce = ptN;
   } catch (e) {}
   if (window.__vulpaCtl) return;
   const P = () => window.Plotly;

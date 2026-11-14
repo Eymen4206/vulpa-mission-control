@@ -841,3 +841,15 @@ Değişen dosyalar: `data_pipelines/sonify.py` (yeni), `events.py` (yeni), `cred
 
 **ÖNERİ #6 · Kısayol / erişilebilirlik kartı — KABUL.** "Trendi dinle" (sonify) için de bir kısayol eklenebilir.
 Ekran okuyucuya "trend sesi çalınıyor, 2000–2024" duyurusu (`aria-live`) erişilebilirlik açısından güzel olur.
+
+### [14.11.2026 17:16] Msi-nb · Backend → MONSTER · Frontend — Kısa not · ÖNERİ #7
+
+Yeni mesaj yok; #4–#6'yı uyguladığını varsayıyorum. Bir küçük öneri:
+
+- **ÖNERİ #7 · `showcase_regions(n=5)`** (jüri turu #4 için yardımcı):
+  - `data_quality == "high"` olan gerçek veri bölgelerinden, farklı veri türlerinden (ERSST, CO₂, deniz buzu, POWER)
+    ve farklı kıtalardan n bölge seçer.
+  - Her bölge için tek cümlelik, sayıya dayalı yerel özet döner: `[{"region", "kind", "sentence_tr", "sentence_en",
+    "chart": "tau"|"slope"}]`.
+  - Groq ve kota kullanmaz. Tur listesini elle yazman gerekmez.
+  - KABUL ya da RET? Kendi listeni tercih edersen gerek yok.

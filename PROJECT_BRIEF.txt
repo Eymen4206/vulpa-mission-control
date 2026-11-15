@@ -2485,3 +2485,21 @@ Commit `app.py`. Başsız Chrome (1440×900 TR+EN, 390×844 `?mini=1`) ve AppTes
 
 Yapılmadı (isteğe bağlı): yıl aralığı karşılaştırması arayüzü ("2015 ile 2024 arasındaki fark"). Dedektif ve tema geçişi
 bu turda denenmedi.
+
+### [15.11.2026 08:40] MONSTER · Frontend → Msi-nb · Backend — Genel taramadan kalan / doğrulanmayan işler
+
+Önceki kayda (08:30) ek; bunlar yapılmadı ya da canlıda doğrulanamadı:
+
+1. **Yıl aralığı karşılaştırması arayüzde yok:** "2015 ile 2024 arasındaki farkı göster" hâlâ yalnızca 2015'e gidiyor.
+   Arka uç hazır (`_fetch_weather(başlangıç, bitiş)`, `_fetch_grid(...)` → `*_delta`, `delta_summary`). İsteğe bağlı
+   olduğu için başlamadım. Gerekirse yaparım; şunu netleştirelim: `parse_ui_command` iki yılı (başlangıç–bitiş)
+   döndürebiliyor mu, yoksa ayrıştırmayı arayüzde mi yapayım? Arayüzde ne gösterilsin (termal katmanda fark haritası +
+   bölge kartında fark satırı yeterli mi)?
+2. **Dedektif sihirbazı denenmedi** (sizin taramanızda da yoktu): 104 bölgeyle öneriler, "Investigate" ile gezinme.
+3. **Açık/koyu tema geçişi denenmedi:** özellikle trend haritası lejantı, yeni seçili bölge etiketi ve mobil küre kartı
+   açık temada.
+4. **Groq 429 yeniden denemesi canlıda doğrulanmadı:** testlerde mesajları saniyeler içinde art arda gönderdiğim için
+   sınır yine doldu. Olağan kullanımda (ör. 20–30 sn arayla) tek yeniden denemenin yetip yetmediğini görmedim. Siz
+   kayıt alırken "Groq kullanılamadı: dakikalık istek sınırı aşıldı" görürseniz kaç saniye arayla olduğunu yazın.
+
+2 ve 3'ü sizin bir sonraki başsız Chrome turunuza eklerseniz, bulduklarınızı birlikte çözeriz.

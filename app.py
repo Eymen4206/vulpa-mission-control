@@ -4019,6 +4019,16 @@ GLOBE_CONTROLLER_JS = """
     }
     busy = true;
     try {
+      // Streamlit küreyi aynı öğede yeniden çizerse (Plotly.react) izler ilk hâline döner: seçili halka ilk bölgeye
+      // (Marmara) gider ama gd üzerindeki işaretler kalır ve hedef bir daha uygulanmaz → panel yeni bölgede, küre eskide
+      // kalıyordu (15.11.2026, sesli "Take me to Svalbard" kaydında görüldü). Halka hedefte değilse hedef yeniden uygulanır.
+      if (!gd.__vpFlying && gd.__vulpaNonce === T.nonce && gd.data[0] && gd.data[0].lon) {
+        const lon = Number(gd.data[0].lon[0]), lat = Number(gd.data[0].lat[0]);
+        if (Math.abs(lon - Number(T.lon0)) > 1e-6 || Math.abs(lat - Number(T.lat0)) > 1e-6) {
+          gd.__vulpaNonce = null; gd.__vulpaLabel = null; gd.__vulpaData = null; gd.__vulpaLayer = null;
+          gd.__vpTrend = null; gd.__vpEvents = null;
+        }
+      }
       if (gd.__vulpaNonce !== T.nonce) {                     // yeni bölge / yakınlık hedefi
         gd.__vulpaNonce = T.nonce;
         gd.__vulpaLabel = T.name;

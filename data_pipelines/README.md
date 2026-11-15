@@ -260,7 +260,7 @@ c = data_credits()
 # c["categories"]   → [{"id", "title_tr", "title_en", "items": [kayıt, ...]}, ...]   (5 kategori, 12 kaynak)
 # kayıt             → id, category, name, provider, used_for_tr, used_for_en, url, license (TR),
 #                     license_tr, license_en, (attribution), (citation)
-# c["disclaimer_tr"] / c["disclaimer_en"]  → gerçek / sentetik bölge açıklaması (33 / 17)
+# c["disclaimer_tr"] / c["disclaimer_en"]  → gerçek / sentetik bölge açıklaması (15.11.2026: 104 / 0)
 # c["real_regions"], c["synthetic_regions"], c["series_kinds"], c["snapshot_generated"]
 ```
 
@@ -605,3 +605,6 @@ haritasını aç" ve "Go to Sahara, set time to July 2019 and open the trend map
 2. **Değişken + zaman birlikte:** "Amazon'a git, 2020'ye dön ve yağışı göster" → bölge ve değişken uygulanıyor, zaman
    atlanıyor; `submit_question` içinde `var_or_point_command` erken döndüğü için `apply_ui_command` çağrılmıyor.
    Değişken komutundan önce (ya da sonra) `apply_ui_command(text, ...)` da çalıştırılıp notları birleştirilmeli.
+- **15.11.2026 düzeltme:** `regions_brief` sonuna tüm bölgeler için aynı ölçüyle **ısınma sıralaması** eklendi (NASA POWER
+  yıllık T2M, Sen eğimi, 1991–son yıl; ilk 10 + son 5). Kısa özete geçince Seiron "en hızlı ısınan bölgeler" sorusunu
+  sıralayamıyordu. Toplam ~1,1 bin token (eski 50 bölgelik özet ~1,5 bin).

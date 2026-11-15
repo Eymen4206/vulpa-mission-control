@@ -222,6 +222,31 @@ def regions_brief(focus: tuple[str, ...] | list[str] = (), lang: str = "tr") -> 
                 f"{len(REGION_LIST)} bölge, tema serisi eğilimi 2000–2024 (↑ artış, ↓ azalış, → yok; * anlamlı, p < 0,05):")
         body = "\n".join(f"- {var} ({unit}): " + ", ".join(items) for (var, unit), items in groups.items())
         tail = ("\nFocus regions: " if en else "\nOdaktaki bölgeler: ") + "; ".join(full) if full else ""
-        return head + "\n" + body + tail
+        return head + "\n" + body + tail + _warming_line(en)
+    except Exception:
+        return ""
+
+
+def _warming_line(en: bool, top: int = 10, bottom: int = 5) -> str:
+    """Tüm bölgeler için AYNI ölçüyle ısınma sıralaması (NASA POWER yıllık T2M, Sen eğimi; extras._ranking).
+    Tema serileri farklı değişkenler olduğundan "en hızlı ısınan bölgeler" soruları yalnızca bununla yanıtlanabilir."""
+    try:
+        from .extras import _ranking
+        rows = _ranking()
+        if not rows:
+            return ""
+        y0, y1 = rows[0]["years"]
+
+        def item(x):
+            name = (REGIONS[x["region"]].en[0] or x["region"]) if en else x["region"]
+            val = f"{x['per_decade']:+.2f}" if en else _num_tr(x["per_decade"])
+            return f"{name} {val}{'*' if x['significant'] else ''}"
+        fast = ", ".join(item(x) for x in rows[:top])
+        slow = ", ".join(item(x) for x in rows[-bottom:])
+        if en:
+            return (f"\nWarming ranking (same measure for all regions: NASA POWER annual mean 2 m temperature, Sen slope "
+                    f"°C/decade, {y0}–{y1}, * p < 0.05) — fastest: {fast}; slowest: {slow}.")
+        return (f"\nIsınma sıralaması (tüm bölgelerde aynı ölçü: NASA POWER yıllık ortalama 2 m sıcaklık, Sen eğimi "
+                f"°C/10 yıl, {y0}–{y1}, * p < 0,05) — en hızlı: {fast}; en yavaş: {slow}.")
     except Exception:
         return ""

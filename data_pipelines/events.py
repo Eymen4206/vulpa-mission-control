@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """NASA EONET doğal olayları (Earth Observatory Natural Event Tracker, v3) — anahtarsız.
 
 Kürede "Klasik" katmanda açılıp kapanan olay işaretleri için. Tek istek, 30 dk önbellek, istisna fırlatmaz.

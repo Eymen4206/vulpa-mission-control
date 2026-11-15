@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """Ek ölçüm veri setleri (uydu ve yer ölçümleri) — bölge bazında, anlık görüntüden.
 
 Proje sahibinin isteği: yarışmanın saydığı uydu/ölçüm kaynaklarını eklemek (NSIDC Arktik deniz buzu, GPM IMERG,

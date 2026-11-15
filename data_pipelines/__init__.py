@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """VULPA veri katmanı (Backend / veri çekme).
 
 Bu paket 2. yapay zekâ asistanının çalışma alanıdır. Frontend (app.py, components/) bu klasöre yazmaz;

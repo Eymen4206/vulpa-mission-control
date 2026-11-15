@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """Trend haritası (Büyük Plan, Aşama B · madde 3): "nerede artıyor, nerede azalıyor".
 
 15° küresel ızgaranın (264 nokta) her noktasında seçilen değişkenin yıllık ortalamaları üzerinde Mann-Kendall + Sen.

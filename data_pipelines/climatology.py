@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """İklim normalleri (NASA POWER climatology) — gerçekçi yedek değerler ve "iklim normaline göre sapma".
 
 Neden: Kaynaklar (Meteomatics / Open-Meteo) düştüğünde eskiden enlem formülüyle üretilen simülasyon, ay normalinden

@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """Veri kaynakları ve atıflar (Credits) — arayüzün "Credits" paneli için yapılandırılmış liste.
 
 Frontend yalnızca `data_credits()` sonucunu gösterir; metinler burada (Backend) tutulur, böylece yeni bir veri

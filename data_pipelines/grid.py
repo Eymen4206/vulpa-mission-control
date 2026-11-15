@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """15°'lik küresel meteoroloji ızgarası (11 × 24) — termal alan, izobarlar ve rüzgâr vektörleri için ham veri.
 
 app.py içindeki fonksiyonların birebir kopyası. Görselleştirme katmanı (grid_layers, _resample,

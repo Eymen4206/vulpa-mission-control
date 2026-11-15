@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """104 stratejik iklim/ekoloji bölgesi (ilk 50 bölge + 15.11.2026'da eklenen 54 bölge, 4'ü Avrupa'da).
 
 Her bölgenin tema serisi gerçek veridir (real_series.REAL_SOURCES). Sentetik parametreler (base, season_amp …) yalnızca

@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """Değişken seçimi ve nokta analizi (Büyük Plan, Aşama A: madde 1, 2, 5, 6, 7).
 
 Kaynak: NASA POWER aylık uç noktası (MERRA-2), anahtarsız. Bir nokta için tek istek tüm değişkenleri getirir

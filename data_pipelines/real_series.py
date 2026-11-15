@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """Bölge tema serileri için GERÇEK veri — yalnızca anahtar gerektirmeyen kaynaklar.
 
 Tüm bölgelerin tema serisi ölçüm/yeniden analiz verisine dayanır (REAL_SOURCES). Başlangıçta 17 bölge (FWI, NDVI,

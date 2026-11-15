@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """Otonom oturum ek fonksiyonları (ÖNERİ #11–#16, #18). Hepsi anlık görüntülerden ya da önbellekten; istisna fırlatmaz.
 
 warming_stripes · warming_ranking · region_export · data_status · season_shift · glossary

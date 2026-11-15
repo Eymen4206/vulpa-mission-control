@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """Sene ortalaması (yıllık ortalama) — Frontend'in "Sene Ortalaması" seçeneği için.
 
 Kaynak: NASA POWER aylık uç noktası (MERRA-2). Her nokta için 1991–2025 yıllarının aylık değerleri ve hazır yıllık

@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """Dedektif ön izleme anlık görüntüsü (snapshots/regionvars.json): tüm bölgeler × 15 değişken, yıllık değerler.
 
 Kullanım (proje kökünden):  .venv\\Scripts\\python -m data_pipelines.refresh_regionvars   (yalnızca yeni bölgeler: --new)

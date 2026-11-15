@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """İklim normallerinin anlık görüntüsünü (snapshots/climatology.json) üretir: tüm bölgeler + 264 ızgara noktası.
 
 Kullanım (proje kökünden):  .venv\\Scripts\\python -m data_pipelines.refresh_climatology   (yalnızca yeni bölgeler: --new)

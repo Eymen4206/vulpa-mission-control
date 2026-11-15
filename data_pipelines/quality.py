@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """Veri güveni rozeti (ÖNERİ #3): bölge kartındaki sonuçlara ne kadar güvenilebileceğinin şeffaf özeti.
 
 Ağ isteği yapmaz. Hava ve NASA POWER durumları Frontend'in zaten çektiği sonuçlardan parametre olarak verilir.

@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """NASA POWER (Earthdata · MERRA-2): uzun vadeli sıcaklık ve yağış trendi (mevsimsel Mann-Kendall).
 
 app.py içindeki fonksiyonların birebir kopyası; POWER'a ulaşılamazsa simülasyon serisine geçer.

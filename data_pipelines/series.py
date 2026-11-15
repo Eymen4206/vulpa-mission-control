@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """Bölge tema serileri (gerçek veri, yoksa sentetik) ve mevsimsel Mann-Kendall analizi."""
 
 from __future__ import annotations

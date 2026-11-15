@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """Küresel ve bölgeler arası özetler (ÖNERİ #8–#10). Hepsi depodaki anlık görüntülerden; ağ isteği yok
 (compare_regions yalnızca NASA POWER önbelleğini kullanır, bkz. not).
 """

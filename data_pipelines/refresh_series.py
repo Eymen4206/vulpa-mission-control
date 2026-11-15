@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """Gerçek tema serilerinin anlık görüntüsünü (snapshots/real_series.json) yeniden üretir.
 
 Kullanım (proje kökünden):

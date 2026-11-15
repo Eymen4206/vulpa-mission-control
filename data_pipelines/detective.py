@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """Dedektif sihirbazı (Büyük Plan, Aşama C · madde 4): "Neyi merak ediyorsun? Nerede? Ne kadar geriye?"
 
 Kural tabanlı ve açıklamalı öneriler: bölge türü (çöl, yağmur ormanı, şehir…) × konu (ısınma, su, hava kirliliği…)

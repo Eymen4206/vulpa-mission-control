@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """VULPA · Earth System Trend Detective — NASA Space Apps Challenge 2026.
 
 Tek ekranlık (kaydırmasız) Mission Control paneli:

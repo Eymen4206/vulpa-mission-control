@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """Açılış ısınması: sayfa çizilmeden önce gereken tüm veriyi paralel olarak önbelleğe alır.
 
 Proje sahibi: "site yüklenene kadar açılmasın, buglu gibi duruyor". Frontend tam ekran yükleme kartının arkasında

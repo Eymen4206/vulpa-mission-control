@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """Veri katmanının ortak sabitleri ve zaman yardımcıları (app.py ile aynı değerler)."""
 
 from __future__ import annotations

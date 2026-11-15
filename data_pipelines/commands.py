@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """Seiron arayüz komutları (zaman, dil, paneller, grafik) — Frontend'in sohbetten siteyi yönetmesi için.
 
 Bölge, yakınlaştırma ve katman komutlarını app.py zaten algılıyor (detect_navigation / detect_zoom / detect_layer).

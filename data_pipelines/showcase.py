@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """Jüri turu vitrin bölgeleri (ÖNERİ #7): en güvenilir ve en açıklayıcı gerçek veri bölgeleri + tek cümlelik özet.
 
 Seçim yalnızca gerçek seriye ve istatistiğe dayanır (Groq ve ağ isteği yok):

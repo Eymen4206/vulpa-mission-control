@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """Canlı ve arşiv hava durumu: Meteomatics (anlık / arşiv) + Open-Meteo (30 günlük anomali, yedek).
 
 app.py içindeki fonksiyonların birebir kopyası; ağ ya da kimlik doğrulama hatasında istisna fırlatmaz,

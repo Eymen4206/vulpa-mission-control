@@ -1,3 +1,5 @@
+# SI disclosure (NASA Space Apps Challenge 2026): this file was written with Super Intelligence (SI) assistance,
+# Claude / Claude Code (Anthropic), and reviewed by the VULPA team (Mete, Yahya, Eymen). Details: README.md.
 """Sene ortalaması anlık görüntüsünü (snapshots/annual.json) üretir: tüm bölgeler + 264 ızgara noktası, 1991–son yıl.
 
 Kullanım (proje kökünden):  .venv\\Scripts\\python -m data_pipelines.refresh_annual   (yalnızca yeni bölgeler: --new)

@@ -2803,3 +2803,11 @@ penceresi, Ayarlar, Credits. Bulunan ve düzeltilen sorunlar (`app.py`, yalnızc
 - Credits başlığı (≤640 px): Kapat düğmesi küçüldü, Esc ipucu gizlendi, başlık sıkışmıyor.
 Denendi: tarayıcıda 360×640'ta katman düğmeleri ve Seiron yazı alanı ilk ekranda; Seiron yanıtı sonrası sekme
 korunuyor; masaüstü görünümü değişmedi; AppTest (masaüstü + ?mini=1) hatasız.
+
+### [15.11.2026 15:30] MONSTER · Backend + Frontend — Kod dosyalarına SI (yapay zekâ) beyanı
+
+- NASA Space Apps SI kuralı ("Code and data: must acknowledge SI generation in descriptive text and metadata"):
+  depodaki 30 Python dosyasının (app.py + data_pipelines/*.py) en başına iki satırlık yorum eklendi:
+  "SI disclosure … written with Super Intelligence (SI) assistance, Claude / Claude Code (Anthropic), and reviewed
+  by the VULPA team (Mete, Yahya, Eymen). Details: README.md." Kod davranışı değişmedi (yalnızca yorum; modül
+  açıklamaları yerinde). Denendi: AppTest hatasız.

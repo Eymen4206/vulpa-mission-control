@@ -189,3 +189,39 @@ def compare_regions(a: str, b: str, y0: int | None = None, y1: int | None = None
         s_en = (f"{en_name[fast]} is warming faster than {en_name[slow]}: {tf:+.2f} vs {ts:+.2f} °C/decade "
                 f"(NASA POWER {y0}–{y1}).")
     return {"a": a, "b": b, "rows": rows, "sentence_tr": s_tr, "sentence_en": s_en, "window": [y0, y1]}
+
+
+# ── Seiron bağlamı: tüm bölgelerin kısa özeti (15.11.2026) ───────────────────────────────────────────────────────
+_ARROW = {"increasing": "↑", "decreasing": "↓", "no trend": "→"}
+
+
+def regions_brief(focus: tuple[str, ...] | list[str] = (), lang: str = "tr") -> str:
+    """Seiron sistem istemi için TÜM bölgelerin tema eğilimini kısa biçimde verir (dil modeli istek boyutunu korur).
+
+    104 bölgede eski satır başı biçimin (~3,1 bin token) üçte biri kadar: bölgeler değişkene göre gruplanır, her bölge
+    yalnızca "Ad ↑*" olarak yazılır (* = Mann-Kendall p < 0,05). `focus` içindeki bölgeler (seçili + anılan) ayrıca
+    eğim değeriyle tam satır alır. Analizler `analyze` önbelleğinden gelir; ağ isteği yok, istisna fırlatmaz.
+    Dönüş: düz metin ("" hata durumunda).
+    """
+    en = lang == "en"
+    try:
+        groups: dict[tuple[str, str], list[str]] = {}
+        full = []
+        for r in REGION_LIST:
+            a = analyze(r.name)
+            sig = a["p"] < ALPHA
+            name = (r.en[0] or r.name) if en else r.name
+            groups.setdefault((r.variable, r.unit), []).append(f"{name} {_ARROW.get(a['trend'], '→')}{'*' if sig else ''}")
+            if r.name in focus:
+                dec = a["slope_year"] * 10
+                full.append(f"{name}: {r.variable} ({r.unit}) {_ARROW.get(a['trend'], '→')} "
+                            + (f"{dec:+.3g} {r.unit}/decade, p = {a['p']:.3f}" if en else
+                               f"{_num_tr(dec, 3)} {r.unit}/10 yıl, p = {_num_tr(a['p'], 3, False)}"))
+        head = (f"{len(REGION_LIST)} regions, theme-series trend 2000–2024 (↑ increasing, ↓ decreasing, → none; "
+                "* significant, p < 0.05):" if en else
+                f"{len(REGION_LIST)} bölge, tema serisi eğilimi 2000–2024 (↑ artış, ↓ azalış, → yok; * anlamlı, p < 0,05):")
+        body = "\n".join(f"- {var} ({unit}): " + ", ".join(items) for (var, unit), items in groups.items())
+        tail = ("\nFocus regions: " if en else "\nOdaktaki bölgeler: ") + "; ".join(full) if full else ""
+        return head + "\n" + body + tail
+    except Exception:
+        return ""

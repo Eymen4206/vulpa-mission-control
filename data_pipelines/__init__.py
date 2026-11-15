@@ -21,7 +21,7 @@ from .charts import METRICS, metric_chart
 from .events import EVENT_TYPES, fetch_events
 from .quality import data_quality
 from .showcase import showcase_regions
-from .globalstats import compare_regions, global_annual_anomaly, year_extremes
+from .globalstats import compare_regions, global_annual_anomaly, regions_brief, year_extremes
 from .warmup import warm_up
 from .satellite import DATASETS as EXTRA_DATASETS, data_type_label, extra_analysis, extra_catalog
 from .trendgrid import MAP_KEYS, map_keys_available, trend_map
@@ -59,7 +59,7 @@ __all__ = [
     "parse_ui_command", "switch_message", "time_text", "ALLOWED_ACTIONS", "metric_chart", "METRICS",
     # otonom oturum (ÖNERİ #2): NASA EONET olayları — "trendi dinle" (sonify) proje sahibinin kararıyla kaldırıldı
     "fetch_events", "EVENT_TYPES", "data_quality", "showcase_regions",
-    "global_annual_anomaly", "year_extremes", "compare_regions",
+    "global_annual_anomaly", "year_extremes", "compare_regions", "regions_brief",
     "warming_stripes", "warming_ranking", "region_export", "data_status", "season_shift", "glossary", "GLOSSARY",
     # açılış ısınması (proje sahibi: "site yüklenene kadar açılmasın")
     "warm_up",

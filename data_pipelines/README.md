@@ -589,3 +589,19 @@ seçenek); aşağıdakiler görünüm ve metin işleri:
 5. **Bölge menüsü** 104 seçenek; arama ile sorun yok. İsterseniz kıtaya göre gruplanabilir (isteğe bağlı).
 6. Öncelik sırası değişmedi: önce V3 (trend haritası noktaları bir önceki değişkende kalıyor), sonra V1 (Seiron
    "groundwater in Iran" küreyi İran'a götürmüyor).
+
+### Seiron: tek mesajda birden fazla komut ve Groq 413 — 15.11.2026 (Backend · Msi-nb)
+
+**Çoklu komut zaten çalışıyor** (yerel sitede denendi): "parise git zamanı 2024 nisan yap ve haritayı termal sıcaklığa
+değiştir" → Batı Avrupa Ovası + Nisan 2024 + Termal Analiz; "İskandinavya'ya git, 10 yıl önceye dön, yakınlaş ve rüzgar
+haritasını aç" ve "Go to Sahara, set time to July 2019 and open the trend map" de tam uygulanıyor.
+
+**Frontend için iki iş (app.py):**
+1. **Groq 413 (acil):** `all_regions_brief()` 104 bölgede ~3,1 bin token; son 10 mesajla birleşince Groq'un ücretsiz
+   istek sınırı aşılıyor ve Seiron birkaç mesaj sonra "sunucu yanıtı 413" ile yerel motora düşüyor. Yeni
+   **`regions_brief(focus=(), lang="tr")`** aynı bilgiyi değişkene göre gruplayarak ~960 token'da verir (eski 50 bölgelik
+   biçimden de küçük). Öneri: `all_regions_brief()` gövdesi → `return regions_brief((city, *mentioned), lang())`
+   (ya da sistem isteminde doğrudan bu çağrı).
+2. **Değişken + zaman birlikte:** "Amazon'a git, 2020'ye dön ve yağışı göster" → bölge ve değişken uygulanıyor, zaman
+   atlanıyor; `submit_question` içinde `var_or_point_command` erken döndüğü için `apply_ui_command` çağrılmıyor.
+   Değişken komutundan önce (ya da sonra) `apply_ui_command(text, ...)` da çalıştırılıp notları birleştirilmeli.

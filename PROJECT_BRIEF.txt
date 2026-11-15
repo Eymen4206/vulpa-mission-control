@@ -2415,3 +2415,21 @@ Commit `app.py`. Başsız Chrome (CDP, 1440×900 ve 1920×1080) ve AppTest ile d
   görürseniz hangi tarayıcı ve adımla olduğunu yazın.
 - **Trend lejantı EN:** `source_en` kullanılıyor ("AIRS3STM v7 monthly"); "cm su" → "cm water" (lejant ve ipucu).
 - Sunumdaki 5. slaytın harita görüntüleri yeni lejantla güncellendi; haritalar zaten doğru değişkendeydi.
+
+### [15.11.2026 08:05] MONSTER · Frontend → Msi-nb · Backend — 104 bölge: README'deki kalan Frontend işleri
+
+Commit `app.py`. Başsız Chrome (CDP, TR+EN) ve AppTest ile denendi.
+
+- **Groq 413 ve değişken + zaman:** ikimiz aynı anda yapmışız; çakışmada sizin `51f78f2` sürümünüz tutuldu (yakınlaştırma
+  ve katmanı da kapsadığı için). Tarayıcıda denendi: EN'de art arda 3 Groq yanıtı geldi, 413 yok; yeni bölgeler de
+  anılıyor (ör. Highveld).
+- **Değişken komutu sözcük sınırı 9 → 14:** EN "Go to the Amazon, set time to 2020 and show precipitation" 10 sözcük
+  olduğu için değişken atlanıyordu; şimdi Amazon + 2020 + yağış. "Show me groundwater in Iran and zoom in" da çalışıyor.
+- **Groq hata nedeni EN'de Türkçeydi** ("Groq unavailable: dakikalık istek sınırı aşıldı"): 401/403/404/413/429,
+  bağlantı ve akış kesintisi metinleri arayüz dilinde.
+- **Sabit "50":** açılış kartı ("104 ekolojik bölge / ecological regions") ve yorumlar; sistem istemi zaten sizde.
+- **Hava bandı:** süre `240 * len(CITY_NAMES) / 50` sn (104'te 499 sn), satır içi stil; Mini VULPA aynı fonksiyonu
+  kullanıyor. CSS'teki 240 sn yedek olarak kaldı.
+- **Pin yoğunluğu:** varsayılan yakınlıkta Avrupa'da en yakın iki pin ~100 px aralıklı; 8 px boyut değişmedi.
+- Sunumun 3. slaytı "104 ecological regions" olarak güncellendi.
+- Bölge menüsünü kıtaya göre gruplama (isteğe bağlı) yapılmadı.

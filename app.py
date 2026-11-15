@@ -3,7 +3,7 @@
 Tek ekranlık (kaydırmasız) Mission Control paneli:
   · Üst   — VULPA markası, canlı hava/telemetri bandı ve bölge seçimi
   · Sol   — Seiron iklim asistanı (Groq destekli, anahtar yoksa yerel motor) + Mini VULPA QR kodu
-  · Orta  — 3D ortografik Dünya küresi (50 bölge)
+  · Orta  — 3D ortografik Dünya küresi (104 bölge; sayı len(CITY_NAMES))
   · Sağ   — Anlık hava, Mann-Kendall istatistikleri, zaman serisi ve analiz raporu
 
 Mobil görünüm (Mini VULPA): adrese ?mini=1 eklenir; QR kod bu adrese yönlendirir.
@@ -17,7 +17,7 @@ Mobil görünüm (Mini VULPA): adrese ?mini=1 eklenir; QR kod bu adrese yönlend
     [meteomatics] METEOMATICS_USER / METEOMATICS_PASS — anlık sıcaklık, basınç ve rüzgâr (Meteomatics API)
 
 Veri kaynakları (tümü 30 dakikalık önbellekle, hata durumunda simülasyon yedeğiyle):
-    Meteomatics API   — anlık t_2m, msl_pressure, wind_speed_10m/wind_dir_10m (50 şehir + küresel ızgara)
+    Meteomatics API   — anlık t_2m, msl_pressure, wind_speed_10m/wind_dir_10m (tüm bölgeler + küresel ızgara)
     Open-Meteo        — son 30 günün günlük ortalama sıcaklığı (termal anomali) ve Meteomatics yedeği
     NASA POWER        — 2001–2024 günlük sıcaklık ve yağış (MERRA-2); uzun vadeli iklim trendi
 """
@@ -429,7 +429,7 @@ ARCHETYPES: dict[str, Archetype] = {
         ("orman yangın", "yangın", "fwi", "alev"),
     ),
 }
-# 50 bölgelik veritabanı (REGION_LIST, REGIONS, Region) → data_pipelines/regions.py
+# Bölge veritabanı (104 bölge) (REGION_LIST, REGIONS, Region) → data_pipelines/regions.py
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -790,7 +790,7 @@ def rvar(spec: Region) -> str:
     return VAR_EN.get(spec.variable, spec.variable) if lang() == "en" else spec.variable
 
 
-# ── Bölgesel tema serisi: gerçek mi? (14.11.2026'dan beri 50 bölgenin 50'si gerçek; kaynağa ulaşılamazsa geçici
+# ── Bölgesel tema serisi: gerçek mi? (14.11.2026'dan beri bölgelerin hepsi gerçek; kaynağa ulaşılamazsa geçici
 # sentetik yedek gösterilir ve öyle etiketlenir; bkz. data_pipelines.series_meta) ──
 def theme_real(city: str) -> bool:
     return bool(series_meta(city)["real"])
@@ -932,7 +932,7 @@ def anomaly_lower(kind: str | None) -> str:
 
 
 def fetch_weather() -> dict:
-    """Seçili zamana (canlı ya da arşiv tarihi) ait 50 bölge verisi."""
+    """Seçili zamana (canlı ya da arşiv tarihi) ait tüm bölgelerin verisi."""
     year, month, day = sel_date()
     if year and not month and annual_api():
         return _dp._fetch_weather_annual(year)
@@ -1823,11 +1823,13 @@ def groq_stream(messages: list[dict], api_key: str, model: str) -> Iterator[str]
         resp = requests.post(GROQ_URL, headers={"Authorization": f"Bearer {api_key}"},
                              json=payload, stream=True, timeout=(10, 60))
     except requests.RequestException as exc:
-        raise AssistantError(f"bağlantı kurulamadı ({exc.__class__.__name__})") from exc
-    if resp.status_code != 200:
-        friendly = {401: "API anahtarı geçersiz", 403: "erişim reddedildi",
-                    404: "model bulunamadı", 429: "dakikalık istek sınırı aşıldı"}
-        raise AssistantError(friendly.get(resp.status_code, f"sunucu yanıtı {resp.status_code}"))
+        raise AssistantError(L("bağlantı kurulamadı", "could not connect") + f" ({exc.__class__.__name__})") from exc
+    if resp.status_code != 200:   # neden metni arayüz dilinde (EN'de Türkçe kalıyordu)
+        friendly = {401: L("API anahtarı geçersiz", "invalid API key"), 403: L("erişim reddedildi", "access denied"),
+                    404: L("model bulunamadı", "model not found"),
+                    413: L("istek çok büyük", "request too large"),
+                    429: L("dakikalık istek sınırı aşıldı", "per-minute request limit reached")}
+        raise AssistantError(friendly.get(resp.status_code, L("sunucu yanıtı", "server response") + f" {resp.status_code}"))
     resp.encoding = "utf-8"  # SSE yanıtı charset bildirmez; requests aksi halde Latin-1 varsayar
 
     def _gen() -> Iterator[str]:
@@ -2190,7 +2192,7 @@ def answer(question: str, city: str, history: list[dict], navigated: bool) -> tu
             except AssistantError as exc:
                 note = str(exc)
             except requests.RequestException as exc:
-                note = f"akış kesildi ({exc.__class__.__name__})"
+                note = L("akış kesildi", "stream interrupted") + f" ({exc.__class__.__name__})"
     if pctx:   # nokta modunda yerel yanıt: noktanın kendi analiz cümlesi (bölge raporu değil)
         pt = st.session_state["point"]
         v = st.session_state.get("_va") or {}
@@ -4163,7 +4165,7 @@ def needs_time_load() -> bool:
 
 def render_boot() -> None:
     """Karar 4 · Açılış yükleme ekranı. "Sistemi Başlat"tan sonra yalnızca bu ekran çizilir; veri data_pipelines.warm_up
-    ile paralel çekilir (bekleme en yavaş kaynak kadar), ardından kürenin katmanları ve 50 bölgenin analizi hazırlanır.
+    ile paralel çekilir (bekleme en yavaş kaynak kadar), ardından kürenin katmanları ve tüm bölgelerin analizi hazırlanır.
     Bitince sayfa önbellekten tek seferde çizilir; kürenin ilk çizimi bitene dek üstte bir perde kalır (boot_veil)."""
     st.markdown(SPLASH_CSS, unsafe_allow_html=True)
     theme_css(SPLASH_CSS)
@@ -4200,7 +4202,7 @@ def render_boot() -> None:
             except Exception:
                 pass   # warm_up istisna fırlatmaz; yine de açılış takılmasın
             bar.progress(0.9, text=L("Küre katmanları hazırlanıyor…", "Preparing globe layers…"))
-            try:   # arayüz tarafı önbellekleri: ızgara katmanları, 50 bölgenin analizi, POWER
+            try:   # arayüz tarafı önbellekleri: ızgara katmanları, tüm bölgelerin analizi, POWER
                 fetch_weather()
                 current_grid()
                 fetch_power(city)
@@ -4275,8 +4277,8 @@ def render_splash() -> None:
             st.button(L("Sistemi Başlat", "Launch System"), key="start_btn", on_click=start_system)
         st.html(f"<script>{LAUNCH_SOUND_JS}</script>", unsafe_allow_javascript=True)
         html_block("<div class='splash-foot'>NASA Space Apps Challenge 2026 · "
-                   + L("50 ekolojik bölge · Meteomatics + NASA POWER · zamanda yolculuk",
-                       "50 ecological regions · Meteomatics + NASA POWER · time travel") + "</div>")
+                   + L(f"{len(CITY_NAMES)} ekolojik bölge · Meteomatics + NASA POWER · zamanda yolculuk",
+                       f"{len(CITY_NAMES)} ecological regions · Meteomatics + NASA POWER · time travel") + "</div>")
 
 
 def ticker_html(with_label: bool = True) -> str:
@@ -4294,7 +4296,9 @@ def ticker_html(with_label: bool = True) -> str:
     track = "".join(items)
     label = f"<span class='live'>{time_label(wx)}</span>" if with_label else ""
     return (f"<div style='display:flex;align-items:center;gap:.7rem'>{label}"
-            f"<div style='flex:1;min-width:0'><div class='ticker'><div class='ticker-track'>{track}{track}</div></div></div></div>")
+            # Bant hızı bölge sayısıyla sabit kalsın: 50 bölgede 240 sn (104 bölgede ~500 sn); CSS'teki 240 sn yedektir
+            f"<div style='flex:1;min-width:0'><div class='ticker'><div class='ticker-track' "
+            f"style='animation-duration:{240 * len(CITY_NAMES) / 50:.0f}s'>{track}{track}</div></div></div></div>")
 
 
 def time_label(wx: dict) -> str:
@@ -5148,7 +5152,8 @@ def detective_command(text: str) -> dict | None:
 def var_or_point_command(text: str) -> dict | None:
     """Değişken ya da nokta komutu ise uygular ve arayüz notunu döndürür; değilse None (soru cümleleri dokunulmaz)."""
     q = tr_lower(text)
-    if "?" in q or len(_tokens(text)) > 9:
+    # 14 sözcük: "Go to the Amazon, set time to 2020 and show precipitation" gibi birleşik komutlar (10 sözcük) sığsın
+    if "?" in q or len(_tokens(text)) > 14:
         return None
     if FEATURE_POINT and any(_word_in(q, w) for w in POINT_WORDS):
         ll = parse_latlon(text)
@@ -5834,7 +5839,7 @@ def city_details(city: str) -> None:
     status = status_of(spec, r)
     c = STATUS_COLORS[status]
     unit = html.escape(spec.unit)
-    real = theme_real(city)   # tema serisi gerçek gözlem mi (50 bölgenin hepsi; kaynak düşerse geçici sentetik)
+    real = theme_real(city)   # tema serisi gerçek gözlem mi (tüm bölgeler; kaynak düşerse geçici sentetik)
     wx = fetch_weather()
     w = wx["data"][city]
     hist = bool(wx.get("year"))

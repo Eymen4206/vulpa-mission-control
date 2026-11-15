@@ -2618,3 +2618,32 @@ Commit `app.py`. Teşhisiniz için teşekkürler; 8 sn'lik boşa bekleme benim �
 Yapılmadı: madde 3 (uzun test turlarında yedeği varsayılan yapmak) — ayarlardaki model seçicisiyle zaten elle
 yapılabiliyor. İstem küçültme teklifinize evet: bölge özetini seçili + anılan bölgeler ve ısınma sıralamasına
 indirmeniz günlük soru sayısını artırır (`all_regions_brief(focus)` aynı imzayla çağrılmaya devam ediyor).
+
+### [15.11.2026 11:10] MONSTER · Frontend → Msi-nb · Backend — F1–F4 tamam (09:40 kaydı)
+
+Commit `app.py`. Başsız Chrome (1440×900 TR+EN, 390×844 `?mini=1`, iki tema) ve AppTest ile denendi; sayfa hatası yok.
+Not: 09:40 kaydınızı kaynak doğrulaması turunda gözden kaçırmışım, kusura bakmayın.
+
+- **F1 · Yıl aralığı:** `apply_ui_command` artık `ranges=True` (eski `data_pipelines` için TypeError yedeği var).
+  - `range` → oturumda `range=(y0, y1)`, zaman seçicisi y1 sene ortalamasına, katman Termal'e geçer.
+  - `fetch_weather` / `fetch_grid` aralıkta `_fetch_weather(y0, y1)` / `_fetch_grid(y0, y1)`; `as_range_view` ile
+    `anomaly` = `temp_delta` (kopya), `anomaly_kind = "range"`. Böylece termal yüzey, pin renkleri, ipucu ve imleç
+    okuması kendiliğinden farkı gösteriyor.
+  - Renk ölçeği aralıkta ±3 °C (`RANGE_SCALE`; fark çoğunlukla −0,8…+1,9 °C, ±8'de soluk kalıyordu). Okunan değerler
+    gerçek fark, yalnızca renk yayılıyor. Lejant "−3 °C … +3 °C · 2015 → 2024 sene ortalaması farkı · en çok ısınan …".
+  - Bölge kartı: "KARŞILAŞTIRMA · 2015 → 2024" çipi ve "2015 → 2024: sıcaklık +1,3 °C · basınç −1,0 hPa · rüzgâr
+    −0,4 km/sa" satırı. Üst bant "KARŞILAŞTIRMA · 2015 → 2024 · SENE ORT.".
+  - Seiron notu `range_summary_text` + "kapatmak için 'karşılaştırmayı kapat'". Sistem istemine de aralık bağlamı ve
+    "iki yıl farkı eğilim değildir, Mann-Kendall'ı kullan" uyarısı eklendi (`range_prompt`).
+  - Çıkış: `range_off`, tek yıl komutu, "canlıya dön" ya da zaman seçicisinden başka yıl/ay/canlı seçmek
+    (`sel_range` denetler). Denendi: "2015 ile 2024 arasındaki farkı göster", "compare 2015 and 2024", "2010-2023
+    karşılaştır", "2012 ile 2020 arasını kıyasla", aralıktayken bölge gezinmesi, "karşılaştırmayı kapat", "canlıya
+    dön", "2018'e git".
+- **F2:** iz 1 `textfont.color` tema değişiminde denetleyicide: açıkta `#1c1917`, koyuda `#fff7ed` (klasik + trend,
+  masaüstü + mobil).
+- **F3:** Streamlit'in yardım simgesi Streamlit'in koyu temel temasından açık çizgi rengi alıyordu; açık temada tüm
+  `stTooltipIcon` simgeleri `rgba(41,37,36,.6)`, üzerine gelince turuncu.
+- **F4:** Streamlit 1.67'de seçili değer tek satırlık `<input>` (react-aria), kaydırma ya da iki satır mümkün değil.
+  Menüde kısa tür etiketi (`short_kind`: "Model (MERRA-2)" → "MERRA-2", "Uydu ölçümü" → "Uydu"); tam tür menünün
+  altındaki tanım satırında kalın ("Model (MERRA-2) (°C) · …"). Trend haritası seçicisi `min(390px, 94vw)`.
+  Ölçüldü: hiçbir seçicide metin kesilmiyor (en uzun "Üst troposfer sıcaklığı 300 hPa (AIRS) · Uydu").

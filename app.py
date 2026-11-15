@@ -69,7 +69,7 @@ _DP_NEEDED = ("CITY_NAMES", "END", "GRID_LATS", "GRID_LONS", "LAST_FULL_YEAR", "
               "_fetch_power", "_fetch_weather", "analyze", "build_series", "REAL_SOURCES", "series_meta", "data_credits",
               "parse_ui_command", "switch_message", "time_text", "metric_chart", "ALLOWED_ACTIONS", "METRICS",
               "fetch_events", "EVENT_TYPES", "data_quality",
-              "showcase_regions", "global_annual_anomaly", "year_extremes", "compare_regions", "regions_brief", "warm_up",
+              "showcase_regions", "global_annual_anomaly", "year_extremes", "compare_regions", "regions_brief", "range_summary_text", "warm_up",
               "glossary", "variable_catalog", "variable_analysis", "describe_point", "trend_tests",
               "trend_map", "map_keys_available", "detective_questions", "detective_suggest", "topic_variables",
               "extra_catalog", "extra_analysis", "EXTRA_DATASETS", "data_type_label", "theme_type_label")
@@ -82,7 +82,7 @@ from data_pipelines import (  # noqa: E402
     REGIONS, START, WEATHER_TTL, Region, _fetch_grid, _fetch_power, _fetch_weather, analyze, build_series,
     REAL_SOURCES, series_meta, data_credits,
     parse_ui_command, switch_message, time_text, metric_chart, fetch_events, data_quality,
-    showcase_regions, year_extremes, compare_regions, regions_brief, warm_up, glossary, variable_catalog, variable_analysis,
+    showcase_regions, year_extremes, compare_regions, regions_brief, range_summary_text, warm_up, glossary, variable_catalog, variable_analysis,
     describe_point, trend_tests, trend_map, map_keys_available, detective_questions, detective_suggest, topic_variables,
     extra_catalog, extra_analysis, EXTRA_DATASETS, data_type_label, theme_type_label,
 )
@@ -206,6 +206,40 @@ def sel_date() -> tuple[int, int | None, int | None]:
     except Exception:
         month = 0
     return (year, month, None) if 1 <= month <= 12 else (year, None, None)
+
+
+RANGE_SCALE = 3.0   # F1 · fark haritasının renk ölçeği (±3 °C); sene ortalaması farkları çoğunlukla −0,8…+1,9 °C
+
+
+def sel_range() -> tuple[int, int] | None:
+    """F1 · Etkin yıl aralığı (başlangıç, bitiş) ya da None.
+
+    Aralık komutu zaman seçicisini bitiş yılına (sene ortalaması) getirir; kullanıcı seçiciden başka bir yıl, ay ya da
+    canlıyı seçerse aralık kendiliğinden kapanır (ayrı bir "kapat" düğmesi gerekmez)."""
+    rng = st.session_state.get("range")
+    if not rng:
+        return None
+    try:
+        y0, y1 = int(rng[0]), int(rng[1])
+    except Exception:
+        st.session_state.pop("range", None)
+        return None
+    if sel_year() != y1 or int(st.session_state.get("month", 0) or 0):
+        st.session_state.pop("range", None)
+        return None
+    return y0, y1
+
+
+def as_range_view(d: dict) -> dict:
+    """Aralık sonucunu termal katmanın beklediği biçime getirir: "anomaly" = bitiş − başlangıç sıcaklık farkı.
+    Önbellekteki nesne değiştirilmez (kopya)."""
+    out = dict(d)
+    out["anomaly_kind"] = "range"
+    if "data" in d:   # bölgeler
+        out["data"] = {k: {**v, "anomaly": v.get("temp_delta")} for k, v in d["data"].items()}
+    elif "temp_delta" in d:   # ızgara
+        out["anomaly"] = d["temp_delta"]
+    return out
 
 
 def refusal() -> str:
@@ -920,6 +954,10 @@ def sel_date_text() -> str:
 def anomaly_phrase(kind: str | None, short: bool = False) -> str:
     """Termal sapmanın neye göre olduğu (data_pipelines → "anomaly_kind"): "30d" önceki 30 gün, "climatology" iklim
     normali (Open-Meteo kapalıyken NASA POWER), "annual" yıllık ortalamanın 1991–2020 normalinden sapması."""
+    if kind == "range":   # F1 · yıl aralığı: sene ortalaması farkı
+        rng = sel_range() or (0, 0)
+        return (L(f"{rng[0]} → {rng[1]} farkı", f"{rng[0]} → {rng[1]} change") if short else
+                L(f"{rng[0]} → {rng[1]} sene ortalaması farkı", f"{rng[0]} → {rng[1]} year-average change"))
     if kind == "climatology":
         return L("normale göre sapma", "dev. from normal") if short else L("İklim normaline göre sapma",
                                                                           "Deviation from climate normal")
@@ -938,6 +976,9 @@ def anomaly_lower(kind: str | None) -> str:
 
 def fetch_weather() -> dict:
     """Seçili zamana (canlı ya da arşiv tarihi) ait tüm bölgelerin verisi."""
+    rng = sel_range()
+    if rng:   # F1 · yıl aralığı: iki yılın sene ortalaması farkı (annual.json, ağ isteği yok)
+        return as_range_view(_fetch_weather(*rng))
     year, month, day = sel_date()
     if year and not month and annual_api():
         return _dp._fetch_weather_annual(year)
@@ -1076,6 +1117,9 @@ def _smooth_sample(field: np.ndarray, lats: np.ndarray, lons: np.ndarray) -> np.
 
 
 def fetch_grid() -> dict:
+    rng = sel_range()
+    if rng:   # F1 · fark ızgarası
+        return as_range_view(_fetch_grid(*rng))
     year, month, day = sel_date()
     if year and not month and annual_api():
         return _dp._fetch_grid_annual(year)
@@ -1128,22 +1172,26 @@ def current_grid() -> tuple[dict, dict]:
     year, month, day = sel_date()
     g = fetch_grid()
     annual = bool(year and not month and annual_api())
-    return g, grid_layers(year, f"{g['time']}|{int(g['live'])}|{int(g.get('anomaly_live', True))}", month, day, annual)
+    return g, grid_layers(year, f"{g['time']}|{int(g['live'])}|{int(g.get('anomaly_live', True))}", month, day, annual,
+                          sel_range())
 
 
 @st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
 def grid_layers(year: int, stamp: str, month: int | None = None, day: int | None = None,
-                annual: bool = False) -> dict:
+                annual: bool = False, rng: tuple[int, int] | None = None) -> dict:
     """Izgara verisini katman dizilerine dönüştürür (önbellek, tarih ve veri zamanına bağlı)."""
-    if annual:
+    if rng:   # F1 · fark haritası: renkler ±RANGE_SCALE °C'ye yayılır, okunan değerler (raw) gerçek fark
+        g = as_range_view(_fetch_grid(*rng))
+    elif annual:
         g = _dp._fetch_grid_annual(year)
     else:
         g = _fetch_grid(year, None, month, day) if year else _fetch_grid(0)
+    gain = 8.0 / RANGE_SCALE if rng else 1.0
     # 1) Termal gradyan alanı: son 30 güne göre sapma, ~7.5° aralıkla ara değerlenmiş.
     #    Küre üzerinde eşit yoğunluk için boylam aralığı enlemle genişler (kutuplarda noktalar sıkışmasın);
     #    noktalar CSS bulanıklığıyla birleşerek pürüzsüz bir gradyan oluşturur.
     from scipy.interpolate import RegularGridInterpolator
-    wrapped, wlons = _wrap_cols(g["anomaly"])
+    wrapped, wlons = _wrap_cols(np.asarray(g["anomaly"], dtype=float) * gain)
     interp = RegularGridInterpolator((GRID_LATS, wlons), wrapped, method="linear")
     f_lon, f_lat = [], []
     for lat in np.arange(GRID_LATS[0], GRID_LATS[-1] + 1e-6, FIELD_STEP):
@@ -1160,7 +1208,7 @@ def grid_layers(year: int, stamp: str, month: int | None = None, day: int | None
              "pcolor": [blend(PRESSURE_FIELD_STOPS, (v - 975) / 60) for v in p_vals]}
     # 1b) Sürekli termal yüzey: hücre merkezlerinde kübik ara değerlenmiş sapma (°C), renk skalası Plotly'de
     cell_meta, c_lat, c_lon = thermal_cells()
-    surface = np.clip(_smooth_sample(g["anomaly"], c_lat, c_lon), -12, 12)
+    surface = np.clip(_smooth_sample(np.asarray(g["anomaly"], dtype=float) * gain, c_lat, c_lon), -12, 12)
     field["z"] = np.round(surface, 1).tolist()
     field["zgrid"] = cell_meta
     # İmleç okuması (ÖNERİ #5): en yakın 15°'lik ölçüm noktasının ham değeri (ara değer değil)
@@ -1772,6 +1820,18 @@ def all_regions_brief(focus: tuple[str, ...] = ()) -> str:
     return "; ".join(rows)
 
 
+def range_prompt() -> str:
+    """F1 · Yıl aralığı açıksa sistem istemine giden bağlam (yoksa boş): dönem ve Backend özeti (gerçek sayılar)."""
+    rng = sel_range()
+    if not rng:
+        return ""
+    summary = safe(range_summary_text, _fetch_weather(*rng), "tr") or ""
+    return (f"Kullanıcı {rng[0]} ile {rng[1]} yıllarının sene ortalamalarını karşılaştırıyor (NASA POWER, MERRA-2). "
+            f"Hava değerleri {rng[1]} sene ortalamasıdır; termal katman {rng[1]} − {rng[0]} sıcaklık farkını gösterir. "
+            f"Özet: {summary} İki yıl arasındaki fark tek başına iklim eğilimi değildir (yıldan yıla oynaklık); "
+            "eğilim için Mann-Kendall sonuçlarını kullan ve bunu belirt.")
+
+
 def layers_prompt() -> str:
     """Sistem istemindeki katman açıklaması: yalnızca etkin katmanın tam tanımı, diğerleri tek satır (genel tarama 1:
     istem kısalır, Groq dakikalık sınırı geç dolar). Kullanıcı başka katmanı sorarsa model kısa genel bilgi verir."""
@@ -1810,7 +1870,7 @@ KAPSAM:
 HARİTA KATMANLARI (yalnızca bu tanımları kullan; uydu görüntüsü YOKTUR):
 {layers_text}
 Şu an etkin katman: {LAYERS[st.session_state.get("layer", "classic")]}
-ZAMAN: {"Kullanıcı " + sel_date_text() + " tarihine (12:00 UTC) zamanda yolculuk yaptı; hava değerleri o güne ait arşiv verisidir, NASA POWER trendi " + str(power_window()[0]) + "–" + str(power_window()[1]) + " dönemini kapsar. Bunu yanıtlarında belirt." if sel_year() else "Canlı (güncel) veriler gösteriliyor."}
+ZAMAN: {range_prompt() or "Kullanıcı " + sel_date_text() + " tarihine (12:00 UTC) zamanda yolculuk yaptı; hava değerleri o güne ait arşiv verisidir, NASA POWER trendi " + str(power_window()[0]) + "–" + str(power_window()[1]) + " dönemini kapsar. Bunu yanıtlarında belirt." if sel_year() else "Canlı (güncel) veriler gösteriliyor."}
 {layer_summary(st.session_state.get("layer", "classic"))}
 
 SEÇİLİ BÖLGE BAĞLAMI:
@@ -2566,6 +2626,8 @@ div:has(> .st-key-fx_redirect) {
 .pw-row { grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap;
   font-size: .68rem; color: #d6d3d1; }
 .pw-row b { color: #fff7ed; font-weight: 600; }
+.range-row { margin: .1rem 0 .45rem; padding: .35rem .6rem; border: 1px solid var(--line); border-radius: 10px;
+  background: rgba(249,115,22,.07); font-size: .72rem; }
 .pw-src { grid-column: 1 / -1; font-size: .6rem; color: #78716c; }
 .lg-thermal { background: linear-gradient(90deg, #1e40af, #0ea5e9, #4ade80, #facc15, #f97316, #dc2626, #7f1d1d); }
 .lg-isobar { width: 34px !important; height: 0 !important; border-top: 2px dashed rgba(251,191,36,.8); border-radius: 0 !important; }
@@ -2654,6 +2716,7 @@ div[role="dialog"]:has(.set-sec) { background: rgba(20,17,15,.92); backdrop-filt
 .st-key-metric_btns, .st-key-yx_btns { display: none !important; }
 /* Aşama B · trend haritası seçicisi ve lejantı */
 .st-key-tm_ctl { margin: 0 auto .25rem; }
+.st-key-tm_ctl [data-testid="stSelectbox"] { width: min(390px, 94vw) !important; }   /* F4: AIRS adları sığsın */
 .st-key-tm_ctl [data-baseweb="select"] > div, .st-key-tm_ctl [role="group"] { min-height: 1.9rem; font-size: .74rem; }
 .legend-bar.legend-trend { white-space: normal; max-width: min(640px, 92vw); }
 /* Aşama C · dedektif */
@@ -3334,9 +3397,10 @@ def layer_payload() -> dict:
         spec = REGIONS[name]
         pins.append(f"<b>{rname(name)}</b> · {rarea(spec)}<br>{rtheme(spec)}<br>"
                     f"{status_label(status_of(spec, analyze(name)))}")
+    gain = 8.0 / RANGE_SCALE if wx.get("anomaly_kind") == "range" else 1.0   # F1: fark modunda ±3 °C ölçeği
     for name in CITY_NAMES:
         w = data[name]
-        anom = w["anomaly"] if w["anomaly"] is not None else 0.0
+        anom = (w["anomaly"] if w["anomaly"] is not None else 0.0) * gain
         col = blend(THERMAL_STOPS, (anom + 8) / 16)
         t_color.append(col)
         t_size.append(round(8 + min(abs(anom), 10) * 1.0, 1))
@@ -3901,6 +3965,8 @@ GLOBE_CONTROLLER_JS = """
             "geo.coastlinecolor": "rgba(249,115,22,0.5)", "geo.lataxis.gridcolor": "rgba(249,115,22,0.06)",
             "geo.lonaxis.gridcolor": "rgba(249,115,22,0.06)", "hoverlabel.bgcolor": "#1c1917",
             "hoverlabel.font.color": "#f5f5f4"});
+          // F2: seçili bölge etiketi (iz 1) açık temada koyu taş tonu; krem renk açık kara/okyanusta okunmuyordu
+          await P().restyle(gd, {"textfont.color": light ? "#1c1917" : "#fff7ed"}, [1]);
         }
         if (T.layer !== "classic") await sizeField(gd);
         tag(gd);
@@ -3989,8 +4055,8 @@ def render_trend_picker() -> None:
     with st.container(key="tm_ctl", width="content"):
         bound(st.selectbox, "tm_key", label=L("Trend haritası değişkeni", "Trend map variable"), options=keys,
               placeholder=L("Değişken seçin", "Choose a variable"),
-              format_func=lambda k: (cat[k]["name"] + " · Model (MERRA-2)") if k in cat
-              else extra_name(k) + " · " + (safe(data_type_label, k, lang()) or L("Uydu ölçümü", "Satellite")),
+              format_func=lambda k: (cat[k]["name"] + " · MERRA-2") if k in cat   # F4: kısa tür etiketi
+              else extra_name(k) + " · " + short_kind(safe(data_type_label, k, lang()) or L("Uydu ölçümü", "Satellite")),
               label_visibility="collapsed")
 
 
@@ -4068,9 +4134,12 @@ def layer_legend(layer: str) -> str:
     if layer == "thermal":
         ex = weather_extremes()
         hot = ex.get("hottest")
-        span = (L(" · en yüksek sapma: ", " · largest deviation: ") + f"{rname(hot)} {dec(f"{wx['data'][hot]['anomaly']:+.1f}")} °C"
+        rng = sel_range()
+        span = ((L(" · en çok ısınan: ", " · warmed most: ") if rng else L(" · en yüksek sapma: ", " · largest deviation: "))
+                + f"{rname(hot)} {dec(f"{wx['data'][hot]['anomaly']:+.1f}")} °C"
                 if hot and wx["data"][hot]["anomaly"] is not None else "")
-        return (f"<div class='legend-bar'><span>−8 °C</span><i class='lg-thermal'></i><span>+8 °C</span>"
+        lim = f"{RANGE_SCALE:.0f}" if rng else "8"   # F1: fark haritası ±3 °C ölçeğinde
+        return (f"<div class='legend-bar'><span>−{lim} °C</span><i class='lg-thermal'></i><span>+{lim} °C</span>"
                 f"<em>{anomaly_phrase(fetch_grid().get('anomaly_kind'))}{span} · "
                 f"{html.escape(src)}</em></div>")
     if layer == "trend":
@@ -4401,6 +4470,9 @@ def ticker_html(with_label: bool = True) -> str:
 
 def time_label(wx: dict) -> str:
     """Bant etiketi: CANLI · SS:DD UTC / ARŞİV · GG.AA.YYYY / TAHMİNİ."""
+    rng = sel_range()
+    if rng:   # F1 · yıl aralığı
+        return L("KARŞILAŞTIRMA · ", "COMPARISON · ") + f"{rng[0]} → {rng[1]} · " + L("SENE ORT.", "YEAR AVG.")
     if wx.get("year") and is_annual():
         return (L("ARŞİV · ", "ARCHIVE · ") + f"{sel_year()} · " + L("SENE ORT.", "YEAR AVG.")
                 + ("" if annual_api() else " *") + ("" if wx["live"] else L(" · TAHMİNİ", " · EST.")))
@@ -5053,6 +5125,8 @@ LIGHT_FIXED = """
 .st-key-events_ctl label > span + div { background-color: #a8a29e !important; }
 .st-key-events_ctl label:has(input:checked) > span + div { background-color: #f97316 !important; }
 .st-key-events_ctl label p { color: #292524 !important; }
+[data-testid="stTooltipIcon"] svg { stroke: rgba(41,37,36,.6) !important; }
+[data-testid="stTooltipIcon"]:hover svg { stroke: #c2410c !important; }
 :root { --bg: #f6f3ef; --glass: rgba(255,255,255,.66); --line: rgba(234,88,12,.24); --line-strong: rgba(234,88,12,.45);
   --text: #1c1917; --muted: #6b625b; }
 .stApp { background-color: var(--bg) !important; color: var(--text) !important;
@@ -5290,14 +5364,27 @@ def apply_ui_command(text: str, city: str) -> dict:
     Widget'lar çizilmeden önce (sohbet geri çağırmasında) çalışır. Seiron'un yönetici yetkisi yoktur: anahtar, ayar,
     önbellek ve dosya istekleri `denied` ile döner ve hiçbir şey değiştirilmez.
     """
-    try:
+    try:   # F1: ranges=True → "2015 ile 2024 arasındaki fark" aralık olarak çözülür
+        cmd = parse_ui_command(text, sel_year(), sel_date()[1] or 0, lang(), tuple(y for y in YEAR_OPTIONS if y),
+                               ranges=True)
+    except TypeError:   # eski data_pipelines (ranges yok): eski davranış
         cmd = parse_ui_command(text, sel_year(), sel_date()[1] or 0, lang(), tuple(y for y in YEAR_OPTIONS if y))
     except Exception:   # veri katmanı istisna fırlatmaz; yine de sohbet çökmesin
         return {"matched": False, "denied": False, "notes": []}
     if not cmd.get("matched") or cmd.get("denied"):
         return cmd
     changed_time = False
+    rng = cmd.get("range")
+    if rng and len(rng) == 2 and int(rng[1]) in YEAR_OPTIONS and int(rng[0]) < int(rng[1]):
+        # F1 · yıl aralığı: zaman seçicisi bitiş yılının sene ortalamasına gelir (sel_range bunu denetler)
+        st.session_state["range"] = (int(rng[0]), int(rng[1]))
+        st.session_state["year"], st.session_state["month"] = int(rng[1]), 0
+        st.session_state["layer"] = "thermal"   # fark haritası termal katmanda görünür
+        cmd["range_set"] = True
+    elif cmd.get("range_off") and st.session_state.pop("range", None):
+        cmd["range_cleared"] = True
     if cmd.get("year") is not None and cmd["year"] in YEAR_OPTIONS:
+        st.session_state.pop("range", None)   # tek yıl ya da "canlıya dön" aralıktan çıkar
         st.session_state["year"] = cmd["year"]
         changed_time = True
     if cmd.get("month") is not None and cmd["month"] in MONTH_OPTIONS:
@@ -5328,6 +5415,14 @@ def command_notes(cmd: dict) -> list[str]:
         return [f"{chat_icon('block')} " + " ".join(cmd.get("notes") or [L("Bu işlem Seiron'un yetkisi dışında.",
                                                                           "This action is outside Seiron's permissions.")])]
     notes = []
+    if cmd.get("range_set") and sel_range():   # F1 · aralık özeti (data_pipelines.range_summary_text)
+        y0, y1 = sel_range()
+        summary = safe(range_summary_text, _fetch_weather(y0, y1), lang()) or ""
+        notes.append(f"{chat_icon('compare_arrows')} **{y0} → {y1}** {L('karşılaştırması', 'comparison')}. "
+                     + dec(summary) + " " + L("Termal katmanda fark haritası; kapatmak için \"karşılaştırmayı kapat\".",
+                                               "Difference map on the thermal layer; say \"stop comparing\" to close."))
+    if cmd.get("range_cleared"):
+        notes.append(f"{chat_icon('schedule')} {L('Karşılaştırma kapatıldı.', 'Comparison closed.')}")
     if cmd.get("time_changed"):
         year, month, _ = sel_date()
         notes.append(f"{chat_icon('schedule')} {L('Zaman', 'Time')}: **{time_text(year, month or 0, lang())}**.")
@@ -5764,18 +5859,31 @@ def var_chart_fig(chart: dict, height: int = 250) -> go.Figure:
     return fig
 
 
-def var_label(key: str, cat: dict, theme_name: str = "", avail: set | None = None) -> str:
-    # önce değişkenin adı, sonra veri türü (Model (MERRA-2) / Model (GLDAS) / Uydu ölçümü / Yerinde ölçüm)
+def var_kind(key: str, cat: dict) -> str:
+    """Değişkenin tam veri türü: Model (MERRA-2) / Model (GLDAS) / Uydu ölçümü / Yerinde ölçüm (Backend etiketleri)."""
     if key == "theme":
-        city = st.session_state.get("city", CITY_NAMES[0])
-        kind = safe(theme_type_label, city, lang()) or "Model (MERRA-2)"
-        return f"{theme_name} ({L('tema serisi', 'theme series')}) · {kind}"
+        return safe(theme_type_label, st.session_state.get("city", CITY_NAMES[0]), lang()) or "Model (MERRA-2)"
+    v = cat.get(key) or {}
+    return (v.get("category_name") or "") if key.startswith("x:") else "Model (MERRA-2)"
+
+
+def short_kind(kind: str) -> str:
+    """F4 · Menüde kısa tür etiketi: "Model (MERRA-2)" → "MERRA-2", "Uydu ölçümü" → "Uydu". Streamlit 1.67'de seçili
+    değer tek satırlık bir <input> içinde durduğu için uzun etiket kesiliyordu; tam tür menünün altındaki satırda."""
+    k = re.sub(r"^Model \((.+)\)$", r"\1", kind.strip())
+    return {"Uydu ölçümü": "Uydu", "Yerinde ölçüm": "Yerinde", "Satellite & in-situ": "Satellite",
+            "Uydu ve yer ölçümü": "Uydu"}.get(k, k)
+
+
+def var_label(key: str, cat: dict, theme_name: str = "", avail: set | None = None) -> str:
+    # önce değişkenin adı, sonra kısa veri türü (MERRA-2 / GLDAS / Uydu / Yerinde); tam tür var-def satırında
+    if key == "theme":
+        return f"{theme_name} · {L('tema', 'theme')} · {short_kind(var_kind(key, cat))}"
     v = cat.get(key)
     if not v:
         return key
     off = (" — " + L("bu noktada yok", "not available here")) if avail is not None and key not in avail else ""
-    kind = v["category_name"] if key.startswith("x:") else "Model (MERRA-2)"
-    return f"{v['name']} ({v['unit']}) · {kind}{off}"
+    return f"{v['name']} · {short_kind(var_kind(key, cat))}{off}"
 
 
 def render_var_picker(state_key: str, options: list[str], cat: dict, theme_name: str = "",
@@ -5790,9 +5898,15 @@ def render_var_picker(state_key: str, options: list[str], cat: dict, theme_name:
               format_func=lambda k: var_label(k, cat, theme_name, avail))
     key = st.session_state[state_key]
     v = cat.get(key)
+    kind = html.escape(var_kind(key, cat))
     if v:
+        unit = f" ({html.escape(v['unit'])})" if v.get("unit") else ""
         text = html.escape(f"{v['definition']} {v['why']}")
-        st.markdown(f"<div class='var-def'>{inline_svg('info', 12)}<span>{text}</span></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='var-def'>{inline_svg('info', 12)}<span><b>{kind}</b>{unit} · {text}</span></div>",
+                    unsafe_allow_html=True)
+    elif key == "theme" and kind:   # tema serisi: tam veri türü (menüde kısaltıldı)
+        st.markdown(f"<div class='var-def'>{inline_svg('info', 12)}<span><b>{kind}</b></span></div>",
+                    unsafe_allow_html=True)
     return key
 
 
@@ -5963,6 +6077,22 @@ def city_details(city: str) -> None:
     pw = fetch_power(city)
     chip = (f"<span class='hist-chip'>{inline_svg('clock', 12)} {L('ZAMANDA YOLCULUK', 'TIME TRAVEL')} · {wx['time'][:10]}</span>"
             if hist else "")
+    rng = sel_range()
+    range_row = ""
+    if rng:   # F1 · bölge kartında iki yılın farkı (sıcaklık · basınç · rüzgâr)
+        chip = (f"<span class='hist-chip'>{inline_svg('clock', 12)} {L('KARŞILAŞTIRMA', 'COMPARISON')} · "
+                f"{rng[0]} → {rng[1]}</span>")
+        wx_kind = L(f"{rng[1]} sene ortalaması", f"{rng[1]} year average")
+        parts = []
+        for key_, unit_, nm in (("temp_delta", "°C", L("sıcaklık", "temperature")),
+                                ("pressure_delta", "hPa", L("basınç", "pressure")),
+                                ("wind_delta", L("km/sa", "km/h"), L("rüzgâr", "wind"))):
+            v_ = w.get(key_)
+            if v_ is not None:
+                parts.append(f"{nm} <b>{dec(f'{v_:+.1f}')} {unit_}</b>")
+        if parts:
+            range_row = (f"<div class='pw-row range-row'><span>{rng[0]} → {rng[1]}: " + " · ".join(parts)
+                         + "</span></div>")
     pw = fetch_power(city)
     pw_sig = L("anlamlı", "significant") if pw["t_p"] < ALPHA else L("anlamsız", "not significant")
     yr = L("yıl", "yr")
@@ -5981,6 +6111,7 @@ def city_details(city: str) -> None:
     {annual_note}{year_extremes_strip()}
     <div class="wx"><div class="ic">{wx_icon(w, 34)}</div><div class="t">{dec(f"{w['temp']:.1f}")}°C</div>
       <div class="d">{html.escape(' · '.join(x for x in [('' if hist and is_annual() else wlabel(w)), *wx_meta] if x))}<br><span>{wx_kind} · {html.escape(wx_source(wx))}</span></div></div>
+    {range_row}
     """)
     if cat:
         vkey = render_var_picker("var_key", ["theme"] + list(cat), cat, rvar(spec))

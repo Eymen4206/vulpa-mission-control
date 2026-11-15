@@ -68,7 +68,7 @@ _DP_NEEDED = ("CITY_NAMES", "END", "GRID_LATS", "GRID_LONS", "LAST_FULL_YEAR", "
               "_fetch_power", "_fetch_weather", "analyze", "build_series", "REAL_SOURCES", "series_meta", "data_credits",
               "parse_ui_command", "switch_message", "time_text", "metric_chart", "ALLOWED_ACTIONS", "METRICS",
               "fetch_events", "EVENT_TYPES", "data_quality",
-              "showcase_regions", "global_annual_anomaly", "year_extremes", "compare_regions", "warm_up",
+              "showcase_regions", "global_annual_anomaly", "year_extremes", "compare_regions", "regions_brief", "warm_up",
               "glossary", "variable_catalog", "variable_analysis", "describe_point", "trend_tests",
               "trend_map", "map_keys_available", "detective_questions", "detective_suggest", "topic_variables",
               "extra_catalog", "extra_analysis", "EXTRA_DATASETS", "data_type_label", "theme_type_label")
@@ -81,7 +81,7 @@ from data_pipelines import (  # noqa: E402
     REGIONS, START, WEATHER_TTL, Region, _fetch_grid, _fetch_power, _fetch_weather, analyze, build_series,
     REAL_SOURCES, series_meta, data_credits,
     parse_ui_command, switch_message, time_text, metric_chart, fetch_events, data_quality,
-    showcase_regions, year_extremes, compare_regions, warm_up, glossary, variable_catalog, variable_analysis,
+    showcase_regions, year_extremes, compare_regions, regions_brief, warm_up, glossary, variable_catalog, variable_analysis,
     describe_point, trend_tests, trend_map, map_keys_available, detective_questions, detective_suggest, topic_variables,
     extra_catalog, extra_analysis, EXTRA_DATASETS, data_type_label, theme_type_label,
 )
@@ -1747,7 +1747,16 @@ def region_context(city: str) -> str:
     return "\n".join(lines)
 
 
-def all_regions_brief() -> str:
+def all_regions_brief(focus: tuple[str, ...] = ()) -> str:
+    """Seiron sistem istemindeki tüm bölge özeti. Önce data_pipelines.regions_brief (değişkene göre gruplu, 104 bölgede
+    ~960 token; satır başı biçim ~3,1 bin token tutup Groq'ta 413 'istek çok büyük' hatasına yol açıyordu).
+    Kısa özet alınamazsa eski satır başı biçime düşer."""
+    try:
+        brief = regions_brief(tuple(focus), lang())
+    except Exception:
+        brief = ""
+    if brief:
+        return brief
     arrows = {"increasing": "↑", "decreasing": "↓", "no trend": "→"}
     rows = []
     for name in CITY_NAMES:
@@ -1760,7 +1769,7 @@ def all_regions_brief() -> str:
 
 def system_prompt(city: str, mentioned: list[str]) -> str:
     extra = "\n".join(weather_sentence(c) for c in mentioned if c != city)
-    return f"""Sen {ASSISTANT}'sın: {PLATFORM} platformunun (Earth System Trend Detective) iklim ve coğrafi trend analizi uzmanı. Platform, NASA Space Apps Challenge 2026 için geliştirilmiş; 50 bölgede yer sistemi değişkenlerinin uzun dönemli eğilimlerini mevsimsel Mann-Kendall testi ve Sen eğilimiyle inceleyen bir görev kontrol panelidir.
+    return f"""Sen {ASSISTANT}'sın: {PLATFORM} platformunun (Earth System Trend Detective) iklim ve coğrafi trend analizi uzmanı. Platform, NASA Space Apps Challenge 2026 için geliştirilmiş; {len(CITY_NAMES)} bölgede yer sistemi değişkenlerinin uzun dönemli eğilimlerini mevsimsel Mann-Kendall testi ve Sen eğilimiyle inceleyen bir görev kontrol panelidir.
 
 KAPSAM:
 1. Şu konulardaki TÜM soruları eksiksiz, ayrıntılı ve bilimsel bir dille yanıtla: iklim ve iklim değişikliği, küresel ısınma, hava durumu ve meteoroloji, orman yangınları, ormansızlaşma, ağaç örtüsü ve orman ekosistemi istatistikleri, ekoloji, kuraklık, sel ve aşırı hava olayları, buzullar ve okyanuslar, ekosistemler ve biyolojik çeşitlilik, hava kalitesi, çevresel eğilimler, coğrafya ve yer bilimleri, uydu gözlemleri, platformdaki istatistiksel yöntemler (Mann-Kendall, Sen eğilimi, p-değeri vb.) ve {PLATFORM} projesinin kendisi. Bu sorular seçili bölgeyle sınırlı değildir.
@@ -1773,7 +1782,7 @@ KAPSAM:
 ÜSLUP:
 - Akıcı, sade, kurumsal ve saygılı bir Türkçe kullan; İngilizce terimleri yalnızca zorunlu akademik kavramlarla sınırla.
 - Yanıtlar dar bir sohbet panelinde gösterilir: genellikle 60–170 kelime, tablo kullanma, gerekirse kısa maddeler kullan.
-- Platform verilerine ilişkin sayıları yalnızca aşağıdaki bağlamdan al; uydurma. Genel bilimsel bilgileri yerleşik bilimsel uzlaşıya dayandır. Veri kaynakları: anlık sıcaklık, basınç ve rüzgâr Meteomatics API'sinden; termal anomali Open-Meteo'dan; uzun vadeli sıcaklık/yağış trendi NASA POWER'dan (MERRA-2, 2001–2024) gelir ve gerçektir. Bölgesel tema serilerinin tamamı (50 bölge) gerçek gözlemdir (NASA POWER/MERRA-2, NOAA ERSST, NOAA Mauna Loa CO₂, NSIDC deniz buzu, SPEI; bağlamda [GERÇEK VERİ · bölgesel tema serisi] etiketli). Kaynağa geçici olarak ulaşılamazsa seri sentetik yedekle gösterilir ve bağlamda [SENTETİK PROTOTİP] etiketiyle gelir. Her bölge için bağlamdaki etikete uy; gerçek seriyi sentetik, sentetik seriyi gerçek diye anlatma. Gerçek sıcaklık/yağış eğilimi veya ısınma sorulduğunda öncelikle [GERÇEK ÖLÇÜM] satırını kullan ve dönemini belirt; tema serisinin Sen eğilimini, projeksiyonunu veya senaryo önerilerini bu sonuçla karıştırma. Sentetik tema serisinden söz edersen bunun prototip verisi olduğunu açıkça söyle.
+- Platform verilerine ilişkin sayıları yalnızca aşağıdaki bağlamdan al; uydurma. Genel bilimsel bilgileri yerleşik bilimsel uzlaşıya dayandır. Veri kaynakları: anlık sıcaklık, basınç ve rüzgâr Meteomatics API'sinden; termal anomali Open-Meteo'dan; uzun vadeli sıcaklık/yağış trendi NASA POWER'dan (MERRA-2, 2001–2024) gelir ve gerçektir. Bölgesel tema serilerinin tamamı ({len(CITY_NAMES)} bölge) gerçek gözlemdir (NASA POWER/MERRA-2, NOAA ERSST, NOAA Mauna Loa CO₂, NSIDC deniz buzu, SPEI; bağlamda [GERÇEK VERİ · bölgesel tema serisi] etiketli). Kaynağa geçici olarak ulaşılamazsa seri sentetik yedekle gösterilir ve bağlamda [SENTETİK PROTOTİP] etiketiyle gelir. Her bölge için bağlamdaki etikete uy; gerçek seriyi sentetik, sentetik seriyi gerçek diye anlatma. Gerçek sıcaklık/yağış eğilimi veya ısınma sorulduğunda öncelikle [GERÇEK ÖLÇÜM] satırını kullan ve dönemini belirt; tema serisinin Sen eğilimini, projeksiyonunu veya senaryo önerilerini bu sonuçla karıştırma. Sentetik tema serisinden söz edersen bunun prototip verisi olduğunu açıkça söyle.
 - Matematiksel ifadeler için LaTeX veya dolar işareti kullanma.
 
 HARİTA KATMANLARI (yalnızca bu tanımları kullan; uydu görüntüsü YOKTUR):
@@ -1788,8 +1797,8 @@ SEÇİLİ BÖLGE BAĞLAMI:
 {region_context(city)}
 {extra}
 
-PLATFORMDAKİ 50 BÖLGENİN ÖZETİ:
-{all_regions_brief()}
+PLATFORMDAKİ {len(CITY_NAMES)} BÖLGENİN ÖZETİ:
+{all_regions_brief((city, *mentioned))}
 {LANG_DIRECTIVE_EN if lang() == "en" else ""}"""
 
 
@@ -5265,7 +5274,25 @@ def submit_question(text: str) -> None:
     if vp:
         if vnav:
             st.session_state["_nav_by_chat"] = vnav
-        st.session_state["pending"] = {"q": text, "nav": vnav, "zoom": 0, "scale": None, "layer": None, "cmd": vp}
+        # Aynı mesajdaki zaman / dil / katman / yakınlaştırma komutları da uygulanır ("Amazon'a git, 2020'ye dön ve
+        # yağışı göster"); önceden değişken komutu erken döndüğü için bunlar atlanıyordu.
+        city_after = vnav or current
+        tcmd = apply_ui_command(text, city_after)
+        if tcmd.get("matched") and not tcmd.get("denied"):
+            vp = {**tcmd, **{k: v for k, v in vp.items() if k != "notes"},
+                  "notes": (tcmd.get("notes") or []) + (vp.get("notes") or [])}
+        direction, scale = detect_zoom(text), None
+        if direction:
+            scale = round(float(np.clip(target_camera(city_after)["scale"] * ZOOM_STEP ** direction,
+                                        MIN_SCALE, MAX_SCALE)), 3)
+            st.session_state["zoom"] = {"city": city_after, "scale": scale}
+        layer = detect_layer(text)
+        if layer == st.session_state.get("layer"):
+            layer = None
+        if layer:
+            st.session_state["layer"] = layer
+        st.session_state["pending"] = {"q": text, "nav": vnav, "zoom": direction, "scale": scale, "layer": layer,
+                                       "cmd": vp}
         return
     if vnav:   # değişken komutu değilmiş: durumu geri al, olağan akış gezinmeyi kendisi yapar
         st.session_state["city"] = prev_city

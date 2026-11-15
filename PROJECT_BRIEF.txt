@@ -2729,3 +2729,19 @@ sessiz). Dosya ekip makinesinde, proje sahibine gönderildi; depoya eklenmedi.
 - Seiron sahneleri yalnızca arayüz komutları; Groq kotası harcanmadı.
 - Kapanış kartında canlı site adresi yok (adres secrets'ta); eklenecekse yazın. Müzik eklenmedi (lisans).
 - Sizin video planınızla birleştirmek isterseniz kayıt ve kurgu betiklerini paylaşabilirim.
+
+### [15.11.2026 13:55] MONSTER · Backend + Frontend — Rol değişikliği ve tüm grafiklere noktalı eğilim uzantısı
+
+**Rol (proje sahibinin kararı):** MONSTER artık hem Backend hem Frontend; Msi-nb prototip video yapımına geçti.
+`data_pipelines/` dahil depo MONSTER'da. Msi-nb depoya yazacaksa önce bu dosyaya not düşsün (çakışma olmasın).
+
+Commit `app.py`:
+- Sağ paneldeki tema grafiğindeki noktalı "2034 projeksiyonu" uzantısı artık **tüm zaman serisi grafiklerinde**:
+  değişken grafiği (panel + büyük pencere), uydu/yer ölçümleri (GPM, GRACE…), nokta analizi, NASA POWER sıcaklık
+  eğilimi, küresel bağlam. Ortak `metric_figure` → `trend_extension`: Sen doğrusu son veri yılından 10 yıl öteye
+  noktalı, güven bandı açılan yelpaze olarak, gelecek bölgesi hafif gölgeli; ad "… 'e doğrusal uzantı (öngörü değil)".
+  Eğim penceresi kendi uzantısını taşıdığı için atlanıyor (çift çizgi yok). τ çubukları ve p yoğunluğu zaman ekseni
+  olmadığı için uzantı almıyor.
+- EN arayüzde uydu birimleri ("cm su" → "cm water", "milyon km²", "mm/ay") `unit_lang` ile.
+- Not: NASA iklim modeli projeksiyonları (NEX-GDDP-CMIP6, SSP2-4.5/5-8.5) araştırıldı ve plan sunuldu; proje sahibi
+  şimdilik bunu değil noktalı uzantıyı istedi. NASA POWER Projection API (beta) şu an tüm noktalarda -999 döndürüyor.

@@ -4942,6 +4942,54 @@ def metric_data(city: str, metric: str) -> dict | None:
         return None
 
 
+def unit_lang(unit: str) -> str:
+    """Birim metni seçili dilde: veri katmanı bazı uydu birimlerini yalnızca Türkçe veriyor ("cm su", "milyon km²")."""
+    if lang() != "en" or not unit:
+        return unit
+    return unit.replace("cm su", "cm water").replace("milyon km²", "million km²").replace("mm/ay", "mm/month")
+
+
+EXT_YEARS = 10   # doğrusal uzantının ufku: son veri yılı + 10 (tema grafiğindeki 2034 uzantısıyla aynı mantık)
+
+
+def trend_extension(d: dict) -> dict | None:
+    """Zaman eksenli grafiklerde Sen doğrusunun EXT_YEARS yıllık noktalı uzantısı (ve varsa güven bandının yelpazesi).
+
+    Sen doğrusu doğrusal olduğu için uç noktalarından eğim alınır; yeni hesap yok. Grafik zaten kendi uzantısını
+    taşıyorsa (eğim penceresindeki "dash" izi) ya da zaman ekseni yoksa (τ çubukları, p yoğunluğu) None."""
+    traces = d.get("traces") or []
+    if any(t.get("style") == "dash" for t in traces):
+        return None
+    sen = next((t for t in traces if t.get("style", "line") == "line"
+                and "sen" in str(t.get("name_en") or t.get("name_tr") or "").lower()), None)
+    if not sen or len(sen.get("x") or []) < 2:
+        return None
+    try:
+        x = [float(v) for v in sen["x"]]
+        y = [float(v) for v in sen["y"]]
+    except (TypeError, ValueError):
+        return None
+    if not (1900 < x[0] < 2200) or x[-1] <= x[0]:
+        return None
+    x1, x2 = x[-1], x[-1] + EXT_YEARS
+
+    def extend(xs, ys):
+        k = (ys[-1] - ys[0]) / (xs[-1] - xs[0])
+        return [ys[-1], ys[-1] + k * (x2 - xs[-1])]
+
+    out = {"x": [x1, x2], "y": extend(x, y),
+           "name": L(f"{x2:.0f}'e doğrusal uzantı (öngörü değil)", f"Linear extension to {x2:.0f} (not a forecast)")}
+    band = d.get("band") or {}
+    try:
+        bx = [float(v) for v in band.get("x") or []]
+        if len(bx) >= 2 and abs(bx[-1] - x1) < 1.01:
+            out["lo"] = extend(bx, [float(v) for v in band["y_low"]])
+            out["hi"] = extend(bx, [float(v) for v in band["y_high"]])
+    except (TypeError, ValueError, KeyError):
+        pass
+    return out
+
+
 def metric_figure(d: dict) -> go.Figure:
     """metric_chart şemasından Plotly grafiği (turuncu vurgu, tema uyumlu; mavi/mor yok)."""
     en, light = lang() == "en", theme() == "light"
@@ -4982,6 +5030,17 @@ def metric_figure(d: dict) -> go.Figure:
         else:
             color = muted if d.get("kind") == "density" else "#f97316"
             fig.add_trace(go.Scatter(x=x, y=t["y"], name=name, mode="lines", line=dict(width=2.5, color=color)))
+    ext = trend_extension(d)
+    if ext:   # Sen doğrusunun 10 yıllık doğrusal uzantısı (sağ paneldeki tema grafiğiyle aynı görünüm; öngörü değil)
+        fig.add_vrect(x0=ext["x"][0], x1=ext["x"][1], fillcolor="rgba(249,115,22,0.05)", line_width=0)
+        if ext.get("lo"):   # güven bandı da açılan bir yelpaze olarak sürer
+            fig.add_trace(go.Scatter(x=ext["x"], y=ext["hi"], mode="lines", line=dict(width=0), hoverinfo="skip",
+                                     showlegend=False))
+            fig.add_trace(go.Scatter(x=ext["x"], y=ext["lo"], mode="lines", line=dict(width=0), fill="tonexty",
+                                     fillcolor="rgba(249,115,22,.08)", hoverinfo="skip", showlegend=False))
+        fig.add_trace(go.Scatter(x=ext["x"], y=ext["y"], mode="lines", name=ext["name"],
+                                 line=dict(width=1.8, dash="dot", color="rgba(249,115,22,0.75)"),
+                                 hovertemplate="%{x:.0f}: %{y:.3~f}<extra>" + ext["name"] + "</extra>"))
     for m in d.get("marks", []):
         label = m.get("label_en" if en else "label_tr", "")
         line = dict(color="#fbbf24", width=1.4, dash="dot")
@@ -6137,7 +6196,7 @@ def extra_cat(city: str) -> dict:
     en = lang() == "en"
     out = {}
     for v in safe(extra_catalog, city, lang()) or []:
-        out["x:" + v["key"]] = {"key": "x:" + v["key"], "name": v["name"], "unit": v.get("unit", ""),
+        out["x:" + v["key"]] = {"key": "x:" + v["key"], "name": v["name"], "unit": unit_lang(v.get("unit", "")),
                                 "category_name": v.get("type_label") or L("Uydu ve yer ölçümü", "Satellite & in-situ"),
                                 "definition": v.get("definition", ""), "why": v.get("why", ""),
                                 "instrument": v.get("instrument", "")}
@@ -6376,7 +6435,7 @@ def point_details() -> None:
     if not va or not va.get("available"):
         st.info(reason_text(va))
         return
-    unit = va.get("unit", "")
+    unit = unit_lang(va.get("unit", ""))
     var_metric = {"p": "var", "tau": "var", "slope": "var"}
     html_block(f"""
     {facts_block(va['mk'], va['sen'], unit, var_metric)}
@@ -6505,9 +6564,9 @@ def city_details(city: str) -> None:
                 va = None
     en_ = lang() == "en"
     if va:
-        top_facts = facts_block(va["mk"], va["sen"], va.get("unit", ""), {"p": "var", "tau": "var", "slope": "var"},
+        top_facts = facts_block(va["mk"], va["sen"], unit_lang(va.get("unit", "")), {"p": "var", "tau": "var", "slope": "var"},
                                 extra=f"<div class='fact'><div class='k'>Risk</div><div class='v'>{risk_label(rep['risk'])}<small>{rep['risk']}</small></div></div>")
-        mtab = method_table(va, va.get("unit", ""))
+        mtab = method_table(va, unit_lang(va.get("unit", "")))
     else:
         top_facts = None
         mtab = method_table(safe(trend_tests, city), spec.unit) if FEATURE_VARIABLES else ""

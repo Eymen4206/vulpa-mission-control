@@ -1,7 +1,7 @@
 """Sene ortalaması (yıllık ortalama) — Frontend'in "Sene Ortalaması" seçeneği için.
 
 Kaynak: NASA POWER aylık uç noktası (MERRA-2). Her nokta için 1991–2025 yıllarının aylık değerleri ve hazır yıllık
-ortalamaları ("YYYY13") tek istekte gelir. 50 bölge ve 264 ızgara noktası `snapshots/annual.json` dosyasına bir kez
+ortalamaları ("YYYY13") tek istekte gelir. Tüm bölgeler ve 264 ızgara noktası `snapshots/annual.json` dosyasına bir kez
 yazılır; uygulama bu dosyayı okur, ağ isteği ve kota harcamaz.
 
 Değişkenler: T2M (°C), PS (kPa → deniz seviyesine indirgenmiş hPa), WS10M (m/s → km/sa), WD10M (°), RH2M (%).
@@ -102,7 +102,7 @@ def _annual_normals_region(name: str) -> dict | None:
 
 @st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
 def _fetch_weather_annual(year: int) -> dict:
-    """50 bölgenin `year` yılı ortalaması; `_fetch_weather(year)` ile aynı şema.
+    """Tüm bölgelerin `year` yılı ortalaması; `_fetch_weather(year)` ile aynı şema.
 
     Ek alanlar: "annual": True, "date": "YYYY", "anomaly_kind": "annual" (1991–2020 normaline göre yıllık sapma).
     Yıl kayıtta yoksa (ör. içinde bulunulan yıl) iklim normallerinin yıllık ortalaması `live=False` ile döner.

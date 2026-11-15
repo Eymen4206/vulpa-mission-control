@@ -73,7 +73,7 @@ def _ranking() -> list[dict]:
 
 
 def warming_ranking() -> dict:
-    """50 bölgenin yıllık ortalama sıcaklık eğilimi (Sen + Mann-Kendall, annual.json, 1991–son yıl), hızlıdan yavaşa.
+    """Tüm bölgelerin yıllık ortalama sıcaklık eğilimi (Sen + Mann-Kendall, annual.json, 1991–son yıl), hızlıdan yavaşa.
 
     Dönüş: {"rows": [{"rank", "region", "per_decade" (°C/10 yıl), "p", "significant", "years"}], "total",
             "by_region": {ad: rank}, "sentence_tr", "sentence_en"}. Veri yoksa rows boş.

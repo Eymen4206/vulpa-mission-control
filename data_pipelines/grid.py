@@ -112,7 +112,8 @@ def _hist_grid_anomaly(year: int, month: int | None, day: int | None) -> tuple[n
     return grid, src
 
 
-def _fetch_historical_grid(year: int, month: int | None = None, day: int | None = None) -> dict:
+def _fetch_historical_grid(year: int, month: int | None = None, day: int | None = None,
+                           anomaly: bool = True) -> dict:
     """Seçilen tarih (varsayılan: o yılda bugünün takvim günü) için küresel ızgara.
 
     Anlık alanlar Meteomatics'ten, olmazsa Open-Meteo ERA5 arşivinden; termal sapma (30° ızgarada hesaplanıp 15°'ye
@@ -122,8 +123,10 @@ def _fetch_historical_grid(year: int, month: int | None = None, day: int | None 
     out = _fallback_grid(when)
     out.update({"time": when.strftime("%d.%m.%Y %H:%M"), "year": year, "month": when.month, "day": when.day,
                 "date": when.strftime("%Y-%m-%d"), "anomaly_live": False})
-    inst, anom = run_parallel((("g-inst", year, month, day), _hist_grid_instant, (year, month, day)),
-                              (("g-anom", year, month, day), _hist_grid_anomaly, (year, month, day)))
+    jobs = [(("g-inst", year, month, day), _hist_grid_instant, (year, month, day))]
+    if anomaly:   # aralık modunun başlangıç ucunda sapma kullanılmaz: Open-Meteo kotası harcanmaz
+        jobs.append((("g-anom", year, month, day), _hist_grid_anomaly, (year, month, day)))
+    inst, anom = (run_parallel(*jobs) + [None])[:2]
     if inst is None:
         return out
     fields, provider = inst
@@ -164,7 +167,7 @@ def _fetch_grid_range(start_year: int, end_year: int, month: int | None = None, 
     """İki yılın aynı takvim günü için ızgara alanları ve farkları. İstisna fırlatmaz; uçlardan biri
     simülasyonsa `delta_live` False olur."""
     sy, ey = range_year(start_year), range_year(end_year)
-    s = _fetch_historical_grid(sy, month, day)
+    s = _fetch_historical_grid(sy, month, day, anomaly=False)   # başlangıcın sapması kullanılmaz (kota)
     e = _fetch_historical_grid(ey, month, day)
     out = dict(e)
     for f in DELTA_FIELDS:

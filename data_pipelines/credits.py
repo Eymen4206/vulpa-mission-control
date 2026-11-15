@@ -9,6 +9,7 @@ Lisans/atıf notları kaynakların kendi kullanım koşullarından özetlenmişt
 from __future__ import annotations
 
 from .real_series import KINDS, REAL_SOURCES, load_snapshot
+from .regions import REGION_LIST
 
 # Kategori sırası arayüzde bölüm sırasıdır.
 CATEGORIES = {
@@ -22,14 +23,16 @@ CATEGORIES = {
     "software": ("Yazılım ve harita altlığı", "Software & base map"),
 }
 
+_N = len(REGION_LIST)   # bölge sayısı (metinlerde sabit "50" yerine)
+
 CREDITS: list[dict] = [
     # ── Hava ────────────────────────────────────────────────────────────────
     {
         "id": "meteomatics", "category": "weather", "name": "Meteomatics Weather API", "provider": "Meteomatics AG",
         "used_for_tr": "Canlı ve arşiv 2 m sıcaklık, deniz seviyesi basıncı, 10 m rüzgâr hızı/yönü, bağıl nem ve hava "
-                       "sembolü (50 bölge + 15° küresel ızgara).",
+                       f"sembolü ({_N} bölge + 15° küresel ızgara).",
         "used_for_en": "Live and archive 2 m temperature, mean sea-level pressure, 10 m wind speed/direction, relative "
-                       "humidity and weather symbol (50 regions + 15° global grid).",
+                       f"humidity and weather symbol ({_N} regions + 15° global grid).",
         "url": "https://www.meteomatics.com", "license": "Hackathon hesabı (NASA Space Apps Challenge 2026)",
         "attribution": "Weather data © Meteomatics AG",
     },
@@ -247,8 +250,8 @@ def _sat(id_, name, provider, tr, en, url, citation=None, attribution=None):
 
 CREDITS += [
     _sat("gpm-imerg", "GPM IMERG V07 (aylık)", "NASA GES DISC · GPM",
-         "Uydu yağışı: 50 bölge ve trend haritası (2001–2025); model yağışıyla karşılaştırma.",
-         "Satellite precipitation: 50 regions and the trend map (2001–2025); comparison with model precipitation.",
+         f"Uydu yağışı: {_N} bölge ve trend haritası (2001–2025); model yağışıyla karşılaştırma.",
+         f"Satellite precipitation: {_N} regions and the trend map (2001–2025); comparison with model precipitation.",
          "https://gpm.nasa.gov/data/imerg",
          "Huffman, G. J. et al. (2023). GPM IMERG Final Precipitation L3 1 month 0.1 degree x 0.1 degree V07, GES DISC, "
          "doi:10.5067/GPM/IMERG/3B-MONTH/07."),
@@ -271,13 +274,13 @@ CREDITS += [
          "Krotkov, N. A. et al. (2019). OMI/Aura NO2 Tropospheric, Stratospheric & Total Columns MINDS Daily L3, "
          "GES DISC (OMNO2d v003)."),
     _sat("modis-ndvi", "MODIS Terra MOD13C2 v061 (aylık NDVI)", "NASA LP DAAC · MODIS",
-         "Bitki örtüsü indeksi (NDVI): 50 bölge ve trend haritası.", "Vegetation index (NDVI): 50 regions and the trend map.",
+         f"Bitki örtüsü indeksi (NDVI): {_N} bölge ve trend haritası.", f"Vegetation index (NDVI): {_N} regions and the trend map.",
          "https://lpdaac.usgs.gov/products/mod13c2v061/",
          "Didan, K. (2021). MODIS/Terra Vegetation Indices Monthly L3 Global 0.05Deg CMG V061, NASA LP DAAC, "
          "doi:10.5067/MODIS/MOD13C2.061."),
     _sat("grace", "GRACE / GRACE-FO JPL mascon RL06.3 CRI", "NASA JPL · PO.DAAC (NASA/DLR · NASA/GFZ)",
-         "Toplam su depolaması (yeraltı suyu, toprak suyu, kar, buz): 50 bölge ve trend haritası (2003–2024).",
-         "Total water storage (groundwater, soil water, snow, ice): 50 regions and the trend map (2003–2024).",
+         f"Toplam su depolaması (yeraltı suyu, toprak suyu, kar, buz): {_N} bölge ve trend haritası (2003–2024).",
+         f"Total water storage (groundwater, soil water, snow, ice): {_N} regions and the trend map (2003–2024).",
          "https://grace.jpl.nasa.gov",
          "Watkins, M. M. et al. (2015). Improved methods for observing Earth's time variable mass distribution with "
          "GRACE using spherical cap mascons. J. Geophys. Res. Solid Earth, 120, 2648–2671. · Wiese, D. N. et al. "
@@ -330,19 +333,19 @@ for _c in CREDITS:
     _c["license_tr"] = _c["license"]
     _c["license_en"] = LICENSE_EN.get(_c["id"], _c["license"])
 
-DISCLAIMER_TR = ("50 bölgenin {real}'ü gerçek ölçüm/yeniden analiz verisine dayanır. Kalan {synthetic} bölgenin tema "
+DISCLAIMER_TR = ("{n} bölgenin {real}'ü gerçek ölçüm/yeniden analiz verisine dayanır. Kalan {synthetic} bölgenin tema "
                  "serisi (yangın hava indeksi, NDVI, deniz seviyesi, PM2.5, buzul alanı, yeraltı suyu, kar örtüsü) anahtarsız "
                  "ve uzun geçmişli bir kaynak bulunamadığı için sentetik prototip verisidir ve arayüzde böyle işaretlenir.")
-DISCLAIMER_EN = ("{real} of the 50 regions use measured or reanalysis data. The theme series of the remaining {synthetic} "
+DISCLAIMER_EN = ("{real} of the {n} regions use measured or reanalysis data. The theme series of the remaining {synthetic} "
                  "regions (fire weather index, NDVI, sea level, PM2.5, glacier area, groundwater, snow cover) are synthetic "
                  "prototype data because no key-free long-term source was found, and are labelled as such.")
 
-# 14.11.2026: 50 bölgenin tamamı gerçek veriye dayanıyor.
-DISCLAIMER_ALL_TR = ("50 bölgenin tamamının tema serisi gerçek ölçüm ya da yeniden analiz verisidir (NASA POWER/MERRA-2, "
+# 14.11.2026: tüm bölgelerin tema serisi gerçek veriye dayanıyor ({n} = bölge sayısı).
+DISCLAIMER_ALL_TR = ("{n} bölgenin tamamının tema serisi gerçek ölçüm ya da yeniden analiz verisidir (NASA POWER/MERRA-2, "
                      "NOAA ERSST, NOAA GML, NSIDC). Bazı temalarda (yangın riski, deniz seviyesi, partikül kirliliği, "
                      "çölleşme, buzul) doğrudan ölçüm anahtarsız bulunamadığından ilgili fiziksel bir değişken "
                      "kullanılır; değişken adı ölçülen şeyi açıkça söyler (ör. PM2.5 yerine aerosol optik derinliği).")
-DISCLAIMER_ALL_EN = ("The theme series of all 50 regions are measured or reanalysis data (NASA POWER/MERRA-2, NOAA ERSST, "
+DISCLAIMER_ALL_EN = ("The theme series of all {n} regions are measured or reanalysis data (NASA POWER/MERRA-2, NOAA ERSST, "
                      "NOAA GML, NSIDC). For some themes (fire risk, sea level, particulate pollution, desertification, "
                      "glaciers) no key-free direct measurement exists, so a related physical variable is used; the "
                      "variable name states exactly what is measured (e.g. aerosol optical depth instead of PM2.5).")
@@ -372,9 +375,11 @@ def data_credits() -> dict:
         "categories": [{"id": cid, "title_tr": tr, "title_en": en,
                         "items": [c for c in CREDITS if c["category"] == cid]}
                        for cid, (tr, en) in CATEGORIES.items()],
-        "disclaimer_tr": (DISCLAIMER_ALL_TR if real >= 50 else DISCLAIMER_TR.format(real=real, synthetic=50 - real)),
-        "disclaimer_en": (DISCLAIMER_ALL_EN if real >= 50 else DISCLAIMER_EN.format(real=real, synthetic=50 - real)),
-        "real_regions": real, "synthetic_regions": 50 - real,
+        "disclaimer_tr": (DISCLAIMER_ALL_TR.format(n=_N) if real >= _N
+                          else DISCLAIMER_TR.format(n=_N, real=real, synthetic=_N - real)),
+        "disclaimer_en": (DISCLAIMER_ALL_EN.format(n=_N) if real >= _N
+                          else DISCLAIMER_EN.format(n=_N, real=real, synthetic=_N - real)),
+        "real_regions": real, "synthetic_regions": _N - real,
         "series_kinds": kinds,
         "snapshot_generated": load_snapshot().get("generated"),
     }

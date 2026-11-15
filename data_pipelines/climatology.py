@@ -10,7 +10,7 @@ yedek değerler her bölge/ızgara noktası ve her ay için NASA POWER'ın uzun 
 Gün içi döngü: beklenen sıcaklık = T2M + (T2M_RANGE / 2) · cos(2π · (yerel güneş saati − 15) / 24).
 En yüksek değer yerel saat 15:00'te, en düşük 03:00'te varsayılır.
 
-Veri depodaki `snapshots/climatology.json` dosyasından okunur (50 bölge + 264 ızgara noktası); ağ isteği yapılmaz.
+Veri depodaki `snapshots/climatology.json` dosyasından okunur (tüm bölgeler + 264 ızgara noktası); ağ isteği yapılmaz.
 Yenilemek için: `.venv\\Scripts\\python -m data_pipelines.refresh_climatology`
 """
 

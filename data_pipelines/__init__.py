@@ -42,7 +42,7 @@ __all__ = [
     "Region", "REGION_LIST", "REGIONS", "CITY_NAMES",
     # Meteomatics
     "meteomatics_auth", "meteomatics_now", "meteomatics_daily_anomaly", "mm_time",
-    # 50 bölge hava verisi
+    # bölgelerin hava verisi
     "_fetch_live_weather", "_fetch_historical_weather", "_fetch_weather", "_fallback_weather",
     "_open_meteo_cities", "_merge_mm", "describe_code", "describe_symbol", "WEATHER_CODES", "MM_SYMBOLS",
     # yıl aralığı (delta) — 14.11.2026

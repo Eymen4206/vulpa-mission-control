@@ -1,7 +1,8 @@
 """Bölge tema serileri için GERÇEK veri — yalnızca anahtar gerektirmeyen kaynaklar.
 
-50 bölgenin 33'ü artık ölçüm/yeniden analiz verisine dayanır; kalan 17'si (FWI, NDVI, deniz seviyesi, PM2.5,
-buzul alanı, yeraltı suyu, kar örtüsü) anahtarsız ve uzun geçmişli bir kaynak bulunamadığı için sentetik kalır.
+Tüm bölgelerin tema serisi ölçüm/yeniden analiz verisine dayanır (REAL_SOURCES). Başlangıçta 17 bölge (FWI, NDVI,
+deniz seviyesi, PM2.5, buzul alanı, yeraltı suyu, kar örtüsü) anahtarsız kaynak bulunamadığı için sentetikti; 14.11.2026'da
+ilgili fiziksel değişkenlerle gerçek veriye geçirildi. 15.11.2026'da eklenen 54 bölge de baştan gerçek kaynağa bağlıdır.
 
 Kaynaklar:
     NASA POWER (MERRA-2)   — aylık T2M, TS, T2M_MAX, PRECTOTCORR_SUM, AOD_55; günlük T2M/T2M_MAX/T2M_MIN/
@@ -116,6 +117,61 @@ REAL_SOURCES: dict[str, str] = {
     "Florida Everglades": "sst",
     "Pasifik Kıyı Dağları": "snodp",
     "Tropikal And Buzulları": "t2m_anom",
+    # 15.11.2026: 54 yeni bölge — hepsi baştan gerçek kaynağa bağlı (sentetik bölge yok)
+    "İskandinav Dağları": "t2m_anom",
+    "Polonya-Baltık Ovası": "spei3",
+    "Pannonya Ovası": "t2m_max",
+    "Karadeniz Bozkırları": "spei3",
+    "Svalbard ve Barents Denizi": "ts_anom",
+    "Hudson Körfezi": "ts_anom",
+    "Kanada Arktik Takımadaları": "ts_anom",
+    "Yakutistan Permafrostu": "ts_anom",
+    "Ross Buz Sahanlığı": "ts_anom",
+    "Bereketli Hilal": "spei3",
+    "Kafkas Dağları": "t2m_anom",
+    "Aral Gölü Havzası": "aod",
+    "Kazak Bozkırı": "spei3",
+    "Tibet Platosu": "ts_anom",
+    "Taklamakan Çölü": "aod",
+    "Amur Havzası": "precip",
+    "Okhotsk Denizi": "sst",
+    "İnci Nehri Deltası": "t2m",
+    "Mekong Deltası": "precip",
+    "Borneo Yağmur Ormanları": "aod",
+    "Arap Denizi": "sst",
+    "Bengal Körfezi": "sst",
+    "Maldivler": "sst",
+    "Yeni Gine Dağları": "precip",
+    "Murray-Darling Havzası": "spei3",
+    "Orta Avustralya Çölü": "t2m_max",
+    "Güneybatı Avustralya": "precip",
+    "Yeni Zelanda Güney Alpleri": "t2m_anom",
+    "Tasman Denizi": "sst",
+    "Ekvatoral Pasifik (Niño 3.4)": "sst",
+    "Kuzeydoğu Pasifik": "sst",
+    "Kuzey Atlantik Soğuk Lekesi": "sst",
+    "Karayip Denizi": "sst",
+    "Meksika Körfezi": "sst",
+    "Benguela Akıntısı": "sst",
+    "Batı Sahel": "spei3",
+    "Gine Körfezi Ormanları": "precip",
+    "Çad Gölü Havzası": "spei3",
+    "Afrika Boynuzu": "spei3",
+    "Kızıldeniz": "sst",
+    "Atlas Dağları": "spei3",
+    "Madagaskar Yaylası": "precip",
+    "Zambezi Havzası": "spei3",
+    "Highveld (Johannesburg)": "t2m",
+    "Büyük Ovalar": "spei3",
+    "Sonora Çölü": "t2m_max",
+    "Colorado Kayalık Dağları": "spei3",
+    "Orta Amerika Kuru Koridoru": "spei3",
+    "Patagonya Buz Alanları": "t2m_anom",
+    "Atacama Çölü": "t2m_max",
+    "Cerrado Savanları": "aod",
+    "Pantanal Sulak Alanı": "spei3",
+    "Caatinga": "spei3",
+    "Orinoko Llanos Ovası": "precip",
 }
 
 SYNTHETIC_REASON = ("Anahtarsız ve 2000'den bu yana kesintisiz bir kaynak bulunamadı (FWI, NDVI, deniz seviyesi, "

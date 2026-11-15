@@ -523,3 +523,69 @@ Açılış yükleme ekranı içindir. Hava, ızgara, NASA POWER, tema serisi ve 
     (`refresh_extra._pyfive`).
   - %12,5 eksik ay (pil yönetimi, 2017–2018 geçişi) doğrusal ara değerle doldurulur; GRACE için eşik %15
     (`max_missing`, `interp`).
+
+---
+
+## 104 bölge: Klasik katman genişletmesi — 15.11.2026 (Backend · Msi-nb)
+
+Fizibilite taramasının (API kotası, istatistik süresi, küre yükü) ardından proje sahibinin onayıyla 50 → **104**
+bölge. **API imzaları değişmedi**; tüm dönüşler aynı şemada, yalnızca bölge sayısı arttı. Kod hiçbir yerde
+"50" varsaymaz, `len(REGION_LIST)` kullanır.
+
+**Yeni 54 bölge** (hepsi gerçek veri, sentetik bölge yok; en yakın iki pin arası ≥ 634 km):
+- **Avrupa (+4, istek üzerine):** İskandinav Dağları, Polonya-Baltık Ovası, Pannonya Ovası, Karadeniz Bozkırları
+- **Arktik / Antarktik:** Svalbard ve Barents, Hudson Körfezi, Kanada Arktik Takımadaları, Yakutistan, Ross Buz Sahanlığı
+- **Orta Doğu / Orta Asya:** Bereketli Hilal, Kafkas Dağları, Aral Gölü, Kazak Bozkırı, Tibet Platosu, Taklamakan
+- **Doğu / Güneydoğu Asya:** Amur Havzası, Okhotsk Denizi, İnci Nehri Deltası, Mekong Deltası, Borneo
+- **Hint Okyanusu:** Arap Denizi, Bengal Körfezi, Maldivler
+- **Okyanusya / Pasifik:** Yeni Gine, Murray-Darling, Orta Avustralya Çölü, Güneybatı Avustralya, Yeni Zelanda Güney
+  Alpleri, Tasman Denizi, Ekvatoral Pasifik (Niño 3.4), Kuzeydoğu Pasifik
+- **Atlantik:** Kuzey Atlantik Soğuk Lekesi, Karayip Denizi, Meksika Körfezi, Benguela Akıntısı
+- **Afrika:** Batı Sahel, Gine Körfezi Ormanları, Çad Gölü, Afrika Boynuzu, Kızıldeniz, Atlas Dağları, Madagaskar,
+  Zambezi, Highveld (Johannesburg)
+- **Amerika:** Büyük Ovalar, Sonora Çölü, Colorado Kayalık Dağları, Orta Amerika Kuru Koridoru, Patagonya Buz Alanları,
+  Atacama, Cerrado, Pantanal, Caatinga, Orinoko Llanos
+
+**Tema serileri** (`real_series.REAL_SOURCES`, yeni 54): 15 SPEI-3, 12 ERSST deniz sıcaklığı, 7 yağış, 6 yüzey sıcaklığı anomalisi,
+4 sıcaklık anomalisi, 4 en yüksek sıcaklık, 4 AOD, 2 aylık ortalama sıcaklık. Var olan arketip ve değişken adları kullanıldı
+(arayüzdeki `ARCHETYPES`, `VAR_EN` sözlüklerine yeni anahtar gerekmez). Kar derinliği ve kök bölgesi toprak nemi
+bilinçli olarak seçilmedi: çok sayıda sıfır ay yüzünden mevsimsel Sen eğimi tam 0 çıkıyor ("+0" görünümü).
+Sentetik yedek parametreleri (base, season_amp, peak_month, trend, noise, ar) her bölgenin gerçek serisinden türetildi.
+Yeni bölgelerin takma adları mevcutlarla çakışmaz; Türkçe günlük sözcük olan takma adlar (mali, saha, atlas…) eklenmedi.
+
+**Kota düzeltmesi (bölge sayısından bağımsız kazanç):** Yıl aralığı modunda başlangıç tarihinin 30 günlük termal
+sapması artık çekilmiyor (`_fetch_historical_weather(..., anomaly=False)`, `_fetch_historical_grid(..., anomaly=False)`;
+parametre isteğe bağlı, varsayılan `True`, geriye uyumlu). Bu değer aralık sonucunda hiç kullanılmıyordu.
+
+| Open-Meteo birimi (dakikada 600 sınır) | 50 bölge, önce | 104 bölge, şimdi |
+|---|---|---|
+| Canlı yenileme (30 dk'da bir) | 270 | 389 |
+| Yeni geçmiş tarih | 270 | 389 |
+| Yıl aralığı (iki yeni tarih) | 539 | 389 |
+
+Meteomatics bölge sayısından etkilenmez (tüm noktalar tek istekte, 150 noktada URL 2,7 KB, yanıt 1,2 sn).
+İlk açılışta istatistik yükü bölge başına ~9,5 ms (104 bölgede ~1 sn, oturum başına bir kez önbelleğe girer).
+
+**Anlık görüntüler:** `real_series`, `annual`, `climatology`, `regionvars` ve `extra_series` (GPM, GLDAS, AIRS, OMI,
+MODIS, GRACE) 104 bölgeyi içerir; yeni bölgeler için ağ isteği yapılmaz. Yenileme betiklerine **`--new`** eklendi:
+yalnızca anlık görüntüde olmayan bölgeleri çeker, mevcut bölgeleri ve 264 noktalı ızgarayı aynen korur.
+`python -m data_pipelines.refresh_series --new` (ayrıca `refresh_annual`, `refresh_climatology`, `refresh_regionvars`).
+
+**Credits:** `data_credits()` metinleri ve açıklamaları bölge sayısını `len(REGION_LIST)` ile yazar.
+
+### Frontend için not (eşzamanlı çalışma)
+
+Backend `app.py`'ye dokunmadı; `data_pipelines/` dışında değişiklik yok. Uygulama bu hâliyle çalışır (104 pin, 104
+seçenek); aşağıdakiler görünüm ve metin işleri:
+
+1. **Canlı hava bandı (ticker):** `.ticker-track` animasyonu 240 sn sabit; 104 bölgede bant ~2 kat hızlanır. Süreyi
+   bölge sayısıyla orantılı yapın (ör. `240 * len(CITY_NAMES) / 50` sn, iki CSS tanımında ve Mini VULPA'da).
+2. **Sabit "50" metinleri:** `grep -n "50 bölge\|50 BÖLGE\|50 ecological\|50 ekolojik" app.py` → açılış kartı
+   ("50 ekolojik bölge"), Seiron sistem istemi ("50 bölgede", "PLATFORMDAKİ 50 BÖLGENİN ÖZETİ"), yükleme açıklamaları
+   ve yorum satırları. `len(CITY_NAMES)` kullanın.
+3. **Seiron bağlamı:** `all_regions_brief()` her mesaja tüm bölgeleri ekliyor; 104 bölgede ~2,7 bin token (50'de ~1,3
+   bin). Groq dakikalık token sınırına yaklaşırsa yalnızca anılan bölgeleri + kısa bir özet göndermeyi düşünün.
+4. **Pin yoğunluğu:** Avrupa ve çevresinde 11 pin var (Kafkas ve Bereketli Hilal hariç); Klasik pin boyutu 8 px. Tıklama/hover kontrolü yapın, gerekirse 7 px.
+5. **Bölge menüsü** 104 seçenek; arama ile sorun yok. İsterseniz kıtaya göre gruplanabilir (isteğe bağlı).
+6. Öncelik sırası değişmedi: önce V3 (trend haritası noktaları bir önceki değişkende kalıyor), sonra V1 (Seiron
+   "groundwater in Iran" küreyi İran'a götürmüyor).

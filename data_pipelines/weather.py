@@ -399,7 +399,7 @@ HIST_POINT_PARAMS = MM_CORE + ("relative_humidity_2m:p", "total_cloud_cover:p", 
 
 @st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
 def _hist_points_instant(year: int, month: int | None, day: int | None) -> tuple[list[dict], str]:
-    """50 bölgenin seçilen andaki değerleri: Meteomatics (8 sn sınır) → Open-Meteo ERA5 arşivi.
+    """Tüm bölgelerin seçilen andaki değerleri: Meteomatics (8 sn sınır) → Open-Meteo ERA5 arşivi.
 
     Meteomatics tek istekte tüm noktaları verir ve Open-Meteo kotası harcamaz; normalde ~1 sn yanıt verir ama yoğun
     anlarda 30–60 sn gecikebiliyor (14.11.2026 ölçümü). Bu yüzden kısa zaman aşımı ve kota sigortası kullanılır;
@@ -449,16 +449,22 @@ def _hist_points_anomaly(year: int, month: int | None, day: int | None) -> tuple
     return values, src
 
 
-def _fetch_historical_weather(year: int, month: int | None = None, day: int | None = None) -> dict:
+def _fetch_historical_weather(year: int, month: int | None = None, day: int | None = None,
+                              anomaly: bool = True) -> dict:
     """Zamanda yolculuk: seçilen tarih (varsayılan: o yılda bugünün takvim günü), 12:00 UTC.
 
     Anlık değerler Meteomatics'ten, olmazsa Open-Meteo ERA5 arşivinden gelir. Termal sapma (günün ortalaması −
     önceki 30 gün) önce Open-Meteo arşivinden (hızlı), olmazsa Meteomatics'ten gelir. İkisi de alınamazsa
     mevsimsel simülasyon döner; bu durum önbelleğe yazılmaz ve RETRY_AFTER sn sonra yeniden denenir.
+
+    `anomaly=False`: 30 günlük sapma isteği atılmaz (aralık modunun başlangıç ucu; orada sapma kullanılmaz ve
+    Open-Meteo'da bölge başına 2,2 birim harcıyordu). Sapma alanı yerel iklim normalinden doldurulur.
     """
     when = hist_date(year, month, day)
-    inst, anom = run_parallel((("w-inst", year, month, day), _hist_points_instant, (year, month, day)),
-                              (("w-anom", year, month, day), _hist_points_anomaly, (year, month, day)))
+    jobs = [(("w-inst", year, month, day), _hist_points_instant, (year, month, day))]
+    if anomaly:
+        jobs.append((("w-anom", year, month, day), _hist_points_anomaly, (year, month, day)))
+    inst, anom = (run_parallel(*jobs) + [None])[:2]
     if inst is None:
         return _fallback_weather(year, month, day)
     recs, provider = inst
@@ -493,7 +499,7 @@ def _fetch_historical_weather(year: int, month: int | None = None, day: int | No
 
 def _fetch_weather(start_year: int = 0, end_year: int | None = None, month: int | None = None,
                    day: int | None = None) -> dict:
-    """50 bölge hava verisi.
+    """Tüm bölgelerin hava verisi.
 
     - Tek yıl (geriye uyumlu): `_fetch_weather(year)` → 0 canlı veri, aksi halde o yılın bugünkü takvim günü.
     - Yıl aralığı: `_fetch_weather(start_year, end_year)` → bitiş yılının verisi + her bölge için
@@ -576,7 +582,7 @@ def _fetch_weather_range(start_year: int, end_year: int, month: int | None = Non
     `delta_live` False olur (fark yine hesaplanır, arayüz 'tahmini' etiketi göstermelidir).
     """
     sy, ey = range_year(start_year), range_year(end_year)
-    s = _fetch_historical_weather(sy, month, day)
+    s = _fetch_historical_weather(sy, month, day, anomaly=False)   # başlangıcın sapması kullanılmaz (kota)
     e = _fetch_historical_weather(ey, month, day)
     data, deltas = {}, {f: {} for f in DELTA_FIELDS}
     for name, w_end in e["data"].items():
@@ -602,7 +608,7 @@ def _fetch_weather_range(start_year: int, end_year: int, month: int | None = Non
 
 @st.cache_data(ttl=WEATHER_TTL, show_spinner=False)
 def _fetch_live_weather() -> dict:
-    """50 bölgenin anlık meteoroloji verisi — çift kaynaklı.
+    """Tüm bölgelerin anlık meteoroloji verisi — çift kaynaklı.
 
     1. Meteomatics API (HTTPBasicAuth): t_2m, msl_pressure, wind_speed_10m, wind_dir_10m, nem ve hava sembolü.
     2. Open-Meteo: son 30 günün günlük ortalamaları (termal anomali = bugün − 30 gün ortalaması); Meteomatics'e

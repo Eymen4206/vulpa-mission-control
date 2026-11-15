@@ -1,9 +1,9 @@
 """Gerçek tema serilerinin anlık görüntüsünü (snapshots/real_series.json) yeniden üretir.
 
 Kullanım (proje kökünden):
-    .venv\\Scripts\\python -m data_pipelines.refresh_series
+    .venv\\Scripts\\python -m data_pipelines.refresh_series          (yalnızca yeni bölgeler: --new)
 
-33 bölgenin verisini anahtarsız kaynaklardan paralel olarak çeker. Başarısız olan bölgelerin eski kaydı
+REAL_SOURCES içindeki tüm bölgelerin verisini anahtarsız kaynaklardan paralel olarak çeker. Başarısız olan bölgelerin eski kaydı
 korunur; hiçbir bölge silinmez.
 """
 
@@ -27,6 +27,8 @@ def main() -> int:
     old = load_snapshot().get("regions", {}) if SNAPSHOT_PATH.exists() else {}
     records, failed = dict(old), []
     t0 = time.time()
+    # --new: yalnızca anlık görüntüde olmayan bölgeler çekilir (mevcut kayıtlar aynen kalır)
+    names = [n for n in REAL_SOURCES if not ("--new" in sys.argv and n in old)]
 
     def work(name: str):
         try:
@@ -35,7 +37,7 @@ def main() -> int:
             return name, None, f"{exc.__class__.__name__}: {exc}"
 
     with ThreadPoolExecutor(max_workers=6) as pool:
-        for name, rec, err in pool.map(work, REAL_SOURCES):
+        for name, rec, err in pool.map(work, names):
             if rec:
                 records[name] = rec
                 print(f"  ✓ {name:28} {rec['kind']:9} doldurulan ay: {rec['filled']}")

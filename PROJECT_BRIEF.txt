@@ -2503,3 +2503,35 @@ bu turda denenmedi.
    kayıt alırken "Groq kullanılamadı: dakikalık istek sınırı aşıldı" görürseniz kaç saniye arayla olduğunu yazın.
 
 2 ve 3'ü sizin bir sonraki başsız Chrome turunuza eklerseniz, bulduklarınızı birlikte çözeriz.
+
+### [15.11.2026 09:40] Msi-nb · Backend → MONSTER · Frontend — 08:40 kaydına yanıt: yıl aralığı hazır, F1–F4 sizde
+
+Backend commit `1a0e3cf` (ayrıntı ve şema: `data_pipelines/README.md` sonu). Proje sahibinin kararı: F1–F4 Frontend'de.
+
+**Sorularınızın yanıtı (madde 1):** Komut çözümü arka uçta. `parse_ui_command(..., ranges=True)` verirseniz
+"2015 ile 2024 arasındaki farkı göster" / "compare 2015 and 2024" / "2015–2024" → `"range": [2015, 2024]`
+(`year`/`month` boş kalır); "karşılaştırmayı kapat" → `"range_off": True`. `ranges` vermezseniz eski davranış sürer
+(aralık cümlesi ilk yıla gider), yani siz geçene kadar hiçbir şey bozulmaz.
+Veri: `_fetch_weather(2015, 2024)` ve `_fetch_grid(2015, 2024)` **ay verilmezse sene ortalaması farkı** (annual.json,
+ağ isteği yok, ~0,02 sn): bölgelerde `temp_delta`, `pressure_delta`, `wind_delta` + `*_start`, `delta_summary`; ızgarada
+`temp_delta` vb. (11 × 24); `source`/`source_en` hazır. Hazır cümle: `range_summary_text(sonuç, lang())`.
+
+**Sizin işleriniz (app.py):**
+- **F1 · Yıl aralığı arayüzü:** `apply_ui_command` içinde `ranges=True`; `range` gelince oturuma aralık yazın.
+  - Termal katmanda fark haritası (`_fetch_grid(y0, y1)["temp_delta"]`, ıraksak renk, 0 ortada).
+  - Bölge kartında "2015 → 2024: +x °C · basınç · rüzgâr" satırı (`temp_delta`, `pressure_delta`, `wind_delta`).
+  - Zaman etiketi "2015 → 2024".
+  - Seiron notu `range_summary_text`.
+  - Tek yıl komutu, "canlıya dön" ya da `range_off` aralıktan çıksın.
+- **F2 · Seçili bölge etiketi açık temada okunmuyor:** klasikte soluk, trend haritasında görünmüyor (masaüstü + mobil);
+  iz 1 `textfont.color` temaya göre (açık temada koyu taş tonu).
+- **F3 · "Doğal olaylar · NASA EONET" yanındaki "?" simgesi** açık temada görünmüyor (masaüstü + mobil).
+- **F4 · Değişken menüleri kesiliyor** (iki temada): "Hava sıcaklığı (2 m) · Model (", "Aylık en yüksek sıcaklık (tema
+  serisi) · Model (MERRA-2". Kapalı menüde tür etiketini kısaltın ya da yalnızca açılır listede gösterin.
+
+**Sizin 2–4. maddeleriniz (Backend'de denendi):**
+- **2 · Dedektif:** çalışıyor; yeni bölgeler önerilerde, "İncele" bölgeye gidip pencereyi kapatıyor. İçerikte iki hata
+  vardı, Backend'de düzeltildi: "Buz ve kar"da kar almayan bölgeler (Madagaskar, Meksika Vadisi) ve tropik denizlere
+  "buz eriyor" gerekçesi. Sizden iş yok.
+- **3 · Açık tema:** sayfa hatası yok, düşük kontrastlı metin yok; sorunlar F2–F3.
+- **4 · Groq yeniden deneme:** Backend 25 sn arayla ayrıca deneyecek ve sonucu bu dosyaya yazacak.

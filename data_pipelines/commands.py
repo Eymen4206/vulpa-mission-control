@@ -16,7 +16,8 @@ from .config import LAST_FULL_YEAR, NOW
 from .regions import REGIONS
 
 # Seiron'un dokunabileceği arayüz durumları (başka hiçbir şey).
-ALLOWED_ACTIONS = ("year", "month", "lang", "panel", "chart", "reset_view", "range")
+ALLOWED_ACTIONS = ("year", "month", "lang", "panel", "chart", "reset_view", "range", "settings", "events", "theme",
+                   "shortcuts", "sound")
 DEFAULT_YEARS = tuple(range(LAST_FULL_YEAR, LAST_FULL_YEAR - 20, -1))   # app.py YEAR_OPTIONS ile aynı (0 hariç)
 
 MONTHS_TR = ("ocak", "şubat", "mart", "nisan", "mayıs", "haziran", "temmuz", "ağustos", "eylül", "ekim", "kasım",
@@ -55,6 +56,18 @@ CLOSE_WORDS = ("kapat", "gizle", "close", "hide", "dismiss")
 OPEN_WORDS = ("aç", "göster", "getir", "open", "show", "display")
 RESET_WORDS = ("görünümü sıfırla", "kamerayı sıfırla", "haritayı sıfırla", "başa dön", "ilk görünüm",
                "reset view", "reset camera", "reset the view", "reset map")
+
+# Paneller ve görünüm (15.11.2026, proje sahibi: "Seiron sitenin tüm kontrolüne sahip olsun, yönetici yetkisi olmasın")
+SETTINGS_WORDS = ("ayarlar", "ayarları", "ayar menü", "ayarlar menü", "ayar paneli", "settings", "preferences",
+                  "tercihler")
+EVENTS_WORDS = ("doğal olay", "eonet", "natural event", "natural hazard", "afet katman")
+THEME_LIGHT = ("aydınlık", "açık tema", "açık temaya", "light theme", "light mode", "gündüz modu")
+THEME_DARK = ("karanlık", "koyu tema", "koyu temaya", "dark theme", "dark mode", "gece modu")
+THEME_CTX = ("tema", "mod", "theme", "mode", "görünüm", "geç", "switch", "yap", "aç", "use")
+SHORTCUT_WORDS = ("kısayol", "shortcut", "klavye komut", "keyboard command", "keyboard shortcut")
+SOUND_WORDS = ("açılış sesi", "açılış sesini", "launch sound", "startup sound", "intro sound")
+OFF_WORDS = ("kapat", "kapa", "gizle", "devre dışı", "close", "hide", "turn off", "switch off", "disable", "mute",
+             "sustur")
 
 # Yıl aralığı karşılaştırması ("2015 ile 2024 arasındaki fark", "compare 2015 and 2024", "2015–2024")
 RANGE_WORDS = ("arası", "arasında", "arasındaki", "fark", "karşılaştır", "kıyasla", "kıyas", "değişim", "between",
@@ -130,11 +143,15 @@ def parse_ui_command(text: str, year: int = 0, month: int = 0, lang: str = "tr",
        "range": [başlangıç, bitiş]|None (iki yıl karşılaştırması; varsa "year"/"month" doldurulmaz). Yalnızca
                 `ranges=True` verilirse çözülür (geriye uyum: arayüz aralığı desteklemeden önce eski davranış sürer),
        "range_off": bool (karşılaştırmadan çık),
+       "settings": "open"|"close"|None (Ayarlar paneli), "events": True|False|None (Doğal olaylar · NASA EONET),
+       "theme": "light"|"dark"|None, "shortcuts": True|None (kısayollar penceresi), "sound": True|False|None
+       (açılış sesi). Yönetici istekleri (API anahtarı, "ayarları değiştir" …) yine `denied`.
        "notes": [str] (seçili dilde kısa açıklamalar: ne yapıldı / neden yapılamadı)}
     İstisna fırlatmaz.
     """
     out = {"matched": False, "denied": False, "year": None, "month": None, "day": None, "lang": None,
-           "panel": None, "chart": None, "reset_view": False, "range": None, "range_off": False, "notes": []}
+           "panel": None, "chart": None, "reset_view": False, "range": None, "range_off": False,
+           "settings": None, "events": None, "theme": None, "shortcuts": None, "sound": None, "notes": []}
     try:
         return _parse(text, int(year or 0), int(month or 0), "en" if lang == "en" else "tr",
                       tuple(years) if years else DEFAULT_YEARS, out, bool(ranges))
@@ -175,6 +192,22 @@ def _parse(text: str, year: int, month: int, lang: str, years: tuple[int, ...], 
             out["panel"] = "credits_open"
     if any(w in q for w in RESET_WORDS):
         out["reset_view"] = True
+
+    # ── Ayarlar, doğal olaylar, tema, kısayollar, açılış sesi
+    off = _has(q, OFF_WORDS)
+    if _has(q, SETTINGS_WORDS):
+        out["settings"] = "close" if off else "open"
+    if _has(q, EVENTS_WORDS) and (off or _has(q, OPEN_WORDS) or short or verb):
+        out["events"] = not off
+    if "?" not in q and _has(q, THEME_CTX):   # "karanlık enerji nedir?" tema komutu değil
+        if _has(q, THEME_LIGHT):
+            out["theme"] = "light"
+        elif _has(q, THEME_DARK):
+            out["theme"] = "dark"
+    if _has(q, SHORTCUT_WORDS) and not off:
+        out["shortcuts"] = True
+    if _has(q, SOUND_WORDS):
+        out["sound"] = not off
 
     # ── Grafik penceresi (sağ paneldeki değerler)
     noun, opener = _has(q, CHART_NOUNS), _has(q, OPEN_WORDS)
@@ -281,6 +314,8 @@ def _parse(text: str, year: int, month: int, lang: str, years: tuple[int, ...], 
     if new_year is not None and new_year != 0 and new_month is None and new_year != year:
         new_month = 0          # yeni yıla geçerken varsayılan: sene ortalaması (app.py ile aynı)
 
+    if new_year == 0 and not year and not mon:   # zaten canlıyken "canlıya dön": dil modeline gitmeden kısa bilgi
+        notes.append(_note("Zaten canlı verideyiz.", "Already on live data.", lang))
     if new_year is not None and new_year != year:
         out["year"] = new_year
     if new_month is not None and (new_month != month or out["year"] is not None):

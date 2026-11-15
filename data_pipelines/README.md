@@ -640,3 +640,16 @@ ya da "Meteomatics / Open-Meteo ERA5 · …"); önceden her zaman "Meteomatics" 
 hariç; ör. Madagaskar Yaylası, Meksika Vadisi elendi); kar derinliği varsa sıcaklıktan önce gelir.
 **B6 · Dedektif gerekçeleri:** `WHY_BY_TYPE` ile bölge türüne göre gerekçe (okyanus, çöl, şehir için yüzey/hava
 sıcaklığı); tropik denizlere artık "buz eriyor" yazılmaz. Kullanıcı yer türü seçtiyse yalnızca o türün gerekçesi.
+
+### Seiron yetkileri genişletildi: paneller ve görünüm — 15.11.2026 (Backend · Msi-nb)
+
+Proje sahibinin 14.11 isteği ("Seiron sitenin tüm kontrolüne sahip olsun, yönetici yetkisi olmasın") Ayarlar ve doğal
+olaylar için eksik kalmıştı. `parse_ui_command` yeni alanları (hepsi varsayılan `None`; `ALLOWED_ACTIONS`'a eklendi):
+- `settings`: `"open"` / `"close"` — "ayarları aç/kapat", "open/close settings"
+- `events`: `True` / `False` — "doğal olayları aç/kapat", "show natural events", "turn off natural events"
+- `theme`: `"light"` / `"dark"` — "temayı aydınlık yap", "karanlık moda geç", "dark mode" (soru cümlelerinde çalışmaz:
+  "karanlık enerji nedir?" tema değiştirmez; "tema/mod/geç/theme/mode…" bağlam sözcüğü gerekir)
+- `shortcuts`: `True` — "kısayolları göster", "show keyboard shortcuts"
+- `sound`: `True` / `False` — "açılış sesini kapat", "turn on the launch sound"
+- Zaten canlıyken "canlıya dön" → `notes`: "Zaten canlı verideyiz." (önceden dil modeline gidip alakasız yanıt geliyordu)
+- Yönetici istekleri değişmedi: API anahtarı, "ayarları değiştir", önbellek, dosya, kod → `denied`.

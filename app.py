@@ -2385,7 +2385,9 @@ def with_mini(url: str) -> str:
 
 SOURCE_LABEL_EN = {"arayüz": "interface", "yapılandırma": "configuration", "Yayın adresi": "Public address",
                    "Canlı uygulama adresi": "Live app address",
-                   "Yerel ağ · telefon aynı Wi-Fi ağında olmalı": "Local network · phone must be on the same Wi-Fi"}
+                   "Yerel ağ · telefon aynı Wi-Fi ağında olmalı": "Local network · phone must be on the same Wi-Fi",
+                   "Yerel ağ · telefon aynı Wi-Fi ağında olmalı · sesli komut yalnızca HTTPS adreste":
+                       "Local network · phone must be on the same Wi-Fi · voice commands need an HTTPS address"}
 
 
 def live_app_url() -> tuple[str, str]:
@@ -2407,7 +2409,10 @@ def live_app_url() -> tuple[str, str]:
     if parts.hostname and parts.hostname not in LOCAL_HOSTS:
         return with_mini(f"{parts.scheme}://{parts.netloc}{parts.path}"), "Canlı uygulama adresi"
     port = parts.port or st.get_option("server.port") or 8501
-    return with_mini(f"http://{lan_ip()}:{port}/"), "Yerel ağ · telefon aynı Wi-Fi ağında olmalı"
+    label = "Yerel ağ · telefon aynı Wi-Fi ağında olmalı"
+    if FEATURE_VOICE:   # tarayıcılar mikrofonu http://192.168… adreslerinde açmaz
+        label += " · sesli komut yalnızca HTTPS adreste"
+    return with_mini(f"http://{lan_ip()}:{port}/"), label
 
 
 @st.cache_data(show_spinner=False)
@@ -5520,9 +5525,226 @@ def submit_question(text: str) -> None:
                                    "cmd": cmd}
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Sesli komut (Speech-to-Text): Streamlit'in yerleşik mikrofonu (st.chat_input accept_audio) + Groq Whisper.
+# JS yok, yeni paket yok. Yazıya dökülen metin yazılı mesajla birebir aynı yoldan (submit_question, geri çağırmada)
+# geçer: küre yeniden kurulmaz, widget kuralı korunur. TR/EN: Whisper'a arayüz dili verilir.
+# ─────────────────────────────────────────────────────────────────────────────
+GROQ_STT_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
+# Groq: günde 2.000 istek, sohbet kotasından ayrı. Türkçede tam model ekleri ve kısa fiilleri belirgin biçimde daha iyi
+# çözüyor (15.11.2026 denemesi: yalnızca large-v3 + yönlendirme "Beni Amazon Havzası'na götür."ü kusursuz çıkardı);
+# İngilizcede hızlı model zaten kusursuz.
+STT_MODELS = {"tr": ("whisper-large-v3", "whisper-large-v3-turbo"), "en": ("whisper-large-v3-turbo", "whisper-large-v3")}
+VOICE_MIN_S, VOICE_MAX_S = 0.4, 30.0
+VOICE_MIN_RMS = 150          # 16 bit PCM; sessizlik/uğultu ≈ 30–80, konuşma ≫ 300
+# Whisper sessizlikte ya da gürültüde altyazı kalıpları uydurur (ör. sessiz 1 sn → "Altyazı M.K.", 15.11.2026 ölçümü)
+VOICE_HALLUCINATIONS = ("altyazı m.k", "altyazı", "abone olmayı unutmayın", "abone ol", "izlediğiniz için teşekkürler",
+                        "izlediğiniz için teşekkür ederim", "thank you for watching", "thanks for watching",
+                        "subtitles by", "you", "teşekkürler", "teşekkür ederim", "thank you")
+VOICE_HINT = {   # Whisper "prompt": yazım ve özel adlar için yönlendirme (≤ 224 token)
+    "tr": ("VULPA, Seiron. Beni Amazon Havzası'na götür. Termal analizi aç. Trend haritası, basınç ve rüzgâr haritası, "
+           "klasik görünüm. Grönland, Sahra Çölü, Marmara, Tokyo, Kanto Ovası, Pannonya, Svalbard, Tibet, Patagonya, "
+           "Alp Kuşağı, Sibirya. 2015 ile 2024 arasındaki fark. 2020 Nisan'a git. Canlıya dön. Yakınlaş, uzaklaş. "
+           "İngilizceye geç."),
+    "en": ("VULPA, Seiron. Take me to the Amazon Basin. Open thermal analysis. Trend map, pressure and wind map, classic "
+           "view. Greenland, Sahara, Marmara, Tokyo, Kanto Plain, Pannonian Plain, Svalbard, Tibet, Patagonia, Alps, "
+           "Siberia. Compare 2015 and 2024. Go to April 2020. Back to live. Zoom in, zoom out. Switch to Turkish."),
+}
+
+
+def voice_ok() -> bool:
+    """Mikrofon düğmesi gösterilsin mi? Groq anahtarı olmalı ve sayfa güvenli adreste açılmış olmalı: tarayıcılar
+    mikrofonu yalnızca HTTPS'te ya da localhost'ta açar (yerel ağ QR'ı http://192.168… telefonda çalışmaz)."""
+    if not FEATURE_VOICE or not resolve_api_key()[0]:
+        return False
+    try:
+        parts = urlsplit(st.context.url or "")
+    except Exception:
+        return True
+    if not parts.scheme:      # adres bilinmiyor (ör. AppTest): engelleme
+        return True
+    host = (parts.hostname or "").lower()
+    return parts.scheme == "https" or host in LOCAL_HOSTS or host.endswith(".localhost")
+
+
+def audio_stats(data: bytes) -> tuple[float | None, float | None]:
+    """WAV kaydının süresi (sn) ve RMS ses seviyesi (16 bit ölçeğinde). Çözümlenemezse (None, None)."""
+    import wave
+    try:
+        with wave.open(io.BytesIO(data), "rb") as w:
+            n, rate, ch, width = w.getnframes(), w.getframerate(), w.getnchannels(), w.getsampwidth()
+            raw = w.readframes(n)
+        if width != 2 or not rate:
+            return (n / rate if rate else None), None
+        pcm = np.frombuffer(raw, dtype="<i2").astype(float)
+        if ch > 1:
+            pcm = pcm[: len(pcm) // ch * ch].reshape(-1, ch).mean(axis=1)
+        return n / rate, float(np.sqrt(np.mean(pcm ** 2))) if pcm.size else 0.0
+    except Exception:
+        return None, None
+
+
+def clean_transcript(text: str) -> str:
+    """Whisper çıktısını komut olarak kullanılabilir hâle getirir; uydurma altyazı kalıplarını boş döndürür."""
+    t = (text or "").strip().strip("\"'“”‘’«»").strip()
+    t = re.sub(r"[\s.!?…。]+$", "", t)        # "Beni Amazon'a götür." → komut eşleşmesi noktadan etkilenmesin
+    low = tr_lower(t).strip(" .,!?")
+    if len(low) < 2 or low in VOICE_HALLUCINATIONS or any(low.startswith(h) for h in VOICE_HALLUCINATIONS[:6]):
+        return ""
+    return t
+
+
+def _words(text: str) -> list[str]:
+    return re.findall(r"[\wçğıöşüâî]+", tr_lower(text or ""))
+
+
+def prompt_echo(text: str, hint: str, run: int = 5) -> bool:
+    """Whisper ses belirsizken yönlendirme metnini (prompt) kopyalayabilir (15.11.2026 denemesi: "Tokyo'ya git ve trend
+    haritasını aç" → "trend haritası, basınç ve rüzgâr haritası, klasik görünüm"). Metin ipucundan ≥ `run` ardışık sözcüğü
+    aynen içeriyorsa kopya sayılır."""
+    tw, hw = _words(text), _words(hint)
+    if len(tw) < run:
+        return False
+    grams = {tuple(hw[i:i + run]) for i in range(len(hw) - run + 1)}
+    return any(tuple(tw[i:i + run]) in grams for i in range(len(tw) - run + 1))
+
+
+def transcribe_voice(audio, language: str) -> tuple[str, str]:
+    """Sesi Groq Whisper ile yazıya döker. Dönüş: (metin, hata notu). İstisna fırlatmaz; her hata kısa bir nota döner."""
+    try:
+        data = audio.getvalue()
+    except Exception:
+        return "", L("Ses kaydı okunamadı.", "The recording could not be read.")
+    dur, rms = audio_stats(data)
+    if dur is not None and dur < VOICE_MIN_S:
+        return "", L("Kayıt çok kısa; düğmeye basıp komutu söyleyin, bitince yeniden basın.",
+                     "The recording is too short; press the button, say the command, then press it again.")
+    if dur is not None and dur > VOICE_MAX_S:
+        return "", L(f"Kayıt {VOICE_MAX_S:.0f} saniyeden uzun; kısa bir komut söyleyin.",
+                     f"The recording is longer than {VOICE_MAX_S:.0f} seconds; say a short command.")
+    if rms is not None and rms < VOICE_MIN_RMS:
+        return "", L("Ses algılanamadı; mikrofona biraz daha yakın konuşun.",
+                     "No speech detected; speak a little closer to the microphone.")
+    key = resolve_api_key()[0]
+    if not key:
+        return "", L("Sesli komut için Groq API anahtarı gerekiyor.", "Voice commands need a Groq API key.")
+    lang_code = "en" if language == "en" else "tr"
+    skip, err = groq_skip(), L("ses tanıma servisine ulaşılamadı", "speech service unreachable")
+    use_hint = True
+    for model in STT_MODELS[lang_code]:
+        if skip.get(model, 0) > time.time():
+            err = L("günlük ses tanıma kotası doldu", "daily speech quota reached")
+            continue
+        try:
+            resp = requests.post(GROQ_STT_URL, headers={"Authorization": f"Bearer {key}"},
+                                 files={"file": ("voice.wav", data, getattr(audio, "type", None) or "audio/wav")},
+                                 data={"model": model, "language": lang_code, "temperature": "0",
+                                       "response_format": "json",
+                                       **({"prompt": VOICE_HINT[lang_code]} if use_hint else {})},
+                                 timeout=(8, 25))
+        except requests.RequestException:
+            err = L("ses tanıma servisine bağlanılamadı", "could not connect to the speech service")
+            continue
+        if resp.status_code == 429:
+            kind, wait = groq_limit(resp)
+            if kind == "day":
+                skip[model] = time.time() + (wait or 3600)
+                err = L("günlük ses tanıma kotası doldu", "daily speech quota reached")
+            else:
+                err = L("ses tanıma için dakikalık sınır aşıldı", "per-minute speech limit reached")
+            continue
+        if resp.status_code in (401, 403):
+            return "", L("Ses tanınamadı: API anahtarı geçersiz.", "Speech not recognised: invalid API key.")
+        if resp.status_code != 200:
+            err = L("ses tanıma servisi yanıtı", "speech service response") + f" {resp.status_code}"
+            continue
+        try:
+            text = clean_transcript(resp.json().get("text", ""))
+        except ValueError:
+            text = ""
+        if text and use_hint and prompt_echo(text, VOICE_HINT[lang_code]):
+            use_hint = False      # ipucu kopyalandı: sonraki model ipucusuz denenir
+            err = L("ses net anlaşılamadı", "speech was unclear")
+            continue
+        if text:
+            return text, ""
+        return "", L("Ses anlaşılamadı; tekrar deneyin ya da yazın.", "Speech was not understood; try again or type it.")
+    return "", L("Ses tanınamadı", "Speech not recognised") + f" ({err}); " + L("yazarak deneyin.", "please type it.")
+
+
+@functools.lru_cache(maxsize=1)
+def _voice_vocab() -> tuple[str, ...]:
+    """Bölge adlarının ve takma adlarının tek sözcükleri (sesli girdide benzerlik eşleştirmesi için)."""
+    words = set()
+    for r in REGION_LIST:
+        for name in (r.name, *r.aliases, r.en[0] or ""):
+            for w in re.split(r"[\s\-·()]+", tr_lower(name)):
+                if len(w) >= 4:
+                    words.add(w)
+    return tuple(sorted(words))
+
+
+# Sesli komutta sık duyulan kayıplar → yazılı karşılığı (yalnızca kısa, soru olmayan sesli girdide)
+VOICE_FIXES = ((r"(?<![\wçğıöşü])tren(\s+harita)", r"trend\1"), (r"(?<![\wçğıöşü])tren map", "trend map"))
+
+
+def voice_repair(text: str) -> str:
+    """Kısa sesli komutta yutulan fiili tamamlar: "Termal analizi A" → "… aç", "Pannonya ovası ne yagit" → "… git".
+    Soru cümlelerine ve uzun girdilere dokunmaz."""
+    t = text
+    for pat, rep in VOICE_FIXES:
+        t = re.sub(pat, rep, t, flags=re.I)
+    q = tr_lower(t)
+    if "?" in t or len(t.split()) > 7:
+        return t
+    if mentioned_cities(t) and not _has_word(q, NAV_WORDS) and re.search(r"(git|götür|gidelim)", q):
+        t += " git"                       # "ne yagit", "agit": gezinme fiili ekle yapışmış
+    if not detect_layer(t) and detect_layer(t + " aç") and lang() == "tr":
+        t = re.sub(r"\s+[aA]\.?$", "", t) + " aç"      # "Termal analizi A" → "Termal analizi aç"
+    elif not detect_layer(t) and detect_layer(t + " open") and lang() == "en":
+        t += " open"
+    return t
+
+
+def voice_normalize(text: str) -> str:
+    """Yalnızca sesli girdide: kısa komutta yutulan fiili tamamlar (voice_repair); gezinme fiili olup bölge
+    bulunamadıysa bölge adına çok benzeyen sözcüğü düzeltir ("Grönlant'a git" → "grönland'a git"). Sorulara dokunmaz."""
+    import difflib
+    text = voice_repair(text)
+    q = tr_lower(text)
+    if mentioned_cities(text) or not _has_word(q, NAV_WORDS):
+        return text
+    vocab = _voice_vocab()
+    out = []
+    for tok in text.split():
+        m = re.match(r"^([\wçğıöşüÇĞİÖŞÜ]+)(['’]\w*)?(\W*)$", tok)
+        # Yanlış gezinme hiç gezinmemekten kötüdür: kısa sözcükler düzeltilmez ("anda" → "kanada" olmasın), uzunluk
+        # farkı ≤ 2 ve benzerlik ≥ 0,85 (ör. "grönlant" → "grönland", "grenland" → "greenland").
+        if m and len(m[1]) >= 5:
+            w = tr_lower(m[1])
+            hit = [h for h in difflib.get_close_matches(w, vocab, n=3, cutoff=0.85) if abs(len(h) - len(w)) <= 2][:1]
+            if hit:
+                out.append(hit[0] + (m[2] or "") + (m[3] or ""))
+                continue
+        out.append(tok)
+    fixed = " ".join(out)
+    return fixed if mentioned_cities(fixed) else text
+
+
 def on_chat_submit() -> None:
     value = st.session_state.get("chat_input")
-    submit_question(value if isinstance(value, str) else getattr(value, "text", ""))
+    text = value if isinstance(value, str) else (getattr(value, "text", "") or "")
+    audio = None if isinstance(value, str) else getattr(value, "audio", None)
+    if audio is not None and not text.strip():
+        heard, err = transcribe_voice(audio, lang())
+        if not heard:   # sesli komut anlaşılamadı: kısa not, dil modeline gidilmez
+            st.session_state["pending"] = {"q": chat_icon("mic") + " " + L("Sesli komut", "Voice command"),
+                                           "nav": None, "zoom": 0, "scale": None, "layer": None,
+                                           "cmd": {"matched": True, "denied": False, "notes": [err]}}
+            return
+        text = voice_normalize(heard)
+        st.session_state["_voice_q"] = text      # process_pending kullanıcı mesajına mikrofon simgesi ekler
+    submit_question(text)
 
 
 def chat_icon(name: str) -> str:
@@ -5576,10 +5798,12 @@ def process_pending(city: str, history: list[dict], box) -> None:
     direction, scale = pending.get("zoom", 0), pending.get("scale")
     layer = pending.get("layer")
     cmd = pending.get("cmd") or {}
-    history.append({"role": "user", "content": question, "source": ""})
+    # Sesli komut: kullanıcı ne duyulduğunu görsün diye mesajın başında mikrofon simgesi
+    shown = (chat_icon("mic") + " " + question) if st.session_state.pop("_voice_q", None) == question else question
+    history.append({"role": "user", "content": shown, "source": ""})
     with box:
         with st.chat_message("user", avatar=":material/person:"):
-            st.markdown(question)
+            st.markdown(shown)
         with st.chat_message("assistant", avatar=seiron_avatar()):
             notes = []
             if nav:
@@ -5638,7 +5862,7 @@ def render_seiron(city: str, mobile: bool = False) -> None:
             for i, s in enumerate(SUGGESTIONS_EN if lang() == "en" else SUGGESTIONS):
                 st.button(s, on_click=submit_question, args=(s,), key=f"sug_{i}")
         st.chat_input(L("Sorun ya da \"Beni Sahra Çölü'ne götür\" deyin…", "Ask, or say \"Take me to the Sahara\"…"),
-                      key="chat_input", on_submit=on_chat_submit)
+                      key="chat_input", on_submit=on_chat_submit, accept_audio=voice_ok(), audio_sample_rate=16000)
         process_pending(city, history, box)
 
 
@@ -5751,6 +5975,7 @@ FEATURE_VARIABLES = True    # değişken seçici + yöntem karşılaştırması 
 FEATURE_POINT = True        # kürede / koordinatla herhangi bir noktayı analiz
 FEATURE_TRENDMAP = True     # Aşama B · "nerede artıyor, nerede azalıyor" trend haritası katmanı
 FEATURE_DETECTIVE = True    # Aşama C · 3 soruluk dedektif sihirbazı
+FEATURE_VOICE = True        # Seiron sesli komut (yerleşik mikrofon + Groq Whisper; TR/EN)
 
 
 def extra_cat(city: str) -> dict:

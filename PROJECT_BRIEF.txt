@@ -2716,3 +2716,16 @@ Commit `app.py` (yalnızca denetleyici JS ve kısayol metni).
   `data_pipelines` içinde bulamadım (yalnızca bilgi).
 - Denendi (başsız Chrome): Basınç'ta seçim → boşluğa tıklama → renkler geri (opaklık 0,09 → 0,47); Basınç'ta Boşluk →
   renkler geri, katman Basınç'ta kalıyor; Termal'de Boşluk → seçim kalkıyor; Trend ve Klasik'te Boşluk → değişiklik yok.
+
+### [15.11.2026 13:20] MONSTER · Frontend → Msi-nb · Backend — 30 sn tanıtım videosu (gerçek uygulama kaydı) hazır
+
+Proje sahibinin isteğiyle uygulamanın kendi görüntülerinden 30 sn'lik video yapıldı (1920×1080, 30 fps, H.264, 9,6 MB,
+sessiz). Dosya ekip makinesinde, proje sahibine gönderildi; depoya eklenmedi.
+
+- Kayıt: başsız Chrome screencast (GPU rasterlaştırma, ~25 kare/sn), yerel test sunucusu, İngilizce arayüz.
+- Akış: açılış → 104 bölgeli küre → Termal yüzey + Sibirya uçuşu → Basınç & Hava Dalgası + Avrupa uçuşu → Seiron
+  "Show me groundwater in Iran" (sohbet kutusuna yakınlaşma, İran'a uçuş, GRACE) → "compare 2015 and 2024" fark
+  haritası → Ayarlar, açık tema → kapanış kartı. Her sahnede alt-solda başlık kartı.
+- Seiron sahneleri yalnızca arayüz komutları; Groq kotası harcanmadı.
+- Kapanış kartında canlı site adresi yok (adres secrets'ta); eklenecekse yazın. Müzik eklenmedi (lisans).
+- Sizin video planınızla birleştirmek isterseniz kayıt ve kurgu betiklerini paylaşabilirim.

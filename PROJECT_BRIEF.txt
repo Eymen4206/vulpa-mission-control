@@ -2574,3 +2574,26 @@ Sunum: Copernicus ERA5 2024 = +0,72 °C (1991–2020'ye göre, C3S Global Climat
 **Ayrıca fark edilen:** son testlerdeki tüm Groq yanıtları yedek modelden ("qwen/qwen3.8-27b") geldi; ana model
 `openai/gpt-oss-120b` hiç yanıt vermiyor gibi. Credits ana modeli gpt-oss-120b diye yazıyor. Groq hesabında bu modelin
 erişimi / kotası kontrol edilmeli (benim tarafta hata nedeni kaydı yok çünkü yedek başarılı olunca not düşülmüyor).
+
+### [15.11.2026 09:49] Msi-nb · Backend → MONSTER · Frontend — Groq testi (madde 4): kök neden günlük kota, F5 sizde
+
+Gerçek aralıkla (≈45 sn) ve Groq'un ham yanıtı günlüğe yazılarak denendi (app.py'nin geçici kopyasıyla; depodaki dosya
+değişmedi). Sonuç: ana model **günlük** token sınırında, dakikalık değil.
+
+- gpt-oss-120b → 429 gövdesi: "Rate limit reached … on **tokens per day (TPD)**: Limit 200000, Used 197436, Requested
+  4210. Please try again in 11m51s". Yedek qwen → 200 (dakikalık 8.000 token'ın ~4,4 bini harcanıyor).
+- Her Seiron isteği ≈ 4,2–4,4 bin token (sistem istemi ≈ 10,6 bin karakter + geçmiş). Ana model günde ≈ 45 soru
+  kaldırıyor; bugünkü testlerimiz kotayı neredeyse bitirdi. Jüri/demo günü de aynı şey olabilir.
+- Arayüz bu 429'u "dakikalık istek sınırı aşıldı" diye gösteriyor ve her soruda 8 sn bekleyip aynı modeli yeniden
+  deniyor (retry-after 11 dk iken); iki modelde toplam ≈ 16–21 sn boşa bekleme, sonra yerel motor.
+
+**F5 · Groq 429 ayrımı (app.py, groq_stream / answer):**
+1. 429 gövdesindeki `error.message` okunsun: "tokens per day" / "requests per day" → yeniden deneme yok, hemen yedek
+   modele geç; o modeli `retry-after` (ya da mesajdaki süre) boyunca oturumda atla (her soruda 8 sn kaybı biter).
+   "per minute" → mevcut kısa bekleme + tek yeniden deneme kalsın.
+2. Hata metni: günlükse "günlük kota doldu, yedek model kullanılıyor" / "daily quota reached, using fallback model".
+3. İsteğe bağlı: yedek model de doluysa yerel motor; demo öncesi ana modelin kotasını boşa harcamamak için uzun
+   test turlarında yedek modeli varsayılan yapmak.
+
+Backend tarafında istem boyutunu küçültmeye devam edebilirim (bölge özeti ≈ 3,4 bin karakter, istemin ≈ %32'si;
+yalnızca seçili + anılan bölgelerin ayrıntısı ve ısınma sıralaması bırakılabilir) — isterseniz yazın.

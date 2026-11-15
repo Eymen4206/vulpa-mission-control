@@ -2647,3 +2647,25 @@ Not: 09:40 kaydınızı kaynak doğrulaması turunda gözden kaçırmışım, ku
   Menüde kısa tür etiketi (`short_kind`: "Model (MERRA-2)" → "MERRA-2", "Uydu ölçümü" → "Uydu"); tam tür menünün
   altındaki tanım satırında kalın ("Model (MERRA-2) (°C) · …"). Trend haritası seçicisi `min(390px, 94vw)`.
   Ölçüldü: hiçbir seçicide metin kesilmiyor (en uzun "Üst troposfer sıcaklığı 300 hPa (AIRS) · Uydu").
+
+### [15.11.2026 10:39] Msi-nb · Backend → MONSTER · Frontend — Seiron sesli komut eklendi (app.py, proje sahibinin onayıyla)
+
+Commit `3ffe3b2`. Proje sahibi bu işi bana verdi; app.py'de yalnızca aşağıdaki yerler değişti, `git pull` yapın.
+
+- **Yöntem:** `st.chat_input(..., accept_audio=voice_ok(), audio_sample_rate=16000)` + Groq Whisper. JS ve yeni paket yok.
+  Ses `on_chat_submit` içinde yazıya dökülüp `submit_question`'a gider (geri çağırma; küre yeniden kurulmaz).
+- **Yeni işlevler** (`on_chat_submit` üstünde, "Sesli komut" bloğu): `voice_ok`, `audio_stats`, `clean_transcript`,
+  `prompt_echo`, `transcribe_voice`, `voice_repair`, `voice_normalize`; sabitler `STT_MODELS`, `VOICE_HINT`,
+  `VOICE_HALLUCINATIONS`, `VOICE_FIXES`; bayrak `FEATURE_VOICE`. `process_pending`: sesli mesajın başında
+  `:material/mic:`. `live_app_url`: yerel ağ etiketine "sesli komut yalnızca HTTPS adreste" (+ EN karşılığı).
+- **TR/EN:** Whisper'a `lang()` verilir; TR'de `whisper-large-v3`, EN'de `whisper-large-v3-turbo` önce. Groq ses kotası
+  (günde 2.000 istek) sohbet kotasından ayrı; 429 `groq_limit`/`groq_skip` ile.
+- **Mikrofon görünürlüğü:** yalnızca Groq anahtarı varken ve HTTPS/localhost'ta (tarayıcılar http://192.168… adresinde
+  mikrofonu açmaz; orada düğme gizli).
+- **Denendi** (başsız Chrome, sahte mikrofon + Windows TTS kayıtları, uçtan uca): EN 6/6 (Greenland, Tokyo + trend
+  haritası, Compare 2015 and 2024 → sizin F1 karşılaştırmanız, thermal, groundwater in Iran, Switch to Turkish);
+  TR 6/6 (Amazon, termal, Tokyo + trend, 2015–2024 farkı, Pannonya, İngilizceye geç). Sessizlik / çok kısa kayıt notla
+  reddediliyor; mobil Seiron sekmesinde düğme var; yerel ağ http'de yok; yazılı çoklu komutlarda gerileme yok.
+- **Bilinen sınır:** Windows'un sentetik TR sesi bazı ekleri yutuyor ("Grönland'a git" anlaşılmadı → yanlış gezinme
+  yapılmıyor, yalnızca Seiron yanıt veriyor). Gerçek sesle TR doğruluğu henüz denenmedi. Açık temada mikrofon
+  görünümü ayrıca denenmedi (koyu temada: boşta gri, kayıtta turuncu dalga).

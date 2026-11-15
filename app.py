@@ -19,7 +19,7 @@ Mobil görünüm (Mini VULPA): adrese ?mini=1 eklenir; QR kod bu adrese yönlend
 Veri kaynakları (tümü 30 dakikalık önbellekle, hata durumunda simülasyon yedeğiyle):
     Meteomatics API   — anlık t_2m, msl_pressure, wind_speed_10m/wind_dir_10m (tüm bölgeler + küresel ızgara)
     Open-Meteo        — son 30 günün günlük ortalama sıcaklığı (termal anomali) ve Meteomatics yedeği
-    NASA POWER        — 2001–2024 günlük sıcaklık ve yağış (MERRA-2); uzun vadeli iklim trendi
+    NASA POWER        — günlük/aylık sıcaklık ve yağış (MERRA-2); uzun vadeli iklim trendi (son 20 tam yıl)
 """
 
 from __future__ import annotations
@@ -1804,7 +1804,7 @@ KAPSAM:
 ÜSLUP:
 - Akıcı, sade, kurumsal ve saygılı bir Türkçe kullan; İngilizce terimleri yalnızca zorunlu akademik kavramlarla sınırla.
 - Yanıtlar dar bir sohbet panelinde gösterilir: genellikle 60–170 kelime, tablo kullanma, gerekirse kısa maddeler kullan.
-- Platform verilerine ilişkin sayıları yalnızca aşağıdaki bağlamdan al; uydurma. Genel bilimsel bilgileri yerleşik bilimsel uzlaşıya dayandır. Veri kaynakları: anlık sıcaklık, basınç ve rüzgâr Meteomatics API'sinden; termal anomali Open-Meteo'dan; uzun vadeli sıcaklık/yağış trendi NASA POWER'dan (MERRA-2, 2001–2024) gelir ve gerçektir. Bölgesel tema serilerinin tamamı ({len(CITY_NAMES)} bölge) gerçek gözlemdir (NASA POWER/MERRA-2, NOAA ERSST, NOAA Mauna Loa CO₂, NSIDC deniz buzu, SPEI; bağlamda [GERÇEK VERİ · bölgesel tema serisi] etiketli). Kaynağa geçici olarak ulaşılamazsa seri sentetik yedekle gösterilir ve bağlamda [SENTETİK PROTOTİP] etiketiyle gelir. Her bölge için bağlamdaki etikete uy; gerçek seriyi sentetik, sentetik seriyi gerçek diye anlatma. Gerçek sıcaklık/yağış eğilimi veya ısınma sorulduğunda öncelikle [GERÇEK ÖLÇÜM] satırını kullan ve dönemini belirt; tema serisinin Sen eğilimini, projeksiyonunu veya senaryo önerilerini bu sonuçla karıştırma. Sentetik tema serisinden söz edersen bunun prototip verisi olduğunu açıkça söyle.
+- Platform verilerine ilişkin sayıları yalnızca aşağıdaki bağlamdan al; uydurma. Genel bilimsel bilgileri yerleşik bilimsel uzlaşıya dayandır. Veri kaynakları: anlık sıcaklık, basınç ve rüzgâr Meteomatics API'sinden; termal anomali Open-Meteo'dan; uzun vadeli sıcaklık/yağış trendi NASA POWER'dan (MERRA-2, {power_window()[0]}–{power_window()[1]}) gelir ve gerçektir. Bölgesel tema serilerinin tamamı ({len(CITY_NAMES)} bölge) gerçek gözlemdir (NASA POWER/MERRA-2, NOAA ERSST, NOAA Mauna Loa CO₂, NSIDC deniz buzu, SPEI; bağlamda [GERÇEK VERİ · bölgesel tema serisi] etiketli). Kaynağa geçici olarak ulaşılamazsa seri sentetik yedekle gösterilir ve bağlamda [SENTETİK PROTOTİP] etiketiyle gelir. Her bölge için bağlamdaki etikete uy; gerçek seriyi sentetik, sentetik seriyi gerçek diye anlatma. Gerçek sıcaklık/yağış eğilimi veya ısınma sorulduğunda öncelikle [GERÇEK ÖLÇÜM] satırını kullan ve dönemini belirt; tema serisinin Sen eğilimini, projeksiyonunu veya senaryo önerilerini bu sonuçla karıştırma. Sentetik tema serisinden söz edersen bunun prototip verisi olduğunu açıkça söyle.
 - Matematiksel ifadeler için LaTeX veya dolar işareti kullanma.
 
 HARİTA KATMANLARI (yalnızca bu tanımları kullan; uydu görüntüsü YOKTUR):

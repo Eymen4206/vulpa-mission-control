@@ -2535,3 +2535,42 @@ ağ isteği yok, ~0,02 sn): bölgelerde `temp_delta`, `pressure_delta`, `wind_de
   "buz eriyor" gerekçesi. Sizden iş yok.
 - **3 · Açık tema:** sayfa hatası yok, düşük kontrastlı metin yok; sorunlar F2–F3.
 - **4 · Groq yeniden deneme:** Backend 25 sn arayla ayrıca deneyecek ve sonucu bu dosyaya yazacak.
+
+### [15.11.2026 09:10] MONSTER · Frontend → Msi-nb · Backend — Kaynak doğrulaması (proje sahibinin isteği)
+
+`data_credits()` içindeki 30 kaydın tamamı, uygulamadaki dönem etiketleri ve sunumdaki kaynak iddiaları denetlendi.
+Bağlantılar (21 URL) yanıt veriyor; DOI'ler resmî kayıtlarla karşılaştırıldı (doi.org / NASA Earthdata / Crossref).
+
+**Doğru (değişiklik gerekmez):** Meteomatics, Open-Meteo (CC BY 4.0), ERA5 (Hersbach 2020, QJRMS 146:1999–2049),
+NASA POWER, MERRA-2 (Gelaro 2017, J. Climate 30:5419–5454), ERSST v5 (Huang 2017, J. Climate 30:8179–8205), Mauna Loa
+atıf metni, NSIDC Sea Ice Index v4 (G02135), EONET v3, GPM IMERG V07 (doi:10.5067/GPM/IMERG/3B-MONTH/07 → GPM_3IMERGM
+07), GLDAS-2.1 (doi:10.5067/SXAVCZFAQLNO → GLDAS_NOAH025_M 2.1), AIRS V7 (doi:10.5067/UBENJB9D3T2H → AIRS3STM 7.0),
+MODIS MOD13C2 v061 (doi:10.5067/MODIS/MOD13C2.061), GRACE RL06.3 V4 (Watkins 2015, JGR Solid Earth 120:2648–2671;
+Wiese 2023 CRI RL06.3Mv04), PSMSL (Holgate 2013, J. Coastal Res. 29(3):493–504), Hirsch 1982, Sen 1968, Gilbert 1987,
+Santer 2000, Weatherhead 1998 (DOI'ler doğru makaleye gidiyor), pyMannKendall (JOSS 4(39):1556), Warming Stripes
+(CC BY 4.0), Natural Earth, Giovanni atıf metni, Space Apps görev sayfası (var, başlık "…Trend Detective!").
+Sunum: Copernicus ERA5 2024 = +0,72 °C (1991–2020'ye göre, C3S Global Climate Highlights 2024), 2023 = +0,60 °C doğru.
+
+**Düzeltilmesi gerekenler — sizin tarafınız (data_pipelines):**
+1. **OMI atfı yanlış ürün:** `credits.py` "OMI/Aura NO2 Tropospheric, Stratospheric & Total Columns MINDS Daily L3"
+   diyor; bu MINDS ürünüdür. Kullandığımız OMNO2d v003'ün adı: "OMI/Aura NO2 Cloud-Screened Total and Tropospheric
+   Column L3 Global Gridded 0.25 degree x 0.25 degree V3", doi:10.5067/Aura/OMI/DATA3007 (Krotkov vd., GES DISC).
+2. **AIRS dönemi yanlış:** AIRS3STM V7 2002-09-01'de başlıyor (NASA Earthdata kataloğu). Anlık görüntüde AIRS serilerinin
+   ilk 20 ayı (2001-01 – 2002-08) zaten boş (doldurulmamış, doğru), ama kaynak/lejant/cümleler "2001–2025" diyor
+   (`trend_map` source + sentence, `extra_analysis` period). "2002–2025" ya da "Eyl 2002–2025" olmalı.
+3. **Credits sayıları eski (104 bölge sonrası):** NASA POWER "39 bölgenin tema serisi" → şu an 81
+   (REAL_SOURCES: 104 − 21 sst − 1 co2 − 1 seaice_s); ERSST "9 kıyı ve deniz bölgesi" + 9 adlık liste → şu an 21.
+   Sayıları `len(...)` ile üretmek kalıcı çözüm olur.
+4. **Sea Ice Index v4 aleti:** `satellite.py` "SSM/I · SSMIS uydu" diyor; v4'te 1 Ocak 2025'ten itibaren girdi JAXA
+   GCOM-W1 AMSR2 (SSMIS erişimi bitti). "SSM/I · SSMIS · AMSR2 (2025–)" gibi. İsterseniz DOI: 10.7265/a98x-0f50.
+5. (İsteğe bağlı) GRACE atfına DOI eklenebilir: Wiese vd. 2023, doi:10.5067/TEMSC-3JC634.
+6. (Bilgi) GPM serilerinde son 3 ay (2025 Ekim–Aralık) boş: IMERG Final gecikmesi, sorun değil.
+
+**Benim tarafımda düzeltildi (app.py + sunum):**
+- Seiron sistem istemi "NASA POWER (MERRA-2, 2001–2024)" diyordu; panel 2006–2025 gösteriyor. Artık `power_window()`
+  ile dinamik. Dosya başı yorumundaki "2001–2024" de düzeltildi.
+- Sunum 5. slayt dipnotu "AIRS 2001–2025" → "AIRS Sep 2002–2025".
+
+**Ayrıca fark edilen:** son testlerdeki tüm Groq yanıtları yedek modelden ("qwen/qwen3.8-27b") geldi; ana model
+`openai/gpt-oss-120b` hiç yanıt vermiyor gibi. Credits ana modeli gpt-oss-120b diye yazıyor. Groq hesabında bu modelin
+erişimi / kotası kontrol edilmeli (benim tarafta hata nedeni kaydı yok çünkü yedek başarılı olunca not düşülmüyor).

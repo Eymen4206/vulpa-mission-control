@@ -120,6 +120,17 @@ CREDITS: list[dict] = [
                        "engine is used when no key is set.",
         "url": "https://groq.com", "license": "Groq kullanım koşulları",
     },
+    {
+        "id": "claude", "category": "ai", "name": "Claude · Claude Code", "provider": "Anthropic",
+        "used_for_tr": "Süper zekâ (SI) desteği: kodun yazılması ve hata ayıklama, arayüz metinleri ve TR ↔ EN çeviri, "
+                       "veri kaynaklarının ve yöntemlerin araştırılması, VULPA kurt logosu, jüri videosu ve müziği "
+                       "(kodla üretildi). Tüm sonuçlar ekip tarafından gözden geçirildi; analizler NASA verisiyle hesaplanır.",
+        "used_for_en": "Super Intelligence (SI) assistance: writing and debugging the code, interface text and TR ↔ EN "
+                       "translation, researching data sources and methods, the VULPA wolf logo, the jury video and its "
+                       "music (generated with code). All output was reviewed by the team; analyses are computed from "
+                       "NASA data.",
+        "url": "https://www.anthropic.com/claude", "license": "Anthropic kullanım koşulları",
+    },
     # ── Yazılım ─────────────────────────────────────────────────────────────
     {
         "id": "natural-earth", "category": "software", "name": "Natural Earth (Plotly harita altlığı)",
@@ -315,6 +326,7 @@ LICENSE_EN = {
     "noaa-gml-co2": "Open data (attribution requested)",
     "nsidc-sea-ice": "Open data (attribution requested)",
     "groq": "Groq terms of service",
+    "claude": "Anthropic terms of service",
     "natural-earth": "Public domain",
     "libraries": "Apache 2.0 · MIT · BSD",
     "fonts": "SIL Open Font License 1.1",
@@ -373,6 +385,18 @@ DISCLAIMER_ALL_EN = ("The theme series of all {n} regions are measured or reanal
                      "variable name states exactly what is measured (e.g. aerosol optical depth instead of PM2.5).")
 
 
+# Proje sahipleri (Credits başlığında gösterilir).
+TEAM = ("Mete", "Yahya", "Eymen")
+
+# Süper zekâ (SI) kullanım beyanı — NASA Space Apps kuralı: SI kullanımı açıkça belirtilmeli.
+SI_NOTE_TR = ("Süper zekâ (SI) beyanı: Bu projede Claude / Claude Code (Anthropic) kod, metin, çeviri, araştırma, logo, "
+              "video ve müzik için; Seiron asistanında Groq üzerinden büyük dil modelleri kullanıldı. NASA logosu ya da "
+              "marka öğesi SI ile üretilmedi ve kullanılmadı.")
+SI_NOTE_EN = ("Super Intelligence (SI) disclosure: Claude / Claude Code (Anthropic) was used for code, text, translation, "
+              "research, the logo, the video and its music; the Seiron assistant uses large language models via Groq. "
+              "No NASA logo or branding element was generated with SI or used.")
+
+
 def data_credits() -> dict:
     """Credits paneli için tüm içerik.
 
@@ -401,6 +425,7 @@ def data_credits() -> dict:
                           else DISCLAIMER_TR.format(n=_N, real=real, synthetic=_N - real)),
         "disclaimer_en": (DISCLAIMER_ALL_EN.format(n=_N) if real >= _N
                           else DISCLAIMER_EN.format(n=_N, real=real, synthetic=_N - real)),
+        "team": list(TEAM), "si_note_tr": SI_NOTE_TR, "si_note_en": SI_NOTE_EN,
         "real_regions": real, "synthetic_regions": _N - real,
         "series_kinds": kinds,
         "snapshot_generated": load_snapshot().get("generated"),

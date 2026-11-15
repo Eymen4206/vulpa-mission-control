@@ -2724,6 +2724,9 @@ html.vp-credits-open .vp-credits { transform: translateY(0); visibility: visible
 .vp-credits-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.7rem; font-weight: 700; color: var(--orange);
   letter-spacing: .04em; line-height: 1.1; }
 .vp-credits-sub { font-size: .78rem; color: var(--muted); }
+.vp-credits-team { font-size: .8rem; color: var(--muted); margin-top: 3px; }
+.vp-credits-team b { color: #f97316; font-weight: 700; }
+.vp-credits-si { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(249,115,22,.25); }
 .vp-credits-close { margin-left: auto; font-family: 'Inter', sans-serif; font-size: .78rem; color: #fed7aa;
   background: rgba(28,25,23,.72); border: 1px solid var(--line); border-radius: 999px; padding: .4rem .85rem;
   cursor: pointer; white-space: nowrap; }
@@ -4668,6 +4671,10 @@ def render_credits() -> None:
                     f"</div>{''.join(items)}</div>")
     snap = (f" · {L('Gerçek seri anlık görüntüsü', 'Real-series snapshot')}: {esc(c['snapshot_generated'])}"
             if c.get("snapshot_generated") else "")
+    team = (f"<div class='vp-credits-team'>{L('Proje sahipleri', 'Project owners')}: "
+            f"<b>{esc(' · '.join(c['team']))}</b></div>" if c.get("team") else "")
+    si_txt = c.get("si_note_en" if en else "si_note_tr")
+    si = f"<div class='vp-credits-si'>{esc(si_txt)}</div>" if si_txt else ""
     with st.container(key="credits"):
         html_block(f"""
         <div class="vp-credits" id="vp-credits" role="dialog" aria-modal="true" aria-label="Credits">
@@ -4675,11 +4682,11 @@ def render_credits() -> None:
             <div class="vp-credits-head">{logo(34, "cr")}
               <div><div class="vp-credits-title">Credits</div>
               <div class="vp-credits-sub">{L('Veri kaynakları ve atıflar', 'Data sources & attributions')} · VULPA ·
-              NASA Space Apps Challenge 2026</div></div>
+              NASA Space Apps Challenge 2026</div>{team}</div>
               <button class="vp-credits-close" type="button">✕ {L('Kapat', 'Close')} <kbd>Esc</kbd></button>
             </div>
             <div class="vp-credits-grid">{''.join(cats)}</div>
-            <div class="vp-credits-foot">{esc(c['disclaimer_en'] if en else c['disclaimer_tr'])}{snap}</div>
+            <div class="vp-credits-foot">{esc(c['disclaimer_en'] if en else c['disclaimer_tr'])}{snap}{si}</div>
           </div>
         </div>
         """)

@@ -2766,3 +2766,15 @@ Jüri videosu kaydında gpt-oss-120b ve qwen'in günlük token kotası doldu, Se
   ekranı görür; Streamlit Cloud'da uygulama "public" yapılmalı (proje sahibine iletildi).
 - Commit `36fddc5`: Credits panelinde EN arayüzde kayıt adları ve sağlayıcılar İngilizce (`name_en`, `provider_en`;
   videoda Türkçe adlar görünüyordu).
+
+### [15.11.2026 14:25] MONSTER · Backend + Frontend — SI (süper zekâ) beyanı + proje sahipleri
+
+- Jüri videosu son hali v7 (diğer ajanın videosu üzerine: Google Earth / Raw NASA data etiketleri, IMPACT kartı + QR,
+  son kartta QR). Depoya eklenmedi; proje sahibinde.
+- NASA Space Apps SI kuralı (SI kullanımı açıkça belirtilmeli) için:
+  - `data_pipelines/credits.py`: "ai" kategorisine `claude` kaydı (Claude / Claude Code: kod, metin, çeviri,
+    araştırma, kurt logosu, video ve müzik — kodla üretildi); `TEAM = (Mete, Yahya, Eymen)`; `SI_NOTE_TR/EN`;
+    `data_credits()` artık `team`, `si_note_tr`, `si_note_en` döndürür.
+  - `app.py` Credits paneli: başlıkta "Proje sahipleri: Mete · Yahya · Eymen", alt notta SI beyanı.
+  - `README.md` (yeni): proje özeti, proje sahipleri, SI kullanım tablosu, NASA markası kullanılmadı beyanı.
+- Denendi: AppTest hatasız; tarayıcıda Credits'te ekip satırı, Claude kaydı ve SI notu görünüyor.

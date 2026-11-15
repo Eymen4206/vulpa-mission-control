@@ -6784,7 +6784,7 @@ def render_mobile() -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="VULPA · Earth System Trend Detective", page_icon="🐺",
+    st.set_page_config(page_title="VULPA · Earth System Trend Detective", page_icon=logo(64, "fav").strip(),
                        layout="wide", initial_sidebar_state="collapsed")
     st.markdown(BASE_CSS, unsafe_allow_html=True)
 

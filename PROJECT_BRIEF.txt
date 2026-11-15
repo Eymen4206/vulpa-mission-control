@@ -2778,3 +2778,8 @@ Jüri videosu kaydında gpt-oss-120b ve qwen'in günlük token kotası doldu, Se
   - `app.py` Credits paneli: başlıkta "Proje sahipleri: Mete · Yahya · Eymen", alt notta SI beyanı.
   - `README.md` (yeni): proje özeti, proje sahipleri, SI kullanım tablosu, NASA markası kullanılmadı beyanı.
 - Denendi: AppTest hatasız; tarayıcıda Credits'te ekip satırı, Claude kaydı ve SI notu görünüyor.
+
+### [15.11.2026 14:45] MONSTER · Backend + Frontend — Sekme simgesi VULPA logosu
+
+- `app.py` `set_page_config`: `page_icon` 🐺 emojisi yerine VULPA kurt logosu (`logo(64, "fav")` SVG; Streamlit
+  SVG metnini data URL favicon'a çevirir). Denendi: tarayıcıda favicon SVG data URL, 64×64 görüntüleniyor; AppTest hatasız.

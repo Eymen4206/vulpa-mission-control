@@ -2754,3 +2754,15 @@ Jüri videosu kaydında gpt-oss-120b ve qwen'in günlük token kotası doldu, Se
   modelin günlük kotası ayrı; demo günü yerel motora düşme riski azalır. Ayarlardaki model seçicisinde de üçü var.
 - Denendi (AppTest): iki kota doluyken yanıt "Groq · openai/gpt-oss-20b · ana modelin günlük kotası doldu…" ile geldi.
 - Credits: Groq kaydında üç model.
+
+### [15.11.2026 13:40] MONSTER · Backend + Frontend — Jüri videosu taslak 1 + Credits EN adları
+
+- Jüri videosu (30 sn, EN, 1920×1080, gerçek kayıt) proje sahibine gönderildi, depoya eklenmedi. Sahneler: açılış →
+  Seiron komutu ("Show me groundwater in Iran", sohbete yakınlaşma, İran'a uçuş, GRACE) → Seiron gerçek AI yanıtı
+  (Groq gpt-oss-20b, VULPA'nın sayılarıyla) → eğilim görünümü (GRACE + eğim penceresi, noktalı uzantı ve %95 yelpaze,
+  "not a forecast") → bilimsel dürüstlük (iki test) → trend haritası 300/70 hPa → Credits (NASA kaynakları) →
+  QR kapanış (https://vvulpa.streamlit.app).
+- ÖNEMLİ: vvulpa.streamlit.app şu an Streamlit giriş sayfasına yönleniyor (uygulama özel). Jüri QR'ı okutunca giriş
+  ekranı görür; Streamlit Cloud'da uygulama "public" yapılmalı (proje sahibine iletildi).
+- Commit `36fddc5`: Credits panelinde EN arayüzde kayıt adları ve sağlayıcılar İngilizce (`name_en`, `provider_en`;
+  videoda Türkçe adlar görünüyordu).

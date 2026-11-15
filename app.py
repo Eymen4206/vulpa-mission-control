@@ -3943,9 +3943,9 @@ GLOBE_CONTROLLER_JS = """
   document.querySelectorAll(".st-key-gear button").forEach(function(b) {
     b.setAttribute("aria-label", (window.__vulpaTarget || {}).lang === "en" ? "Settings" : "Ayarlar");
   });
-  // Boşluk tuşu → Termal Analiz: seçim varsa kaldırır, başka katmandaysa Termal düğmesine basar (katman sırası:
-  // Klasik · Termal · Basınç). Yazı alanlarında (sohbet, ayarlar) devre dışıdır; düğmede odak varken de çalışır
-  // ve tarayıcının varsayılanını (sayfa kaydırma / odaklı düğmeye basma) engeller.
+  // Boşluk tuşu · bağlamsal: yalnızca renk yüzeyi olan katmanlarda (Termal, Basınç & Hava Dalgası) bölge seçimini
+  // kaldırıp O katmanın renklerini geri getirir. Katman değiştirmez (önceden her ekranda Termal'e atıyordu); Klasik
+  // ve Trend Haritası'nda hiçbir şey yapmaz ve tarayıcının varsayılanına dokunmaz. Yazı alanlarında devre dışıdır.
   if (!window.__vpSpace) {
     window.__vpSpace = true;
     document.addEventListener("keydown", function(e) {
@@ -3953,14 +3953,30 @@ GLOBE_CONTROLLER_JS = """
       if (document.documentElement.classList.contains("vp-credits-open")) return;   // Credits açıkken arka plan değişmesin
       const el = e.target;
       if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+      const layer = (window.__vulpaTarget || {}).layer;
+      if (layer !== "thermal" && layer !== "wind") return;
       const gd = plot();
       if (!gd || gd.getBoundingClientRect().width < 10) return;   // küre görünür değil (mobilde başka sekme)
       e.preventDefault();
-      if (hasSelection(gd)) clearSelection(gd, true);
-      if ((window.__vulpaTarget || {}).layer !== "thermal") {
-        const btn = document.querySelectorAll(".st-key-layer_bar button")[1];
-        if (btn) btn.click();
-      }
+      if (hasSelection(gd)) clearSelection(gd, true); else surfaceOpacity(gd);
+    }, true);
+  }
+  // Boşluğa tıklama (sürüklemeden, bir noktaya değil) seçimi kaldırır: Plotly geo bunu kendisi yapmıyor, bu yüzden
+  // Basınç katmanında bölge seçildikten sonra renkler geri gelmiyordu. Noktaya tıklama plotly_click ile ayırt edilir
+  // (Plotly tıklamayı pointerup'tan sonra işler; 250 ms beklenir). Nokta seçme modunda (pick) devre dışı.
+  if (!window.__vpEmptyClick) {
+    window.__vpEmptyClick = true;
+    let d0 = null;
+    document.addEventListener("pointerdown", function(e) { d0 = [e.clientX, e.clientY]; }, true);
+    document.addEventListener("pointerup", function(e) {
+      const gd = plot(), T = window.__vulpaTarget || {};
+      if (!gd || !d0 || !gd.contains(e.target) || T.pick || e.button !== 0) return;
+      if (Math.hypot(e.clientX - d0[0], e.clientY - d0[1]) > 5) return;   // sürükleme (küreyi çevirme)
+      const t0 = Date.now();
+      setTimeout(function() {
+        if ((gd.__vpClickAt || 0) >= t0 - 50) return;   // bir bölge noktasına tıklandı
+        if (hasSelection(gd)) clearSelection(gd, true);
+      }, 250);
     }, true);
   }
   let busy = false;
@@ -3991,6 +4007,8 @@ GLOBE_CONTROLLER_JS = """
       // Bölge seçimi kaldırıldığında (çift tıklama ya da seçili noktaya yeniden tıklama) soluklaşan katmanlar —
       // termalde sürekli yüzey — eski haline döner.
       gd.on("plotly_deselect", function() { if (!gd.__vpClearing) clearSelection(gd, false); });
+      gd.on("plotly_click", function() { gd.__vpClickAt = Date.now(); });
+      gd.on("plotly_doubleclick", function() { if (hasSelection(gd)) clearSelection(gd, true); });
       gd.on("plotly_relayout", function(e) {
         const s = e["geo.projection.scale"];
         if (s === undefined || gd.__vpFlying) return;
@@ -5026,7 +5044,8 @@ def render_metric_dialog(city: str) -> None:
 
 def render_keys_card() -> None:
     """ÖNERİ #6 · "?" ile açılan kısayol kartı. Kaynak gizli durur; JS belge gövdesine kopyalayıp açar (Credits gibi)."""
-    rows = [("Space", L("Termal Analiz'e dön / bölge seçimini kaldır", "Back to Thermal Analysis / clear selection")),
+    rows = [("Space", L("Termal ve Basınç katmanında bölge seçimini kaldır, harita renklerini geri getir",
+                        "On Thermal and Pressure layers: clear the region selection and restore the map colours")),
             ("Esc", L("Açık pencereyi, paneli ya da jüri turunu kapat", "Close the open window, panel or jury tour")),
             ("Enter", L("Odaktaki değer kutusunun grafiğini aç", "Open the chart of the focused value box")),
             (L("R (basılı tut)", "R (hold)"), L("Yalnızca küre: arayüz gizlenir, bırakınca geri gelir", "Globe only: the interface hides, release to bring it back")),

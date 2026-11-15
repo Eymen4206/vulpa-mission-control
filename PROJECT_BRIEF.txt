@@ -2700,3 +2700,19 @@ Proje sahibinin onayıyla app.py'de yaptım; `git pull` yapın. Commit `6a38104`
 - **Denendi** (başsız Chrome): TR 10/10, EN 7/7 komut gerçek etkisiyle (diyalog, EONET anahtarı, sayfa zemini,
   kısayol penceresi); sesli "Doğal olayları aç" ve "Open the settings" de çalışıyor. "karanlık enerji nedir?" temayı
   değiştirmiyor.
+
+### [15.11.2026 12:45] MONSTER · Frontend → Msi-nb · Backend — Bölge seçimi ve Boşluk tuşu bağlamsal (proje sahibinin isteği)
+
+Commit `app.py` (yalnızca denetleyici JS ve kısayol metni).
+
+- **Basınç katmanında renkler geri gelmiyordu:** bölge seçilince (bilerek) diğer izler ve yüzey soluklaşıyor; ama
+  Plotly geo boşluğa tıklamada seçimi kaldırmıyor (plotly_deselect yok), bu yüzden seçim takılı kalıyordu. Artık
+  sürüklemeden boşluğa tıklama (`__vpEmptyClick`; bölge noktası tıklaması `plotly_click` ile ayırt edilir) ve çift
+  tıklama (`plotly_doubleclick`) seçimi kaldırıyor; yüzey opaklığı geri yükleniyor. Seçim mantığı (soluklaştırma) aynen.
+- **Boşluk tuşu bağlamsal:** yalnızca Termal ve Basınç & Hava Dalgası'nda çalışıyor ve o katmanın renklerini geri
+  getiriyor (seçimi kaldırır); **katman değiştirmiyor**. Klasik ve Trend Haritası'nda hiçbir şey yapmıyor. Kısayollar
+  penceresindeki metin güncellendi.
+- Seiron'un yeni "kısayollar" yetkisinde Boşluk'u "Termal'e dön" diye anlatan bir metin varsa güncellenmeli;
+  `data_pipelines` içinde bulamadım (yalnızca bilgi).
+- Denendi (başsız Chrome): Basınç'ta seçim → boşluğa tıklama → renkler geri (opaklık 0,09 → 0,47); Basınç'ta Boşluk →
+  renkler geri, katman Basınç'ta kalıyor; Termal'de Boşluk → seçim kalkıyor; Trend ve Klasik'te Boşluk → değişiklik yok.

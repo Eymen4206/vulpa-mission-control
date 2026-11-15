@@ -2550,6 +2550,9 @@ div:has(> .st-key-fx_redirect) {
 [data-testid="stChatMessage"] { background: transparent; padding: .3rem 0; gap: .6rem; }
 [data-testid="stChatMessageContent"] p, [data-testid="stChatMessageContent"] li { font-size: .84rem; line-height: 1.55; color: #e7e5e4; }
 [data-testid="stChatInput"] { border-color: var(--line-strong) !important; }
+/* Seiron sohbeti: kullanıcı avatarı (Streamlit varsayılanı koyu gri kutu; açık temada kara kutu kalıyordu) */
+[data-testid="stChatMessageAvatarCustom"] { background: #1c1917 !important; border: 1px solid rgba(249,115,22,.35) !important; }
+[data-testid="stChatMessageAvatarCustom"] [data-testid="stIconMaterial"] { color: #f97316 !important; }
 [data-testid="stDownloadButton"] button { border: 1px solid var(--line-strong) !important; background: transparent !important; border-radius: 10px !important; }
 [data-testid="stExpander"] details { background: rgba(12,10,9,.35); border: 1px solid rgba(249,115,22,.16) !important; border-radius: 12px; }
 [data-testid="stExpander"] summary p { font-size: .8rem; }
@@ -5121,6 +5124,8 @@ def _light_rules(css: str) -> str:
 
 
 LIGHT_FIXED = """
+[data-testid="stChatMessageAvatarCustom"] { background: #fff7ed !important; border: 1px solid rgba(234,88,12,.35) !important; }
+[data-testid="stChatMessageAvatarCustom"] [data-testid="stIconMaterial"] { color: #ea580c !important; }
 [data-testid="stBaseButton-primary"] { background: #f97316 !important; color: #ffffff !important; border-color: #ea580c !important; }
 [data-testid="stBaseButton-primary"] p, [data-testid="stBaseButton-primary"] [data-testid="stIconMaterial"] { color: #ffffff !important; }
 .st-key-pt_bar input::placeholder { color: #78716c !important; opacity: 1 !important; }

@@ -1607,12 +1607,15 @@ CITY_PATTERNS = _city_patterns()
 
 def mentioned_cities(text: str) -> list[str]:
     """Metinde geçen bölgeleri geçiş sırasına göre döndürür (Türkçe ekler ve takma adlar dahil)."""
-    q = tr_lower(text)
+    # V1: tr_lower "Iran"ı "ıran" yapıyordu (İngilizce büyük I → noktasız ı); İngilizce adlar (Iran, India, Indus,
+    # Italian, Iberian…) bulunamıyordu. Düz küçük harfli metin de aranır; aynı uzunlukta olduğu için konumlar örtüşür.
+    variants = {tr_lower(text), text.lower()}
     hits: dict[str, int] = {}
     for name, pat in CITY_PATTERNS:
-        m = pat.search(q)
-        if m and (name not in hits or m.start() < hits[name]):
-            hits[name] = m.start()
+        for q in variants:
+            m = pat.search(q)
+            if m and (name not in hits or m.start() < hits[name]):
+                hits[name] = m.start()
     return sorted(hits, key=hits.get)
 
 
@@ -3766,10 +3769,13 @@ GLOBE_CONTROLLER_JS = """
         if (gd.__vulpaLabel !== T.name) { gd.__vulpaLabel = T.name; await applySelection(gd, T); }
         if (gd.__vulpaData !== T.data.nonce) { gd.__vulpaData = T.data.nonce; await applyData(gd, T.data); }
         const TM = T.trend;   // Aşama B · trend haritası (iz 13)
-        if (TM && gd.data.length > 13 && gd.__vpTrend !== TM.nonce) {
-          gd.__vpTrend = TM.nonce;
+        // V3: işaret ancak restyle başarıyla bitince yazılır ve iz verisiyle doğrulanır; aksi halde sonraki tikte
+        // yeniden denenir (önceden işaret önce yazılıyordu, hata olursa noktalar eski değişkende kalıyordu).
+        if (TM && gd.data.length > 13 && (gd.__vpTrend !== TM.nonce
+            || (gd.data[13].lon || []).length !== TM.lon.length)) {
           await P().restyle(gd, {lon: [TM.lon], lat: [TM.lat], hovertext: [TM.hover], "marker.color": [TM.color],
                                  "marker.size": [TM.size], "marker.opacity": [TM.opacity]}, [13]);
+          gd.__vpTrend = TM.nonce;
         }
         const E = T.events;
         if (E && gd.data.length > 12 && gd.__vpEvents !== E.nonce) {
@@ -3803,7 +3809,7 @@ GLOBE_CONTROLLER_JS = """
         if (T.layer !== "classic") await sizeField(gd);
         tag(gd);
       }
-    } catch (e) { gd.__vulpaNonce = gd.__vulpaLayer = gd.__vulpaData = gd.__vulpaLabel = null; }
+    } catch (e) { gd.__vulpaNonce = gd.__vulpaLayer = gd.__vulpaData = gd.__vulpaLabel = gd.__vpTrend = gd.__vpEvents = null; }
     busy = false;
   }
   window.__vulpaCtl = setInterval(tick, 150);
@@ -3855,6 +3861,8 @@ def trend_payload() -> dict | None:
     import numpy as np
     vmax = float(m.get("vmax") or 1.0) or 1.0
     unit, en = m.get("unit", ""), lang() == "en"
+    if en and unit.endswith(" su"):   # "cm su" → "cm water" (GRACE)
+        unit = unit[:-3] + " water"
     dec = L("10 yıl", "decade")
     lon, lat, col, size, op, hov = [], [], [], [], [], []
     for i, la in enumerate(m["lats"]):
@@ -3961,11 +3969,16 @@ def layer_legend(layer: str) -> str:
         if not m:
             return (f"<div class='legend-bar legend-warn'><span>{inline_svg('warn', 14)}</span>"
                     f"<em>{L('Trend haritası verisi alınamadı.', 'Trend map data unavailable.')}</em></div>")
-        vm, u = float(m.get("vmax") or 0), html.escape(m.get("unit", ""))
+        en_ = lang() == "en"
+        unit = m.get("unit_en") if en_ and m.get("unit_en") else m.get("unit", "")
+        if en_ and unit.endswith(" su"):   # "cm su" → "cm water" (GRACE)
+            unit = unit[:-3] + " water"
+        vm, u = float(m.get("vmax") or 0), html.escape(unit)
+        msrc = (m.get("source_en") if en_ else None) or m.get("source", "")
         return (f"<div class='legend-bar legend-trend'><span>−{vm:.2g}</span><i class='lg-thermal'></i><span>+{vm:.2g} {u}</span>"
                 f"<em>{L('on yılda değişim · iri ve dolu = anlamlı (p < 0,05), küçük ve soluk = anlamsız',
                          'change per decade · large & solid = significant (p < 0.05), small & faint = not significant')}"
-                f"<br>{html.escape(m['sentence_en' if lang() == 'en' else 'sentence_tr'])} · {html.escape(m.get('source', ''))}</em></div>")
+                f"<br>{html.escape(m['sentence_en' if en_ else 'sentence_tr'])} · {html.escape(msrc)}</em></div>")
     if layer == "wind":
         ex = weather_extremes()
         windy = ex["windiest"]
@@ -5239,10 +5252,25 @@ def submit_question(text: str) -> None:
     if dt:
         st.session_state["pending"] = {"q": text, "nav": None, "zoom": 0, "scale": None, "layer": None, "cmd": dt}
         return
+    # V1: "Show me groundwater in Iran" → önce bölgeye git, sonra değişkeni o bölgede uygula (önceden değişken komutu
+    # erken dönüyor, küre eski bölgede kalıyordu). Nokta komutu (koordinatlı) gezinme sayılmaz.
+    vnav = None
+    if FEATURE_VARIABLES and any(_word_in(tr_lower(text), v) for v in VAR_VERBS) and not parse_latlon(text):
+        vnav = detect_navigation(text, current)
+    prev_city, prev_point = current, st.session_state.get("point")
+    if vnav:
+        st.session_state["city"] = vnav
+        clear_point()
     vp = var_or_point_command(text)
     if vp:
-        st.session_state["pending"] = {"q": text, "nav": None, "zoom": 0, "scale": None, "layer": None, "cmd": vp}
+        if vnav:
+            st.session_state["_nav_by_chat"] = vnav
+        st.session_state["pending"] = {"q": text, "nav": vnav, "zoom": 0, "scale": None, "layer": None, "cmd": vp}
         return
+    if vnav:   # değişken komutu değilmiş: durumu geri al, olağan akış gezinmeyi kendisi yapar
+        st.session_state["city"] = prev_city
+        if prev_point:
+            st.session_state["point"] = prev_point
     cmd = apply_ui_command(text, current)
     if cmd.get("denied"):   # yönetici isteği: hiçbir şey değiştirilmez, dil modeline gönderilmez
         st.session_state["pending"] = {"q": text, "nav": None, "zoom": 0, "scale": None, "layer": None, "cmd": cmd}

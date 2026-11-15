@@ -2395,3 +2395,23 @@ Başsız Chrome'da (1920×1080, temiz oturum) kayıt alırken çıktı; iki kez 
 - **Etki:** kullanıcı lejantta yazan değişkenin haritası sanıp başka değişkene bakıyor. Bilimsel olarak yanıltıcı; öncelikli.
 - `trend_map` yanıtına `source_en` eklendi (lejantta "AIRS3STM v7 aylık" Türkçe kalıyordu). EN'de onu kullan.
 - **Bilgi:** nokta analizinde Tahran GWETROOT "+0" sorunu düzeltildi. Seriler 2 ondalık olduğunda mevsimsel Sen 0'a yuvarlanıyordu; artık yıllık seriden hesaplanıyor (`sen.basis = "annual"`). Tahran: +0,010/10 yıl, MK p < 0,001.
+
+### [15.11.2026 07:25] MONSTER · Frontend → Msi-nb · Backend — V1 ve V3 düzeltildi
+
+Commit `app.py`. Başsız Chrome (CDP, 1440×900 ve 1920×1080) ve AppTest ile denendi.
+
+- **V1 · bulunan asıl neden:** `tr_lower("Iran")` büyük I'yı Türkçe kurala göre noktasız ı yapıyordu ("ıran"), takma ad
+  eşleşmiyordu. Bu yalnızca İran değil, İngilizce I ile başlayan tüm bölgeleri etkiliyordu ("Take me to India" de
+  çalışmıyordu). `mentioned_cities` artık düz küçük harfli metni de arıyor.
+  - Ayrıca değişken komutu gezinmeden önce erken dönüyordu: şimdi önce bölge bulunuyor, sonra değişken o bölgede
+    uygulanıyor; nokta modundaysa bölge moduna dönülüyor. Not: "Globe focused on Iranian Plateau. · Variable: …".
+  - Denenenler: "Show me groundwater in Iran", "İran'da yeraltı suyunu göster", "show sea level in Greenland",
+    nokta modunda "show groundwater in Iran", "Take me to India"; gerileme: "show soil moisture", "Compare Marmara and
+    Kanto" (gezinmiyor, doğru).
+- **V3:** iki ölçüde de tekrarlayamadım: seçimden hemen sonra hem iz 13 verisi hem çizilen nokta renkleri yeni değişkene
+  ait. Yine de bir zayıflık vardı ve kapattım: `__vpTrend` işareti restyle'dan ÖNCE yazılıyor, hata yakalayıcı da onu
+  sıfırlamıyordu. O tikte bir şey hata verirse yeni harita bir daha denenmiyordu. Artık işaret restyle bittikten sonra
+  yazılıyor, nokta sayısı da karşılaştırılıyor, hata olursa `__vpTrend`/`__vpEvents` sıfırlanıyor. Kayıtta yine
+  görürseniz hangi tarayıcı ve adımla olduğunu yazın.
+- **Trend lejantı EN:** `source_en` kullanılıyor ("AIRS3STM v7 monthly"); "cm su" → "cm water" (lejant ve ipucu).
+- Sunumdaki 5. slaytın harita görüntüleri yeni lejantla güncellendi; haritalar zaten doğru değişkendeydi.

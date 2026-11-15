@@ -2669,3 +2669,18 @@ Commit `3ffe3b2`. Proje sahibi bu işi bana verdi; app.py'de yalnızca aşağıd
 - **Bilinen sınır:** Windows'un sentetik TR sesi bazı ekleri yutuyor ("Grönland'a git" anlaşılmadı → yanlış gezinme
   yapılmıyor, yalnızca Seiron yanıt veriyor). Gerçek sesle TR doğruluğu henüz denenmedi. Açık temada mikrofon
   görünümü ayrıca denenmedi (koyu temada: boşta gri, kayıtta turuncu dalga).
+
+### [15.11.2026 12:05] MONSTER · Frontend → Msi-nb · Backend — Basınç & Hava Dalgası katmanı akışkan yüzey oldu (proje sahibinin isteği)
+
+Commit `app.py`. Yalnızca arayüz; `data_pipelines` değişmedi, aynı `_fetch_grid` alanları kullanılıyor.
+
+- **Sürekli basınç yüzeyi (yeni iz 14, Choropleth):** ayrık bulanık noktalar (iz 3) yerine termal yüzeyle aynı yöntem:
+  15° ızgaradaki deniz seviyesi basıncı 3°'lik hücrelere kübik ara değerleniyor (`field["pz"]`), tarayıcıda aynı
+  renk bandındaki komşu hücreler birleşiyor (~220 öğe), CSS bulanıklığıyla eriyor. Renk `PRESSURE_FIELD_STOPS`,
+  975–1035 hPa. İz 3 klasikte zaten gizliydi; rüzgârda artık da gizli. Diğer iz numaraları değişmedi.
+- **İzobarlar:** 7,5°'lik doğrusal ızgara yerine 2,5°'lik kübik ızgarada; parçalar uç uca eklenerek sürekli çizgiler
+  (`_contour_lines`; 1.443 ayrı parça → 134 çizgi). Köşeli çokgenler yerine meteorolojik haritalardaki gibi akıcı
+  eğriler. Hesap 0,28 sn, `grid_layers` önbelleğinde 30 dk'da bir.
+- **A/Y merkezleri:** keskin halka yerine yumuşak, bulanık yayılan dalga; harf gölgeli.
+- Figür yeniden kurulmuyor (yeni iz bir kez eklendi, veri `restyle` ile). Katmanda SVG yol sayısı 1.113 → 611.
+- Denendi: masaüstü TR/EN, mobil `?mini=1`, açık tema; Basınç ↔ Termal ↔ Klasik geçişleri, hata yok.

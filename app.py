@@ -1080,6 +1080,7 @@ def weather_extremes() -> dict:
 # ─────────────────────────────────────────────────────────────────────────────
 FIELD_STEP = 7.5                                             # termal alan ve izobarlar için ara değerleme adımı
 ISOBAR_STEP = 4                                              # hPa
+ISOBAR_GRID = 2.5                                            # izobarların çizildiği kübik ara değer ızgarası (°)
 THERMAL_CELL = 3.0                                           # sürekli termal yüzeyin hücre boyu (°)
 
 
@@ -1167,6 +1168,47 @@ def _contour_segments(field: np.ndarray, lats: np.ndarray, lons: np.ndarray, lev
     return seg_lon, seg_lat
 
 
+def _contour_lines(field: np.ndarray, lats: np.ndarray, lons: np.ndarray, levels) -> tuple[list, list]:
+    """İzobarlar: _contour_segments'in parçalarını uç uca ekleyip sürekli çizgilere dönüştürür.
+
+    Kesik çizgi animasyonu (CSS dasharray) her parçada baştan başladığı için ince ızgarada kısa parçalar noktalı
+    görünüyordu; birleşik çizgiler hem akıcı görünür hem de daha az nokta taşır."""
+    out_lon, out_lat = [], []
+    for level in levels:
+        seg_lon, seg_lat = _contour_segments(field, lats, lons, [level])
+        segs = []
+        for k in range(0, len(seg_lon), 3):
+            segs.append(((seg_lon[k], seg_lat[k]), (seg_lon[k + 1], seg_lat[k + 1])))
+        ends: dict[tuple, list[int]] = {}
+        for idx, (a, b) in enumerate(segs):
+            ends.setdefault(a, []).append(idx)
+            ends.setdefault(b, []).append(idx)
+        used = [False] * len(segs)
+
+        def walk(pt, line):
+            while True:
+                nxt = next((j for j in ends.get(pt, ()) if not used[j]), None)
+                if nxt is None:
+                    return
+                used[nxt] = True
+                a, b = segs[nxt]
+                pt = b if a == pt else a
+                line.append(pt)
+
+        for idx in range(len(segs)):
+            if used[idx]:
+                continue
+            used[idx] = True
+            a, b = segs[idx]
+            fwd, back = [a, b], [a]
+            walk(b, fwd)
+            walk(a, back)
+            line = back[:0:-1] + fwd
+            out_lon += [p[0] for p in line] + [None]
+            out_lat += [p[1] for p in line] + [None]
+    return out_lon, out_lat
+
+
 def current_grid() -> tuple[dict, dict]:
     """(ızgara meta verisi, katman dizileri) — seçili zamana göre."""
     year, month, day = sel_date()
@@ -1211,15 +1253,21 @@ def grid_layers(year: int, stamp: str, month: int | None = None, day: int | None
     surface = np.clip(_smooth_sample(np.asarray(g["anomaly"], dtype=float) * gain, c_lat, c_lon), -12, 12)
     field["z"] = np.round(surface, 1).tolist()
     field["zgrid"] = cell_meta
+    # 1c) Sürekli basınç yüzeyi (iz 14): aynı hücrelerde kübik ara değerlenmiş deniz seviyesi basıncı (hPa)
+    field["pz"] = np.round(_smooth_sample(np.asarray(g["pressure"], dtype=float), c_lat, c_lon), 1).tolist()
     # İmleç okuması (ÖNERİ #5): en yakın 15°'lik ölçüm noktasının ham değeri (ara değer değil)
     raw = np.asarray(g["anomaly"], dtype=float)
     field["raw"] = [[None if not np.isfinite(v) else round(float(v), 1) for v in row] for row in raw]
     field["rawLat"], field["rawLon"] = GRID_LATS.tolist(), GRID_LONS.tolist()
     # 2) İzobarlar: 4 hPa aralıklı basınç eğrileri
-    pres, p_lats, p_lons = _resample(g["pressure"], FIELD_STEP)
+    # Kübik ara değerlenmiş 2,5°'lik ızgara: 7,5°'lik doğrusal ızgaradaki köşeli çokgen izobarlar yerine akıcı eğriler
+    p_lats = np.arange(GRID_LATS[0], GRID_LATS[-1] + 1e-6, ISOBAR_GRID)
+    p_lons = np.arange(-180.0, 180.0 + 1e-6, ISOBAR_GRID)
+    _la, _lo = np.meshgrid(p_lats, p_lons, indexing="ij")
+    pres = _smooth_sample(np.asarray(g["pressure"], dtype=float), _la.ravel(), _lo.ravel()).reshape(_la.shape)
     lo_lvl = int(np.floor(pres.min() / ISOBAR_STEP) * ISOBAR_STEP)
     levels = range(lo_lvl, int(pres.max()) + ISOBAR_STEP, ISOBAR_STEP)
-    iso_lon, iso_lat = _contour_segments(pres, p_lats, p_lons, levels)
+    iso_lon, iso_lat = _contour_lines(pres, p_lats, p_lons, levels)
     # 3) Alçak (A) / yüksek (Y) basınç merkezleri: 15° ızgarada komşularına göre yerel en küçük/en büyük
     P = g["pressure"]
     centers = {"lon": [], "lat": [], "text": [], "color": [], "hover": [], "val": []}
@@ -2583,8 +2631,10 @@ div:has(> .st-key-fx_redirect) {
 .vp-isobar path.js-line { stroke-dasharray: 14 6; animation: vp-isobar 4s linear infinite; }
 @keyframes vp-isobar { to { stroke-dashoffset: -40; } }
 @keyframes vp-flow { to { stroke-dashoffset: -11; } }
-.vp-wave path.point { animation: vp-wave 2.6s ease-out infinite; }
-@keyframes vp-wave { 0% { stroke-width: 1px; stroke-opacity: .95; } 100% { stroke-width: 20px; stroke-opacity: 0; } }
+/* A/Y merkezleri: keskin halka yerine yumuşak, bulanık yayılan dalga (basınç yüzeyiyle kaynaşır) */
+.vp-wave path.point { animation: vp-wave 3.2s cubic-bezier(.2,.6,.3,1) infinite; filter: blur(1.2px) drop-shadow(0 0 6px rgba(253,186,116,.35)); }
+.vp-wave text { filter: drop-shadow(0 1px 2px rgba(12,10,9,.85)); }
+@keyframes vp-wave { 0% { stroke-width: 2px; stroke-opacity: .7; } 100% { stroke-width: 26px; stroke-opacity: 0; } }
 /* Katman seçici ve gösterge */
 .st-key-layer_bar [data-testid="stButtonGroup"] { background: rgba(28,25,23,.62); backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px); border: 1px solid var(--line-strong); border-radius: 999px; padding: 3px; }
@@ -3271,10 +3321,11 @@ def layer_label(key: str, short: bool = False) -> str:
 #  10 şehir basınç noktaları · 11 sürekli termal yüzey (choropleth; Plotly onu her zaman noktaların altına çizer)
 # Termalde 3 (nokta alanı) ve 5 (nabız halkaları) kapalıdır; yerlerini 11'deki sürekli yüzey alır.
 LAYER_VISIBILITY = {
-    "classic": [True, True, True, False, False, False, False, False, False, False, False, False, False, False],
-    "thermal": [True, True, False, False, True, False, False, False, False, False, False, True, False, False],
-    "wind":    [True, True, False, True, False, False, True, True, True, True, True, False, False, False],
-    "trend":   [True, True, False, False, False, False, False, False, False, False, False, False, False, True],
+    "classic": [True, True, True, False, False, False, False, False, False, False, False, False, False, False, False],
+    "thermal": [True, True, False, False, True, False, False, False, False, False, False, True, False, False, False],
+    # Basınç: ayrık bulanık noktalar (iz 3) yerine sürekli basınç yüzeyi (iz 14)
+    "wind":    [True, True, False, False, False, False, True, True, True, True, True, False, False, False, True],
+    "trend":   [True, True, False, False, False, False, False, False, False, False, False, False, False, True, False],
 }
 # Termal skala (meteorolojik gelenek): soğuk sapma mavi → camgöbeği → yeşil → sarı → turuncu → kırmızı (sıcak sapma)
 THERMAL_STOPS = ((0.0, "#1e40af"), (0.2, "#0ea5e9"), (0.4, "#4ade80"), (0.55, "#facc15"),
@@ -3347,7 +3398,7 @@ def globe_figure() -> go.Figure:
     fig.add_trace(go.Scattergeo(  # 9 · A/Y basınç merkezleri (CSS ile yayılan dalga halkası)
         lon=[0], lat=[0], mode="markers+text", text=[""], textposition="middle center",
         textfont={"family": "Space Grotesk, Inter, sans-serif", "size": 15, "color": "#fff7ed"},
-        marker={"size": 30, "color": "rgba(12,10,9,0.35)", "line": {"color": ["#dc2626"], "width": 1.6}},
+        marker={"size": 30, "color": "rgba(12,10,9,0.22)", "line": {"color": ["#dc2626"], "width": 1.2}},
         hovertext=[""], hovertemplate="%{hovertext}<extra></extra>", showlegend=False, visible=False))
     fig.add_trace(go.Scattergeo(  # 10 · şehir basınç noktaları (tıklanabilir)
         lon=lons, lat=lats, mode="markers", visible=False, hovertext=pin_hover,
@@ -3367,6 +3418,10 @@ def globe_figure() -> go.Figure:
         lon=[None], lat=[None], mode="markers", hovertext=[""], hovertemplate="%{hovertext}<extra></extra>",
         marker={"size": 8, "color": ["#f97316"], "line": {"color": "rgba(12,10,9,0.7)", "width": 0.6}},
         selected={"marker": {"opacity": 1}}, unselected={"marker": {"opacity": 1}}, showlegend=False, visible=False))
+    fig.add_trace(go.Choropleth(  # 14 · sürekli basınç yüzeyi (hava kütleleri; bant geometrisi denetleyiciden gelir)
+        geojson={"type": "FeatureCollection", "features": []}, featureidkey="id", locations=[], z=[],
+        colorscale=[[p, c] for p, c in PRESSURE_FIELD_STOPS], zmin=975, zmax=1035, showscale=False,
+        marker={"line": {"width": 0}}, hoverinfo="skip", showlegend=False, visible=False))
     fig.update_geos(
         projection_type="orthographic",
         projection_rotation={"lon": INTRO_CAMERA["lon"], "lat": INTRO_CAMERA["lat"], "roll": 0},
@@ -3623,12 +3678,14 @@ GLOBE_CONTROLLER_JS = """
   // yönündedir: d3-geo ters yönlü halkayı kürenin geri kalanı olarak yorumlar. Veri ±75° ile sınırlı olduğundan
   // son 12°'lik kuşakta opaklık sıfıra iner (sert kenar olmasın).
   const T_BANDS = 48, T_OPACITY = 0.85, T_FADE = 12;
-  const tBand = v => Math.max(0, Math.min(T_BANDS - 1, Math.floor((v + 8) / 16 * T_BANDS)));
-  function thermalBands(z, g) {
+  // Bant sınırları [lo, hi]: termal sapma −8…+8 °C; basınç yüzeyi (iz 14) 975…1035 hPa
+  function thermalBands(z, g, lo, hi, alpha) {
+    lo = (lo === undefined) ? -8 : lo; hi = (hi === undefined) ? 8 : hi; alpha = alpha || T_OPACITY;
+    const tBand = v => Math.max(0, Math.min(T_BANDS - 1, Math.floor((v - lo) / (hi - lo) * T_BANDS)));
     const groups = {};
     for (let r = 0; r < g.rows; r++) {
       const la0 = g.lat0 + r * g.cell, la1 = la0 + g.cell, mid = la0 + g.cell / 2;
-      const op = Math.round(100 * T_OPACITY * Math.max(0, Math.min(1, (75 - Math.abs(mid)) / T_FADE))) / 100;
+      const op = Math.round(100 * alpha * Math.max(0, Math.min(1, (75 - Math.abs(mid)) / T_FADE))) / 100;
       if (op <= 0) continue;
       let c = 0;
       while (c < g.cols) {
@@ -3649,7 +3706,7 @@ GLOBE_CONTROLLER_JS = """
       const G = groups[key];
       features.push({type: "Feature", id: key, properties: {}, geometry: {type: "MultiPolygon", coordinates: G.polys}});
       ids.push(key);
-      zs.push(-8 + (G.b + 0.5) * 16 / T_BANDS);
+      zs.push(lo + (G.b + 0.5) * (hi - lo) / T_BANDS);
       ops.push(G.op);
     });
     return {geojson: {type: "FeatureCollection", features: features}, ids: ids, z: zs, op: ops};
@@ -3670,6 +3727,11 @@ GLOBE_CONTROLLER_JS = """
     if (f.z && f.zgrid) {
       const tb = thermalBands(f.z, f.zgrid);
       await P().restyle(gd, {geojson: [tb.geojson], locations: [tb.ids], z: [tb.z], "marker.opacity": [tb.op]}, [11]);
+    }
+    // Sürekli basınç yüzeyi (iz 14): termal yüzeyle aynı hücre ve bant yöntemi; ayrık bulanık noktaların yerine
+    if (f.pz && f.zgrid && gd.data.length > 14) {
+      const pb = thermalBands(f.pz, f.zgrid, 975, 1035, 0.78);
+      await P().restyle(gd, {geojson: [pb.geojson], locations: [pb.ids], z: [pb.z], "marker.opacity": [pb.op]}, [14]);
     }
     gd.__vpFieldScale = null;
   }

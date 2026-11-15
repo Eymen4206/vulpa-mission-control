@@ -1833,6 +1833,47 @@ class AssistantError(Exception):
     """Groq çağrısı başarısız olduğunda yerel yedeğe geçmek için kullanılır."""
 
 
+class GroqDailyQuota(AssistantError):
+    """F5 · Modelin GÜNLÜK kotası (tokens/requests per day) doldu: yeniden denemek anlamsız; model `wait` saniye atlanır."""
+
+    def __init__(self, msg: str, wait: float | None):
+        super().__init__(msg)
+        self.wait = wait
+
+
+_RETRY_IN = re.compile(r"try again in\s*(?:(\d+)h)?\s*(?:(\d+)m(?!s))?\s*(?:([\d.]+)s)?", re.I)
+
+
+def groq_limit(resp) -> tuple[str, float | None]:
+    """429 yanıtının türü ve bekleme süresi: ("day" | "minute", saniye ya da None).
+
+    Groq gövdesi: "Rate limit reached for model … on tokens per day (TPD): Limit 200000 … Please try again in 11m51s".
+    Süre önce iletiden, yoksa `retry-after` başlığından okunur."""
+    try:
+        msg = str(((resp.json() or {}).get("error") or {}).get("message") or "")
+    except Exception:
+        msg = ""
+    low = msg.lower()
+    kind = "day" if ("per day" in low or "(tpd)" in low or "(rpd)" in low) else "minute"
+    wait = None
+    m = _RETRY_IN.search(msg)
+    if m and any(m.groups()):
+        wait = int(m[1] or 0) * 3600 + int(m[2] or 0) * 60 + float(m[3] or 0)
+    if wait is None:
+        try:
+            wait = float(str(resp.headers.get("retry-after", "")).rstrip("s"))
+        except ValueError:
+            wait = None
+    return kind, wait
+
+
+@st.cache_resource
+def groq_skip() -> dict[str, float]:
+    """Günlük kotası dolan modeller → hangi zamana (epoch sn) dek atlanacağı. Kota API anahtarına bağlı olduğu için
+    oturumlar arasında ortaktır (her ziyaretçi aynı modeli tekrar tekrar denemesin)."""
+    return {}
+
+
 def groq_stream(messages: list[dict], api_key: str, model: str) -> Iterator[str]:
     """Groq'un OpenAI uyumlu sohbet uç noktasından akış hâlinde yanıt üretir."""
     payload = {"model": model, "messages": messages, "temperature": 0.3,
@@ -1845,16 +1886,17 @@ def groq_stream(messages: list[dict], api_key: str, model: str) -> Iterator[str]
                                  json=payload, stream=True, timeout=(10, 60))
         except requests.RequestException as exc:
             raise AssistantError(L("bağlantı kurulamadı", "could not connect") + f" ({exc.__class__.__name__})") from exc
-        if resp.status_code != 429 or attempt == 2:
+        if resp.status_code != 429:
             break
-        # Dakikalık sınır (genel tarama 1): sunucunun önerdiği kadar (1,5–8 sn) bekleyip bir kez yeniden dene;
-        # önceden doğrudan yerel motora düşülüyor, yerel yanıt soruyla örtüşmeyebiliyordu.
-        try:
-            wait = float(str(resp.headers.get("retry-after", "3")).rstrip("s"))
-        except ValueError:
-            wait = 3.0
+        kind, wait = groq_limit(resp)
         resp.close()
-        time.sleep(min(8.0, max(1.5, wait)))
+        if kind == "day":   # F5: günlük kota — bekleme ve yeniden deneme yok, çağıran yedek modele geçer
+            raise GroqDailyQuota(L("günlük kota doldu", "daily quota reached"), wait)
+        # Dakikalık sınır (genel tarama 1): kısa bekleme (≤ 8 sn) ve bir kez yeniden deneme; daha uzunsa beklemeden
+        # yedek modele geçilir (önceden 11 dk'lık sürede bile 8 sn bekleniyordu).
+        if attempt == 2 or (wait is not None and wait > 8):
+            raise AssistantError(L("dakikalık istek sınırı aşıldı", "per-minute request limit reached"))
+        time.sleep(max(1.5, wait if wait is not None else 3.0))
     if resp.status_code != 200:   # neden metni arayüz dilinde (EN'de Türkçe kalıyordu)
         friendly = {401: L("API anahtarı geçersiz", "invalid API key"), 403: L("erişim reddedildi", "access denied"),
                     404: L("model bulunamadı", "model not found"),
@@ -2215,11 +2257,23 @@ def answer(question: str, city: str, history: list[dict], navigated: bool) -> tu
         pt = st.session_state.get("point") if pctx else None
         q = (f"[Seçili nokta: {pt['lat']:.2f}°, {pt['lon']:.2f}° · bölge değil] {question}" if pt else question)
         messages.append({"role": "user", "content": q})
+        skip, quota = groq_skip(), ""
         for candidate in dict.fromkeys([model, GROQ_FALLBACK_MODEL]):
+            if skip.get(candidate, 0) > time.time():   # F5: günlük kotası dolu model bu süre boyunca hiç denenmez
+                quota = note = L("günlük kota doldu", "daily quota reached")
+                continue
             try:
                 text = st.write_stream(drop_nav_echo(groq_stream(messages, key, candidate)))
                 if isinstance(text, str) and text.strip():
-                    return text, f"Groq · {candidate}"
+                    label = f"Groq · {candidate}"
+                    if quota and candidate != model:
+                        label += L(" · ana modelin günlük kotası doldu, yedek model kullanılıyor",
+                                   " · main model's daily quota reached, using fallback model")
+                    return text, label
+            except GroqDailyQuota as exc:
+                # Süre bilinmiyorsa 15 dk; en fazla 24 sa (Groq'un günlük penceresi kayan pencere)
+                skip[candidate] = time.time() + min(24 * 3600, exc.wait if exc.wait else 900)
+                quota = note = str(exc)
             except AssistantError as exc:
                 note = str(exc)
             except requests.RequestException as exc:

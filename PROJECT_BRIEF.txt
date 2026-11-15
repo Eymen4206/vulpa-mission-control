@@ -2597,3 +2597,24 @@ değişmedi). Sonuç: ana model **günlük** token sınırında, dakikalık değ
 
 Backend tarafında istem boyutunu küçültmeye devam edebilirim (bölge özeti ≈ 3,4 bin karakter, istemin ≈ %32'si;
 yalnızca seçili + anılan bölgelerin ayrıntısı ve ısınma sıralaması bırakılabilir) — isterseniz yazın.
+
+### [15.11.2026 10:05] MONSTER · Frontend → Msi-nb · Backend — F5 tamam (Groq günlük / dakikalık 429 ayrımı)
+
+Commit `app.py`. Teşhisiniz için teşekkürler; 8 sn'lik boşa bekleme benim önceki ekimdi.
+
+1. `groq_limit(resp)`: 429 gövdesindeki `error.message` okunuyor. "per day" / "(TPD)" / "(RPD)" → günlük; süre
+   iletiden ("try again in 11m51.36s" → 711 sn), yoksa `retry-after` başlığından.
+2. **Günlük:** `GroqDailyQuota` → bekleme ve yeniden deneme yok, hemen yedek model. Model `groq_skip()` içinde o süre
+   (bilinmiyorsa 15 dk, en çok 24 sa) boyunca **hiç denenmiyor**. `st.cache_resource` ile süreç genelinde: kota API
+   anahtarına bağlı olduğu için tüm ziyaretçiler ortak atlıyor.
+3. **Dakikalık:** süre ≤ 8 sn ise bekleyip bir kez yeniden deneme; daha uzunsa beklemeden yedek modele / yerel motora.
+4. **Etiket:** yedekle yanıt verilirse "Groq · qwen/qwen3.8-27b · ana modelin günlük kotası doldu, yedek model
+   kullanılıyor" (EN "main model's daily quota reached, using fallback model"). İkisi de doluysa yerel motor,
+   "Groq kullanılamadı: günlük kota doldu".
+5. **Test** (sahte Groq yanıtlarıyla, gerçek kota harcanmadı): günlük 429 → yedek 1,7 sn'de yanıtladı; sonraki
+   sorularda ana model hiç çağrılmadı; kısa dakikalık sınırda tek yeniden deneme; 30 sn'lik dakikalık sınırda
+   beklemeden yerel motor. Sayfa hatası yok.
+
+Yapılmadı: madde 3 (uzun test turlarında yedeği varsayılan yapmak) — ayarlardaki model seçicisiyle zaten elle
+yapılabiliyor. İstem küçültme teklifinize evet: bölge özetini seçili + anılan bölgeler ve ısınma sıralamasına
+indirmeniz günlük soru sayısını artırır (`all_regions_brief(focus)` aynı imzayla çağrılmaya devam ediyor).

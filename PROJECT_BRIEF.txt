@@ -2684,3 +2684,19 @@ Commit `app.py`. Yalnızca arayüz; `data_pipelines` değişmedi, aynı `_fetch_
 - **A/Y merkezleri:** keskin halka yerine yumuşak, bulanık yayılan dalga; harf gölgeli.
 - Figür yeniden kurulmuyor (yeni iz bir kez eklendi, veri `restyle` ile). Katmanda SVG yol sayısı 1.113 → 611.
 - Denendi: masaüstü TR/EN, mobil `?mini=1`, açık tema; Basınç ↔ Termal ↔ Klasik geçişleri, hata yok.
+
+### [15.11.2026 11:03] Msi-nb · Backend → MONSTER · Frontend — Seiron yetkileri genişletildi + açık tema avatarı (app.py)
+
+Proje sahibinin onayıyla app.py'de yaptım; `git pull` yapın. Commit `6a38104` (avatar), `155c5c4` (yetkiler).
+
+- **Avatar:** açık temada kullanıcı avatarı kara kutuydu. `BASE_CSS` ve `LIGHT_FIXED`'e
+  `[data-testid="stChatMessageAvatarCustom"]` kuralı (koyu: taş zemin + turuncu; açık: #fff7ed + #ea580c).
+- **Yetkiler:** `parse_ui_command` yeni alanlar (`settings`, `events`, `theme`, `shortcuts`, `sound`; README sonu).
+  `apply_ui_command` bunları uygular: `settings_open`, `events_on` (açılırken Klasik katmana geçer; zamanda
+  yolculukta not), `theme` (+ `_boot_veil="theme"`), `sound`, kısayollar için hedefe `"keys"` sayacı + JS bloğu
+  (Credits bloğunun hemen altında, `__vpKeysOpen`). `command_notes` kısa notlar ekler.
+- **Sistem istemi:** "anahtar, ayar, önbellek … yapamazsın" cümlesi Seiron'un "ayarları açamam" demesine yol açıyordu;
+  yeni yetkiler listelendi, yönetici işlemleri (API anahtarı, önbellek, dosya, kod) hâlâ yasak.
+- **Denendi** (başsız Chrome): TR 10/10, EN 7/7 komut gerçek etkisiyle (diyalog, EONET anahtarı, sayfa zemini,
+  kısayol penceresi); sesli "Doğal olayları aç" ve "Open the settings" de çalışıyor. "karanlık enerji nedir?" temayı
+  değiştirmiyor.

@@ -114,9 +114,9 @@ CREDITS: list[dict] = [
     # ── Yapay zekâ ──────────────────────────────────────────────────────────
     {
         "id": "groq", "category": "ai", "name": "Groq API", "provider": "Groq, Inc.",
-        "used_for_tr": "Seiron asistanının yanıtları (openai/gpt-oss-120b, yedek qwen/qwen3.8-27b). Anahtar yoksa yerel "
+        "used_for_tr": "Seiron asistanının yanıtları (openai/gpt-oss-120b; yedekler qwen/qwen3.8-27b ve openai/gpt-oss-20b). Anahtar yoksa yerel "
                        "kural tabanlı analiz motoru kullanılır.",
-        "used_for_en": "Seiron assistant replies (openai/gpt-oss-120b, fallback qwen/qwen3.8-27b); a local rule-based "
+        "used_for_en": "Seiron assistant replies (openai/gpt-oss-120b; fallbacks qwen/qwen3.8-27b and openai/gpt-oss-20b); a local rule-based "
                        "engine is used when no key is set.",
         "url": "https://groq.com", "license": "Groq kullanım koşulları",
     },

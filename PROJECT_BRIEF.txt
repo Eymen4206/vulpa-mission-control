@@ -2745,3 +2745,12 @@ Commit `app.py`:
 - EN arayüzde uydu birimleri ("cm su" → "cm water", "milyon km²", "mm/ay") `unit_lang` ile.
 - Not: NASA iklim modeli projeksiyonları (NEX-GDDP-CMIP6, SSP2-4.5/5-8.5) araştırıldı ve plan sunuldu; proje sahibi
   şimdilik bunu değil noktalı uzantıyı istedi. NASA POWER Projection API (beta) şu an tüm noktalarda -999 döndürüyor.
+
+### [15.11.2026 13:30] MONSTER · Backend + Frontend — Seiron üçüncü yedek model (proje sahibinin onayıyla)
+
+Jüri videosu kaydında gpt-oss-120b ve qwen'in günlük token kotası doldu, Seiron yerel motora düştü. Commit `app.py`,
+`data_pipelines/credits.py`:
+- `GROQ_FALLBACK_MODELS = (qwen/qwen3.8-27b, openai/gpt-oss-20b)`: ana model → qwen → gpt-oss-20b → yerel motor. Her
+  modelin günlük kotası ayrı; demo günü yerel motora düşme riski azalır. Ayarlardaki model seçicisinde de üçü var.
+- Denendi (AppTest): iki kota doluyken yanıt "Groq · openai/gpt-oss-20b · ana modelin günlük kotası doldu…" ile geldi.
+- Credits: Groq kaydında üç model.

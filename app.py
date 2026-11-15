@@ -2366,7 +2366,7 @@ def answer(question: str, city: str, history: list[dict], navigated: bool) -> tu
         q = (f"[Seçili nokta: {pt['lat']:.2f}°, {pt['lon']:.2f}° · bölge değil] {question}" if pt else question)
         messages.append({"role": "user", "content": q})
         skip, quota = groq_skip(), ""
-        for candidate in dict.fromkeys([model, GROQ_FALLBACK_MODEL]):
+        for candidate in dict.fromkeys([model, *GROQ_FALLBACK_MODELS]):
             if skip.get(candidate, 0) > time.time():   # F5: günlük kotası dolu model bu süre boyunca hiç denenmez
                 quota = note = L("günlük kota doldu", "daily quota reached")
                 continue
@@ -4728,9 +4728,9 @@ def _settings_body() -> None:
                L("Anahtar yok; Seiron yerel analiz motoruyla yanıt verir.",
                  "No key; Seiron answers with the local analysis engine."))
     st.markdown(f"<div class='set-lbl'>{L('Model', 'Model')}</div>", unsafe_allow_html=True)
-    if st.session_state.get("groq_model") not in (GROQ_MODEL, GROQ_FALLBACK_MODEL):
+    if st.session_state.get("groq_model") not in (GROQ_MODEL, *GROQ_FALLBACK_MODELS):
         st.session_state["groq_model"] = GROQ_MODEL
-    bound(st.selectbox, "groq_model", label="Model", options=[GROQ_MODEL, GROQ_FALLBACK_MODEL],
+    bound(st.selectbox, "groq_model", label="Model", options=[GROQ_MODEL, *GROQ_FALLBACK_MODELS],
           label_visibility="collapsed")
 
     st.markdown(f"<div class='set-sec'>{L('Hakkında', 'About')}</div>", unsafe_allow_html=True)
@@ -6826,6 +6826,8 @@ def narrow_screen_redirect() -> None:
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = "openai/gpt-oss-120b"
 GROQ_FALLBACK_MODEL = "qwen/qwen3.8-27b"
+# Yedek zinciri: her modelin günlük token kotası ayrı; ikisi dolarsa üçüncüsü (demo günü yerel motora düşmesin)
+GROQ_FALLBACK_MODELS = (GROQ_FALLBACK_MODEL, "openai/gpt-oss-20b")
 
 if __name__ == "__main__":
     main()

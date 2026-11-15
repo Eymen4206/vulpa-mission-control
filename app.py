@@ -33,6 +33,7 @@ import os
 import re
 import socket
 import sys
+import time
 from dataclasses import dataclass
 from typing import Iterator
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -761,15 +762,19 @@ WX_SRC_EN = (("sene ortalaması", "year average"), ("sapma: 1991–2020 normalin
 
 
 def wx_source(wx: dict) -> str:
-    """Hava verisinin kaynak satırı, seçili dilde (Backend `source_en` verirse o kullanılır)."""
+    """Hava verisinin kaynak satırı, seçili dilde (Backend `source_en` verirse o kullanılır).
+
+    Aynı kavrama tek ad (genel tarama 3): kartta "30 gün sapması / 30-day dev." yazdığı için kaynak satırında da
+    "anomali" yerine "sapma", "anomaly" yerine "deviation" kullanılır."""
     if lang() != "en":
-        return wx.get("source", "")
+        return wx.get("source", "").replace("anomali", "sapma").replace("Anomali", "Sapma")
     if wx.get("source_en"):
-        return wx["source_en"]
-    text = wx.get("source", "")
-    for tr, en in WX_SRC_EN:
-        text = text.replace(tr, en).replace(tr.capitalize(), en.capitalize())
-    return text
+        text = wx["source_en"]
+    else:
+        text = wx.get("source", "")
+        for tr, en in WX_SRC_EN:
+            text = text.replace(tr, en).replace(tr.capitalize(), en.capitalize())
+    return text.replace("anomaly", "deviation").replace("Anomaly", "Deviation")
 
 
 def rname(name: str) -> str:
@@ -832,7 +837,7 @@ def format_p(p: float) -> str:
 
 
 def p_phrase(p: float) -> str:
-    return "p < 1e-16" if p < 1e-16 else f"p = {format_p(p)}"
+    return "p < 1e-16" if p < 1e-16 else f"p = {dec(format_p(p))}"
 
 
 def dec(text: str) -> str:
@@ -959,10 +964,10 @@ def weather_sentence(city: str) -> str:
                    f"wind from the {compass(w['wind_dir'])} at {w['wind']:.0f} km/h"))
     extra.append(L(f"deniz seviyesi basıncı {w['pressure']:.0f} hPa", f"sea-level pressure {w['pressure']:.0f} hPa"))
     if w["anomaly"] is not None:
-        extra.append(f"{anomaly_lower(meta.get('anomaly_kind'))} {w['anomaly']:+.1f} °C")
+        extra.append(f"{anomaly_lower(meta.get('anomaly_kind'))} {dec(f"{w['anomaly']:+.1f}")} °C")
     kind = L("arşiv hava verisi" if hist else "anlık hava durumu", "archive weather" if hist else "current weather")
     return (L(f"{name} için {kind}", f"{kind.capitalize()} for {name}")
-            + f" ({meta['provider']}, {when_text(meta)}): {wlabel(w).lower()}, {w['temp']:.1f} °C, "
+            + f" ({meta['provider']}, {when_text(meta)}): {wlabel(w).lower()}, {dec(f"{w['temp']:.1f}")} °C, "
             + ", ".join(extra) + ".")
 
 
@@ -993,7 +998,7 @@ def power_sentence(city: str) -> str:
                 f"{pw['last_t']:.1f} °C ({pw['last_dev']:+.2f} °C vs the period mean). Mean annual precipitation "
                 f"{pw['prec_mean']:.0f} mm, trend {pw['p_dec']:+.0f} mm/yr per decade ({pw['p_dec_pct']:+.1f} %, "
                 f"{p_phrase(pw['p_p'])}).")
-    return (f"{pw['source']}: {name} yıllık ortalama sıcaklığı {pw['t_mean']:.1f} °C; mevsimsel Mann-Kendall'a göre "
+    return dec(f"{pw['source']}: {name} yıllık ortalama sıcaklığı {pw['t_mean']:.1f} °C; mevsimsel Mann-Kendall'a göre "
             f"sıcaklık eğilimi {pw['t_dec']:+.2f} °C/10 yıl ({p_phrase(pw['t_p'])}, "
             f"{'istatistiksel olarak anlamlı' if sig else 'istatistiksel olarak anlamlı değil'}); son 5 yılın "
             f"ortalaması ilk 5 yıla göre {pw['shift']:+.2f} °C; en sıcak yıl {pw['warmest']}. {pw['y1']} yılında "
@@ -1767,8 +1772,25 @@ def all_regions_brief(focus: tuple[str, ...] = ()) -> str:
     return "; ".join(rows)
 
 
+def layers_prompt() -> str:
+    """Sistem istemindeki katman açıklaması: yalnızca etkin katmanın tam tanımı, diğerleri tek satır (genel tarama 1:
+    istem kısalır, Groq dakikalık sınırı geç dolar). Kullanıcı başka katmanı sorarsa model kısa genel bilgi verir."""
+    active = st.session_state.get("layer", "classic")
+    desc = {
+        "classic": f"""- Klasik Görünüm: şehir pinleri, bölgesel tema serisinin uzun dönemli (2000–2024, gerçek gözlem) eğilim durumuna göre renklendirilir.""",
+        "thermal": f"""- Termal Analiz: sıcaklık sapması (°C); şu an: {anomaly_phrase(fetch_grid().get('anomaly_kind'))}. Normalde önceki 30 güne göre sapma (Open-Meteo); Open-Meteo kapalıyken iklim normaline göre sapma (NASA POWER); Sene Ortalaması seçiliyken 1991–2020 normaline göre yıllık sapma. 15°'lik küresel ızgara 3°'lik hücrelere kübik ara değerlenerek sürekli, renk geçişli bir yüzey olarak çizilir; bir bölge seçiliyken yüzey gizlenir, Boşluk tuşuyla geri gelir. Renk skalası: koyu mavi (≤ −8 °C, soğuk sapma) → camgöbeği → yeşil → sarı (≈ 0) → turuncu → kırmızı (≥ +8 °C, sıcak sapma). Sapma verisi alınamazsa yüzey gösterilmez. Anlık alanlar Meteomatics'ten gelir ve 30 dakikada bir yenilenir.""",
+        "wind": f"""- Basınç & Hava Dalgası: 15°'lik küresel ızgaradaki deniz seviyesi basıncından hesaplanan 4 hPa aralıklı izobarlar (üzerlerinde yavaşça akan dalga deseni), ızgara noktalarında rüzgârın AKTIĞI yönü gösteren akan vektörler ve oklar (uzunluk hızla orantılı), ayrıca yerel en düşük/en yüksek basınç noktalarında A (alçak, < 1008 hPa) ve Y (yüksek, > 1018 hPa) merkezleri ve etraflarında yayılan dalga halkaları. Bölge noktaları basınca göre renklenir (kırmızı alçak → gri → krem yüksek). Kaynak: Meteomatics API (msl_pressure, wind_speed_10m, wind_dir_10m), 30 dakikada bir yenilenir. Izgara 15° olduğu için küçük ölçekli sistemler görünmez; bu bir sinoptik ölçek özetidir.""",
+        "trend": "- Trend Haritası: 264 noktalık 15° ızgarada seçilen değişkenin on yıllık değişimi (Mann-Kendall + Sen); "
+                 "iri ve dolu nokta anlamlı (p < 0,05), küçük ve soluk nokta anlamsız. Aynı değişken bölgeye göre zıt "
+                 "yönde değişebilir. Değişken haritanın altındaki seçiciden değiştirilir.",
+    }
+    others = ", ".join(LAYERS[k] for k in LAYERS if k != active)
+    return desc.get(active, desc["classic"]) + f"\nDiğer katmanlar: {others} (ayrıntıları yalnızca sorulursa kısaca anlat)."
+
+
 def system_prompt(city: str, mentioned: list[str]) -> str:
     extra = "\n".join(weather_sentence(c) for c in mentioned if c != city)
+    layers_text = layers_prompt()
     return f"""Sen {ASSISTANT}'sın: {PLATFORM} platformunun (Earth System Trend Detective) iklim ve coğrafi trend analizi uzmanı. Platform, NASA Space Apps Challenge 2026 için geliştirilmiş; {len(CITY_NAMES)} bölgede yer sistemi değişkenlerinin uzun dönemli eğilimlerini mevsimsel Mann-Kendall testi ve Sen eğilimiyle inceleyen bir görev kontrol panelidir.
 
 KAPSAM:
@@ -1786,9 +1808,7 @@ KAPSAM:
 - Matematiksel ifadeler için LaTeX veya dolar işareti kullanma.
 
 HARİTA KATMANLARI (yalnızca bu tanımları kullan; uydu görüntüsü YOKTUR):
-- Klasik Görünüm: şehir pinleri, bölgesel tema serisinin uzun dönemli (2000–2024, gerçek gözlem) eğilim durumuna göre renklendirilir.
-- Termal Analiz: sıcaklık sapması (°C); şu an: {anomaly_phrase(fetch_grid().get('anomaly_kind'))}. Normalde önceki 30 güne göre sapma (Open-Meteo); Open-Meteo kapalıyken iklim normaline göre sapma (NASA POWER); Sene Ortalaması seçiliyken 1991–2020 normaline göre yıllık sapma. 15°'lik küresel ızgara 3°'lik hücrelere kübik ara değerlenerek sürekli, renk geçişli bir yüzey olarak çizilir; bir bölge seçiliyken yüzey gizlenir, Boşluk tuşuyla geri gelir. Renk skalası: koyu mavi (≤ −8 °C, soğuk sapma) → camgöbeği → yeşil → sarı (≈ 0) → turuncu → kırmızı (≥ +8 °C, sıcak sapma). Sapma verisi alınamazsa yüzey gösterilmez. Anlık alanlar Meteomatics'ten gelir ve 30 dakikada bir yenilenir.
-- Basınç & Hava Dalgası: 15°'lik küresel ızgaradaki deniz seviyesi basıncından hesaplanan 4 hPa aralıklı izobarlar (üzerlerinde yavaşça akan dalga deseni), ızgara noktalarında rüzgârın AKTIĞI yönü gösteren akan vektörler ve oklar (uzunluk hızla orantılı), ayrıca yerel en düşük/en yüksek basınç noktalarında A (alçak, < 1008 hPa) ve Y (yüksek, > 1018 hPa) merkezleri ve etraflarında yayılan dalga halkaları. Bölge noktaları basınca göre renklenir (kırmızı alçak → gri → krem yüksek). Kaynak: Meteomatics API (msl_pressure, wind_speed_10m, wind_dir_10m), 30 dakikada bir yenilenir. Izgara 15° olduğu için küçük ölçekli sistemler görünmez; bu bir sinoptik ölçek özetidir.
+{layers_text}
 Şu an etkin katman: {LAYERS[st.session_state.get("layer", "classic")]}
 ZAMAN: {"Kullanıcı " + sel_date_text() + " tarihine (12:00 UTC) zamanda yolculuk yaptı; hava değerleri o güne ait arşiv verisidir, NASA POWER trendi " + str(power_window()[0]) + "–" + str(power_window()[1]) + " dönemini kapsar. Bunu yanıtlarında belirt." if sel_year() else "Canlı (güncel) veriler gösteriliyor."}
 {layer_summary(st.session_state.get("layer", "classic"))}
@@ -1819,11 +1839,22 @@ def groq_stream(messages: list[dict], api_key: str, model: str) -> Iterator[str]
                "max_completion_tokens": 700, "stream": True}
     if model.startswith("openai/gpt-oss"):
         payload["reasoning_effort"] = "low"
-    try:
-        resp = requests.post(GROQ_URL, headers={"Authorization": f"Bearer {api_key}"},
-                             json=payload, stream=True, timeout=(10, 60))
-    except requests.RequestException as exc:
-        raise AssistantError(L("bağlantı kurulamadı", "could not connect") + f" ({exc.__class__.__name__})") from exc
+    for attempt in (1, 2):
+        try:
+            resp = requests.post(GROQ_URL, headers={"Authorization": f"Bearer {api_key}"},
+                                 json=payload, stream=True, timeout=(10, 60))
+        except requests.RequestException as exc:
+            raise AssistantError(L("bağlantı kurulamadı", "could not connect") + f" ({exc.__class__.__name__})") from exc
+        if resp.status_code != 429 or attempt == 2:
+            break
+        # Dakikalık sınır (genel tarama 1): sunucunun önerdiği kadar (1,5–8 sn) bekleyip bir kez yeniden dene;
+        # önceden doğrudan yerel motora düşülüyor, yerel yanıt soruyla örtüşmeyebiliyordu.
+        try:
+            wait = float(str(resp.headers.get("retry-after", "3")).rstrip("s"))
+        except ValueError:
+            wait = 3.0
+        resp.close()
+        time.sleep(min(8.0, max(1.5, wait)))
     if resp.status_code != 200:   # neden metni arayüz dilinde (EN'de Türkçe kalıyordu)
         friendly = {401: L("API anahtarı geçersiz", "invalid API key"), 403: L("erişim reddedildi", "access denied"),
                     404: L("model bulunamadı", "model not found"),
@@ -2095,7 +2126,7 @@ def layer_summary(layer: str) -> str:
             what = anomaly_lower(wx.get("anomaly_kind"))
             return L(f"Termal analiz katmanı açık. Küre, sıcaklık sapmasını ({what}) gösteren sürekli, renk geçişli "
                      f"bir yüzeyle kaplandı (mavi soğuk, kırmızı sıcak sapma). En sıcak sapma **{rname(hot)}** "
-                     f"({ha:+.1f} °C), en soğuk sapma **{rname(cold)}** ({ca:+.1f} °C). Kaynak: {src}.",
+                     f"({dec(f'{ha:+.1f}')} °C), en soğuk sapma **{rname(cold)}** ({dec(f'{ca:+.1f}')} °C). Kaynak: {src}.",
                      f"Thermal analysis layer is on. The globe is covered by a continuous colour-graded surface showing "
                      f"the temperature deviation ({what}; blue cold, red warm). Warmest deviation **{rname(hot)}** "
                      f"({ha:+.1f} °C), coldest **{rname(cold)}** ({ca:+.1f} °C). Source: {src}.")
@@ -2873,7 +2904,7 @@ MOBILE_CSS = """
 /* Küre sekmesi */
 .st-key-globe_panel { position: relative; background: var(--glass); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
 /* Küre yüksekliği ekrana göre: telefonda ~ekran genişliği, uzun ekranlarda en fazla görünür yüksekliğin %62'si */
-div:has(> .st-key-globe_panel), .st-key-globe_panel { height: clamp(300px, min(110vw, 62vh), 640px) !important; flex: none !important; }
+div:has(> .st-key-globe_panel), .st-key-globe_panel { height: clamp(300px, min(calc(100vw - 26px), 62vh), 640px) !important; flex: none !important; }
 .st-key-globe_panel [data-testid="stElementContainer"]:has(> .stPlotlyChart), .st-key-globe_panel .stPlotlyChart,
 .st-key-globe_panel [data-testid="stPlotlyChart"] { height: 100% !important; width: 100% !important; }
 div:has(> .stHtml .globe-ctl), .stHtml:has(.globe-ctl) { position: static !important; }
@@ -3164,7 +3195,7 @@ def globe_figure() -> go.Figure:
         lon=[first.lon], lat=[first.lat], mode="markers", hoverinfo="skip", showlegend=False,
         marker={"size": 32, "color": "rgba(249,115,22,0.12)", "line": {"color": "rgba(253,186,116,0.95)", "width": 1.4}}))
     fig.add_trace(go.Scattergeo(  # 1 · seçili bölge etiketi
-        lon=[first.lon], lat=[first.lat], mode="text", text=[first.name], textposition="top center",
+        lon=[first.lon], lat=[first.lat], mode="text", text=[sel_label(first.name)], textposition="top center",
         textfont={"family": "Inter, sans-serif", "size": 12, "color": "#fff7ed"}, hoverinfo="skip", showlegend=False))
     fig.add_trace(go.Scattergeo(  # 2 · klasik pinler
         lon=lons, lat=lats, mode="markers", hovertext=pin_hover, hovertemplate="%{hovertext}<extra></extra>",
@@ -3257,9 +3288,9 @@ def layer_payload() -> dict:
         t_size.append(round(8 + min(abs(anom), 10) * 1.0, 1))
         ring_size.append(round(20 + min(abs(anom), 10) * 2.2, 1))
         ring_fill.append(f"rgba({int(col[1:3], 16)},{int(col[3:5], 16)},{int(col[5:7], 16)},0.16)")
-        anom_txt = f"{w['anomaly']:+.1f} °C" if w["anomaly"] is not None else L("veri yok", "no data")
+        anom_txt = f"{dec(f"{w['anomaly']:+.1f}")} °C" if w["anomaly"] is not None else L("veri yok", "no data")
         stamp = f"<br><i>{wx['time']} UTC</i>" if hist else ""
-        t_hover.append(f"<b>{rname(name)}</b><br>{w['temp']:.1f} °C · {wlabel(w)}<br>"
+        t_hover.append(f"<b>{rname(name)}</b><br>{dec(f"{w['temp']:.1f}")} °C · {wlabel(w)}<br>"
                        + anomaly_phrase(wx.get("anomaly_kind")) + ": " + anom_txt + stamp)
         p_color.append(blend(PRESSURE_STOPS, (w["pressure"] - 990) / 45))
         p_hover.append(f"<b>{rname(name)}</b><br>{w['pressure']:.0f} hPa<br>"
@@ -3530,7 +3561,7 @@ GLOBE_CONTROLLER_JS = """
   async function applySelection(gd, T) {
     const sizes = Array.from({length: T.count}, (_, i) => i === T.index ? 14 : 8);
     await P().restyle(gd, {lon: [[T.lon0]], lat: [[T.lat0]]}, [0]);
-    await P().restyle(gd, {lon: [[T.lon0]], lat: [[T.lat0]], text: [[T.name]]}, [1]);
+    await P().restyle(gd, {lon: [[T.lon0]], lat: [[T.lat0]], text: [[T.label || T.name]]}, [1]);
     await P().restyle(gd, {"marker.size": [sizes]}, [2]);
   }
   // Plotly.restyle çalışan bir animasyonu keser. Bu yüzden: yeni bir kamera hedefi her zaman önceliklidir
@@ -3934,6 +3965,19 @@ def events_payload() -> dict | None:
             "symbol": sym, "color": col, "hover": hov, "count": len(events)}
 
 
+def sel_label(name: str) -> str:
+    """Seçili bölge etiketi (iz 1): altına boş bir satır eklenir; "top center" konumunda yazı böylece bir satır yukarıda
+    durur ve 32 px'lik seçim halkasının içinden geçmez (genel tarama 4, masaüstü ve mobil)."""
+    return f"{name}<br> "
+
+
+def latlon_text(lat: float, lon: float, digits: int = 1) -> str:
+    """Koordinat metni: "38,5°K 22,5°D" (TR) / "38.5°N 22.5°E" (EN); nokta paneli başlığında görünenle (data_pipelines
+    describe_point) aynı biçim; küre etiketi ve Seiron notu da bunu kullanır (genel tarama 5)."""
+    return dec(f"{abs(lat):.{digits}f}°{L('K', 'N') if lat >= 0 else L('G', 'S')} "
+               f"{abs(lon):.{digits}f}°{L('D', 'E') if lon >= 0 else L('B', 'W')}")
+
+
 def globe_controller(city: str, cam: dict, layer: str) -> None:
     """Hedefi (şehir, kamera, katman, canlı veri) tarayıcıya iletir; denetleyici mevcut küreye yerinde uygular."""
     spec = REGIONS[city]
@@ -3946,10 +3990,10 @@ def globe_controller(city: str, cam: dict, layer: str) -> None:
     pt = st.session_state.get("point") if FEATURE_POINT else None
     if pt:   # nokta modu: seçili halka/etiket ve kamera noktaya
         target.update({"lon0": pt["lon"], "lat0": pt["lat"], "index": -1,
-                       "name": f"{abs(pt['lat']):.1f}°{L('K', 'N') if pt['lat'] >= 0 else L('G', 'S')} "
-                               f"{abs(pt['lon']):.1f}°{L('D', 'E') if pt['lon'] >= 0 else L('B', 'W')}",
+                       "name": latlon_text(pt["lat"], pt["lon"], 1),
                        "camera": {"lon": pt["lon"], "lat": pt["lat"], "scale": cam["scale"]},
                        "nonce": f"pt|{pt['lat']}|{pt['lon']}|{cam['scale']}|{st.session_state.get('_reset_n', 0)}"})
+    target["label"] = sel_label(target["name"])
     # Streamlit st.html içeriğini DOMPurify ile temizler; metninde "<b>" gibi etiket benzeri parçalar bulunan
     # <script> öğelerini tamamen siler. Bu yüzden JSON içindeki "<" karakterleri < olarak kaçırılır
     # (JavaScript için anlamı aynıdır).
@@ -3970,7 +4014,7 @@ def layer_legend(layer: str) -> str:
     if layer == "thermal":
         ex = weather_extremes()
         hot = ex.get("hottest")
-        span = (L(" · en yüksek sapma: ", " · largest deviation: ") + f"{rname(hot)} {wx['data'][hot]['anomaly']:+.1f} °C"
+        span = (L(" · en yüksek sapma: ", " · largest deviation: ") + f"{rname(hot)} {dec(f"{wx['data'][hot]['anomaly']:+.1f}")} °C"
                 if hot and wx["data"][hot]["anomaly"] is not None else "")
         return (f"<div class='legend-bar'><span>−8 °C</span><i class='lg-thermal'></i><span>+8 °C</span>"
                 f"<em>{anomaly_phrase(fetch_grid().get('anomaly_kind'))}{span} · "
@@ -5160,7 +5204,7 @@ def var_or_point_command(text: str) -> dict | None:
         if ll:
             set_point(*ll)
             return {"matched": True, "notes": [], "ui": chat_icon("my_location") + " "
-                    + L(f"Nokta analizi: **{ll[0]:.2f}°, {ll[1]:.2f}°**.", f"Point analysis: **{ll[0]:.2f}°, {ll[1]:.2f}°**.")}
+                    + L("Nokta analizi: ", "Point analysis: ") + f"**{latlon_text(*ll, 2)}**."}
     if FEATURE_VARIABLES and any(_word_in(q, v) for v in VAR_VERBS):
         for w, key in VAR_WORDS:
             if _word_in(q, w):
@@ -5815,7 +5859,7 @@ def year_extremes_strip() -> str:
         return ""
     def items(rows, off):
         return " ".join(f"<button type='button' class='yx-n' data-click='yx_{off + i}'>{html.escape(rname(r['region']))} "
-                        f"<b>{r['anomaly']:+.1f}</b></button>" for i, r in enumerate(rows))
+                        f"<b>{dec(f"{r['anomaly']:+.1f}")}</b></button>" for i, r in enumerate(rows))
     st.session_state["_yx"] = [r["region"] for r in x["hottest"]] + [r["region"] for r in x["coldest"]]
     w, n = x.get("warmer_regions"), x.get("regions")
     warm_txt = (L(f"{w}/{n} bölge 1991–2020 normalinden sıcak · NASA POWER",
@@ -5849,7 +5893,7 @@ def city_details(city: str) -> None:
     if w["wind"] is not None:
         wx_meta.append(L(f"rüzgâr {w['wind']:.0f} km/sa", f"wind {w['wind']:.0f} km/h"))
     if w.get("anomaly") is not None:
-        wx_meta.append(f"{anomaly_phrase(wx.get('anomaly_kind'), short=True)} {w['anomaly']:+.1f} °C")
+        wx_meta.append(f"{anomaly_phrase(wx.get('anomaly_kind'), short=True)} {dec(f"{w['anomaly']:+.1f}")} °C")
     wx_kind = L("Arşiv hava", "Archive weather") if hist else L("Anlık hava", "Current weather")
     if not wx["live"]:   # kaynaklar düştü: değerler NASA POWER iklim normallerinden (data_pipelines yedeği)
         wx_kind = L("Tahmini (iklim normali)", "Estimated (climate normal)")
@@ -5859,7 +5903,7 @@ def city_details(city: str) -> None:
                        'katmanları şimdilik', 'The year average is being prepared in the data layer. For now, the weather '
                        'and map layers show')} {html.escape(wx['time'][:10])}"
                        f"{L(' gününü gösteriyor. Yıllık ortalama sıcaklık (NASA POWER):', '. Annual mean temperature (NASA POWER):')} "
-                       f"<b>{fetch_power(city)['last_t']:.1f} °C</b></div>")
+                       f"<b>{dec(f"{fetch_power(city)['last_t']:.1f}")} °C</b></div>")
     elif hist and is_annual():
         wx_kind = L("Sene ortalaması", "Year average")
     pw = fetch_power(city)
@@ -5868,8 +5912,8 @@ def city_details(city: str) -> None:
     pw = fetch_power(city)
     pw_sig = L("anlamlı", "significant") if pw["t_p"] < ALPHA else L("anlamsız", "not significant")
     yr = L("yıl", "yr")
-    sel_row = (f"<div class='pw-row'><span>{pw['y1']} {L('yılı ortalaması', 'annual mean')} <b>{pw['last_t']:.1f} °C</b>"
-               f" ({pw['last_dev']:+.2f} °C {L('dönem ortalamasına göre', 'vs period mean')})</span>"
+    sel_row = (f"<div class='pw-row'><span>{pw['y1']} {L('yılı ortalaması', 'annual mean')} <b>{dec(f"{pw['last_t']:.1f}")} °C</b>"
+               f" ({dec(f"{pw['last_dev']:+.2f}")} °C {L('dönem ortalamasına göre', 'vs period mean')})</span>"
                f"<span>{L('Yağış', 'Precip.')} <b>{pw['last_prec']:.0f} mm</b></span></div>") if hist else ""
     # ── Aşama A: bölgede değişken seçimi (varsayılan tema serisi) ──
     cat = {v["key"]: v for v in var_catalog()} if FEATURE_VARIABLES else {}
@@ -5881,7 +5925,7 @@ def city_details(city: str) -> None:
     <div class="city-theme">{html.escape(rtheme(spec))} {chip}</div>
     <div class="badge-row"><div class="badge" style="--c:{c}"><i></i>{status_label(status)}</div>{quality_chip(city, wx, pw)}</div>
     {annual_note}{year_extremes_strip()}
-    <div class="wx"><div class="ic">{wx_icon(w, 34)}</div><div class="t">{w['temp']:.1f}°C</div>
+    <div class="wx"><div class="ic">{wx_icon(w, 34)}</div><div class="t">{dec(f"{w['temp']:.1f}")}°C</div>
       <div class="d">{html.escape(' · '.join(x for x in [('' if hist and is_annual() else wlabel(w)), *wx_meta] if x))}<br><span>{wx_kind} · {html.escape(wx_source(wx))}</span></div></div>
     """)
     if cat:
@@ -5917,12 +5961,12 @@ def city_details(city: str) -> None:
     <div class="sec-title">NASA POWER · {L('UZUN VADELİ İKLİM', 'LONG-TERM CLIMATE')} ({pw['y0']}–{pw['y1']})<button class="vp-gchip" type="button" data-metric="global" title="{L('Dünya ısınıyor mu? Küresel yıllık sapma 1991–2025', 'Is the world warming? Global annual anomaly 1991–2025')}">{inline_svg('globe2', 12)}<span>{L('Küresel bağlam', 'Global context')}</span></button></div>
     <div class="power">
       <div class="pw-main clk" data-metric="power_t" role="button" tabindex="0" title="{L('Grafiği aç', 'Open chart')}"><div class="k">{L('Sıcaklık eğilimi', 'Temperature trend')}</div>
-        <div class="v">{pw['t_dec']:+.2f}<small>°C/{L('10 yıl', 'decade')}</small></div>
+        <div class="v">{dec(f"{pw['t_dec']:+.2f}")}<small>°C/{L('10 yıl', 'decade')}</small></div>
         <div class="s">{p_phrase(pw['t_p'])} · {pw_sig}</div></div>
-      <div class="pw-spark">{sparkline(pw['annual_t'])}<span>{L('yıllık ort.', 'annual mean')} {min(pw['annual_t']):.1f}–{max(pw['annual_t']):.1f} °C · {L('en sıcak', 'warmest')} {pw['warmest']}</span></div>
+      <div class="pw-spark">{sparkline(pw['annual_t'])}<span>{L('yıllık ort.', 'annual mean')} {dec(f"{min(pw['annual_t']):.1f}–{max(pw['annual_t']):.1f}")} °C · {L('en sıcak', 'warmest')} {pw['warmest']}</span></div>
       {sel_row}
-      <div class="pw-row"><span>{L('Yağış eğilimi', 'Precip. trend')} <b>{pw['p_dec_pct']:+.1f} %</b>/{L('10 yıl', 'decade')}</span>
-        <span>{L('Ort.', 'Mean')} <b>{pw['t_mean']:.1f} °C</b> · <b>{pw['prec_mean']:.0f} mm</b>/{yr}</span></div>
+      <div class="pw-row"><span>{L('Yağış eğilimi', 'Precip. trend')} <b>{dec(f"{pw['p_dec_pct']:+.1f}")} %</b>/{L('10 yıl', 'decade')}</span>
+        <span>{L('Ort.', 'Mean')} <b>{dec(f"{pw['t_mean']:.1f}")} °C</b> · <b>{pw['prec_mean']:.0f} mm</b>/{yr}</span></div>
       <div class="pw-src">{html.escape(pw['source'])}{gl('merra2')}</div>
     </div>
     <div class="sec-title">{L('ZAMAN SERİSİ', 'TIME SERIES')} · {html.escape((va['name_en' if en_ else 'name']) if va else rvar(spec))} · <span class="ts-kind {'is-real' if (real or va) else 'is-synth'}">{(L('UYDU / YER ÖLÇÜMÜ', 'SATELLITE / IN-SITU') if va.get('extra') else 'NASA POWER') if va else (L('GERÇEK VERİ', 'REAL DATA') if real else L('SENTETİK', 'SYNTHETIC'))}</span><button class="vp-gchip" type="button" data-metric="{'var' if va else 'series'}" title="{L('Grafiği büyüt', 'Enlarge chart')}" aria-label="{L('Zaman serisi grafiğini büyüt', 'Enlarge the time-series chart')}">{inline_svg('expand', 12)}<span>{L('Büyüt', 'Enlarge')}</span></button></div>

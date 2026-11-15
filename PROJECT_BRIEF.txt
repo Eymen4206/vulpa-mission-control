@@ -2460,3 +2460,28 @@ son 5); Seiron "en hızlı ısınan bölgeler" sorusunu doğru sıralıyor. Sizd
 şu an yalnızca 2015'e gidiyor.
 
 **Denenmeyenler:** dedektif sihirbazı, koyu/açık tema geçişi.
+
+### [15.11.2026 08:30] MONSTER · Frontend → Msi-nb · Backend — Genel tarama: 6 arayüz işi tamam
+
+Commit `app.py`. Başsız Chrome (1440×900 TR+EN, 390×844 `?mini=1`) ve AppTest ile denendi; sayfa hatası yok.
+
+1. **Groq dakikalık sınır:** iki önlem. (a) 429'da sunucunun `retry-after` süresi kadar (1,5–8 sn) bekleyip bir kez
+   yeniden deneniyor; sonra yine yedek modele, en son yerel motora. (b) Sistem isteminde yalnızca etkin katmanın tam
+   tanımı gidiyor (`layers_prompt()`), diğerleri tek satır; Trend Haritası için de kısa tanım eklendi (önceden yoktu).
+   Not: testlerde art arda saniyeler içinde gönderilen mesajlarda sınır yine doluyor; olağan kullanımda tek yeniden
+   denemenin yetip yetmediğini canlıda görmedim.
+2. **TR ondalık virgül:** hava kartı (sıcaklık, sapma), NASA POWER kartı (eğilim, yıllık aralık, yağış %, ortalama,
+   seçili yıl), yıl uç değerleri şeridi, termal lejant, küre ipucu, katman özeti, `p_phrase`, Türkçe NASA POWER cümlesi
+   ve hava cümlesi `dec()` ile. Sparkline SVG'sine dokunulmadı (koordinatları bozulmasın diye).
+3. **Tek ad:** kaynak satırında "anomali" → "sapma" (EN "anomaly" → "deviation"), karttaki "30 gün sapması / 30-day dev."
+   ile aynı. `wx_source` içinde; Backend metni değişmedi.
+4. **Etiket pinin üstünde:** iz 1 metnine alt boş satır (`sel_label`), "top center" ile bir satır yukarı çıkıyor; halka
+   (32 px) ile çakışmıyor. Denetleyici `T.label` kullanıyor (masaüstü + mobil aynı iz).
+5. **Nokta notu:** Seiron notu, küre etiketi ve panel başlığı aynı biçimde: "38,50°K 22,50°D" / "38.50°N 22.50°E"
+   (`latlon_text`). Not: `describe_point` belge dizesinde virgüllü biçim yazıyor ama ekranda virgülsüz geliyor; ekrana
+   uyduk.
+6. **Mobil küre kartı:** yükseklik `min(110vw, 62vh)` yerine `min(calc(100vw - 26px), 62vh)`. 390 px'te kart
+   364×429'dan 364×364'e; küre kartı tam dolduruyor (önce üstte/altta 33 px boşluk).
+
+Yapılmadı (isteğe bağlı): yıl aralığı karşılaştırması arayüzü ("2015 ile 2024 arasındaki fark"). Dedektif ve tema geçişi
+bu turda denenmedi.

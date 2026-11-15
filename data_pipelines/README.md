@@ -608,3 +608,35 @@ haritasını aç" ve "Go to Sahara, set time to July 2019 and open the trend map
 - **15.11.2026 düzeltme:** `regions_brief` sonuna tüm bölgeler için aynı ölçüyle **ısınma sıralaması** eklendi (NASA POWER
   yıllık T2M, Sen eğimi, 1991–son yıl; ilk 10 + son 5). Kısa özete geçince Seiron "en hızlı ısınan bölgeler" sorusunu
   sıralayamıyordu. Toplam ~1,1 bin token (eski 50 bölgelik özet ~1,5 bin).
+
+---
+
+## Yıl aralığı karşılaştırması ve dedektif düzeltmeleri — 15.11.2026 (Backend · Msi-nb)
+
+**B1 · `parse_ui_command(..., ranges=False)`** — yeni isteğe bağlı parametre. `ranges=True` verilirse:
+- "2015 ile 2024 arasındaki farkı göster", "compare 2015 and 2024", "2015–2024 karşılaştır", "2010'dan 2024'e değişim",
+  "from 2008 to 2023" → `"range": [2015, 2024]` (küçükten büyüğe; arşiv dışı yıllar sınıra çekilir ve `notes`'a yazılır).
+  `range` doluyken `year` / `month` doldurulmaz.
+- "karşılaştırmayı kapat", "tek yıl", "stop comparing" → `"range_off": True`.
+- Varsayılan (`ranges=False`): eski davranış (aralık cümlesi ilk yıla gider). Arayüz aralığı destekleyince `True` verin.
+- `ALLOWED_ACTIONS` içine `"range"` eklendi.
+
+**B2 · Sene ortalaması farkı (ağ isteği yok, ~0,02 sn):** `_fetch_weather(başlangıç, bitiş)` ve `_fetch_grid(başlangıç,
+bitiş)` **ay verilmezse** iki yılın sene ortalamasını karşılaştırır (`annual.json`). Ay verilirse eskisi gibi o ayın
+günü (12:00 UTC) iki yılda karşılaştırılır. Şema aynı: her bölgede `temp/pressure/wind` + `*_start` + `*_delta`;
+`delta_summary` (`mean`, `max_region`, `max`, `min_region`, `min`, sene ortalamasında ayrıca `up`, `n`), `range`,
+`start_year`, `end_year`, `start_live`, `end_live`, `delta_live`; ek: `"annual": True`, `"date": "2015–2024"`,
+`source` / `source_en`. Izgarada `temp_delta`, `pressure_delta`, `wind_delta` (numpy 11 × 24). Doğrudan çağrı için
+`_fetch_weather_annual_range(y0, y1)`, `_fetch_grid_annual_range(y0, y1)`.
+
+**B3 · `range_summary_text(result, lang="tr")`:** aralık sonucunun tek cümlesi (Seiron notu / kart). Ör. "2015 → 2024
+sene ortalaması: 104 bölgenin 85 tanesi ısındı, ortalama değişim +0,58 °C; en çok ısınan Büyük Göller Havzası
+(+2,38 °C), en çok soğuyan Okhotsk Denizi (−2,13 °C)."
+
+**B4 · Kaynak etiketi:** aralık modunda `source` artık gerçekte kullanılan kaynağı yazar ("Open-Meteo ERA5 · …"
+ya da "Meteomatics / Open-Meteo ERA5 · …"); önceden her zaman "Meteomatics" yazıyordu.
+
+**B5 · Dedektif "Buz ve kar":** yıllık ortalama kar derinliği hiç 1 cm'yi aşmayan bölgeler önerilmez (kutup bölgeleri
+hariç; ör. Madagaskar Yaylası, Meksika Vadisi elendi); kar derinliği varsa sıcaklıktan önce gelir.
+**B6 · Dedektif gerekçeleri:** `WHY_BY_TYPE` ile bölge türüne göre gerekçe (okyanus, çöl, şehir için yüzey/hava
+sıcaklığı); tropik denizlere artık "buz eriyor" yazılmaz. Kullanıcı yer türü seçtiyse yalnızca o türün gerekçesi.

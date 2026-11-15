@@ -504,9 +504,14 @@ def _fetch_weather(start_year: int = 0, end_year: int | None = None, month: int 
     - Tek yıl (geriye uyumlu): `_fetch_weather(year)` → 0 canlı veri, aksi halde o yılın bugünkü takvim günü.
     - Yıl aralığı: `_fetch_weather(start_year, end_year)` → bitiş yılının verisi + her bölge için
       `temp_delta`, `pressure_delta`, `wind_delta` (bitiş − başlangıç) ve `*_start` değerleri.
+      15.11.2026: ay verilmezse iki yılın SENE ORTALAMASI karşılaştırılır (annual.json; ağ isteği yok, "annual": True).
+      Ay verilirse o ayın günü (varsayılan 15'i, 12:00 UTC) iki yılda karşılaştırılır (arşiv istekleri).
     """
     if end_year is None:
         out = _fetch_historical_weather(start_year, month, day) if start_year else _fetch_live_weather()
+    elif not month:
+        from .annual import _fetch_weather_annual_range
+        out = _fetch_weather_annual_range(range_year(start_year), range_year(end_year))
     else:
         out = _fetch_weather_range(int(start_year), int(end_year), month, day)
     return with_source_en(out)
@@ -601,7 +606,8 @@ def _fetch_weather_range(start_year: int, end_year: int, month: int | None = Non
                           "max_region": max(vals, key=vals.get), "max": max(vals.values()),
                           "min_region": min(vals, key=vals.get), "min": min(vals.values())}
     both = s["live"] and e["live"]
-    source = range_source("Meteomatics", s, e)
+    pa, pb = s.get("provider") or "", e.get("provider") or ""
+    source = range_source(pb if pa in ("", pb) else f"{pa} / {pb}", s, e)   # gerçekte kullanılan kaynak(lar)
     return {**e, "data": data, "range": True, "year": ey, "start_year": sy, "end_year": ey,
             "start_time": s["time"], "end_time": e["time"], "start_live": s["live"], "end_live": e["live"],
             "delta_live": both, "delta_summary": summary, "source": source}
@@ -649,3 +655,40 @@ def _fetch_live_weather() -> dict:
     return {"live": True, "time": stamp, "data": data, "source": source, "provider": provider,
             "anomaly_live": anomaly_kind is not None, "anomaly_kind": anomaly_kind, "year": 0}
 
+
+
+def range_summary_text(result: dict, lang: str = "tr") -> str:
+    """Yıl aralığı sonucunun (`_fetch_weather(başlangıç, bitiş)`) tek cümlelik özeti — Seiron notu / bölge kartı için.
+
+    Ör. "2015 → 2024 sene ortalaması: 104 bölgenin 85 tanesi ısındı, ortalama değişim +0,42 °C; en çok ısınan Svalbard ve
+    Barents Denizi (+1,85 °C), en çok soğuyan Ross Buz Sahanlığı (−0,90 °C). Kaynak: NASA POWER (MERRA-2)."
+    Aralık değilse ya da özet yoksa "". İstisna fırlatmaz.
+    """
+    try:
+        if not result or not result.get("range"):
+            return ""
+        t = (result.get("delta_summary") or {}).get("temp")
+        if not t:
+            return ""
+        from .regions import REGIONS
+        en = lang == "en"
+        nm = (lambda n: (REGIONS[n].en[0] or n) if n in REGIONS else n) if en else (lambda n: n)
+        vals = [w.get("temp_delta") for w in (result.get("data") or {}).values() if w.get("temp_delta") is not None]
+        up, n = sum(1 for v in vals if v > 0), len(vals)
+        sy, ey = result.get("start_year"), result.get("end_year")
+        annual = bool(result.get("annual"))
+        est = not result.get("delta_live", True)
+
+        def f(v):
+            return f"{v:+.2f}" if en else f"{v:+.2f}".replace(".", ",").replace("-", "−")
+        if en:
+            when = f"{sy} → {ey} year average" if annual else f"{result.get('start_time')} → {result.get('end_time')} UTC"
+            text = (f"{when}: {up} of {n} regions warmed, mean change {f(t['mean'])} °C; warmed most "
+                    f"{nm(t['max_region'])} ({f(t['max'])} °C), cooled most {nm(t['min_region'])} ({f(t['min'])} °C).")
+            return text + (" One end is estimated." if est else "")
+        when = f"{sy} → {ey} sene ortalaması" if annual else f"{result.get('start_time')} → {result.get('end_time')} UTC"
+        text = (f"{when}: {n} bölgenin {up} tanesi ısındı, ortalama değişim {f(t['mean'])} °C; en çok ısınan "
+                f"{t['max_region']} ({f(t['max'])} °C), en çok soğuyan {t['min_region']} ({f(t['min'])} °C).")
+        return text + (" Bir uç tahminidir." if est else "")
+    except Exception:
+        return ""

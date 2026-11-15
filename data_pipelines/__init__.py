@@ -13,7 +13,7 @@ from .power import MIN_TREND_YEARS, POWER_FIRST_YEAR, _fetch_power, _power_simul
 from .regions import CITY_NAMES, REGION_LIST, REGIONS, Region
 from .real_series import KINDS, REAL_SOURCES, real_series, series_meta, theme_type_label
 from .credits import CREDITS, data_credits
-from .annual import _fetch_grid_annual, _fetch_weather_annual
+from .annual import _fetch_grid_annual, _fetch_grid_annual_range, _fetch_weather_annual, _fetch_weather_annual_range
 from .climatology import climatology_anomaly, expected_temp, grid_normals, normal_values, region_normals
 from .series import analyze, build_series, synthetic_series
 from .commands import ALLOWED_ACTIONS, parse_ui_command, switch_message, time_text
@@ -33,7 +33,7 @@ from .variables import (
 from .extras import GLOSSARY, data_status, glossary, region_export, season_shift, warming_ranking, warming_stripes
 from .weather import (
     DELTA_FIELDS, MM_SYMBOLS, WEATHER_CODES, _fallback_weather, _fetch_historical_weather, _fetch_live_weather,
-    _fetch_weather, _fetch_weather_range, _merge_mm, _open_meteo_cities, describe_code, describe_symbol,
+    _fetch_weather, _fetch_weather_range, _merge_mm, range_summary_text, _open_meteo_cities, describe_code, describe_symbol,
     meteomatics_auth, meteomatics_daily_anomaly, meteomatics_now, mm_time, range_year, source_status,
 )
 
@@ -43,7 +43,7 @@ __all__ = [
     # Meteomatics
     "meteomatics_auth", "meteomatics_now", "meteomatics_daily_anomaly", "mm_time",
     # bölgelerin hava verisi
-    "_fetch_live_weather", "_fetch_historical_weather", "_fetch_weather", "_fallback_weather",
+    "_fetch_live_weather", "_fetch_historical_weather", "_fetch_weather", "range_summary_text", "_fallback_weather",
     "_open_meteo_cities", "_merge_mm", "describe_code", "describe_symbol", "WEATHER_CODES", "MM_SYMBOLS",
     # yıl aralığı (delta) — 14.11.2026
     "_fetch_weather_range", "_fetch_grid_range", "range_year", "DELTA_FIELDS",
@@ -52,7 +52,7 @@ __all__ = [
     # veri kaynakları ve atıflar (Credits paneli)
     "data_credits", "CREDITS",
     # sene ortalaması (Frontend "Sene Ortalaması" seçeneği)
-    "_fetch_weather_annual", "_fetch_grid_annual",
+    "_fetch_weather_annual", "_fetch_grid_annual", "_fetch_weather_annual_range", "_fetch_grid_annual_range",
     # iklim normalleri (NASA POWER) — gerçekçi yedek ve "iklim normaline göre sapma"
     "region_normals", "normal_values", "expected_temp", "grid_normals", "climatology_anomaly",
     # Seiron arayüz komutları (zaman, dil, Credits, grafik) ve grafik penceresi verisi

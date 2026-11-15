@@ -157,10 +157,19 @@ def _fetch_grid(start_year: int = 0, end_year: int | None = None, month: int | N
     """
     if end_year is None:
         out = _fetch_historical_grid(start_year, month, day) if start_year else _fetch_live_grid()
+    elif not month:   # 15.11.2026: ay yoksa sene ortalaması farkı (annual.json, ağ isteği yok)
+        from .annual import _fetch_grid_annual_range
+        out = _fetch_grid_annual_range(range_year(start_year), range_year(end_year))
     else:
         out = _fetch_grid_range(int(start_year), int(end_year), month, day)
     from .weather import with_source_en
     return with_source_en(out)
+
+
+def _provider(s: dict, e: dict) -> str:
+    """Aralık uçlarında gerçekte kullanılan kaynak ("Meteomatics", "Open-Meteo ERA5" ya da ikisi)."""
+    pa, pb = (str(x.get("source", "")).split(" · ")[0] for x in (s, e))
+    return pb if pa in ("", pb) else f"{pa} / {pb}"
 
 
 def _fetch_grid_range(start_year: int, end_year: int, month: int | None = None, day: int | None = None) -> dict:
@@ -176,7 +185,7 @@ def _fetch_grid_range(start_year: int, end_year: int, month: int | None = None, 
     both = s["live"] and e["live"]
     out.update({"range": True, "start_year": sy, "end_year": ey, "start_time": s["time"], "end_time": e["time"],
                 "start_live": s["live"], "end_live": e["live"], "delta_live": both,
-                "source": range_source("Meteomatics", s, e)})
+                "source": range_source(_provider(s, e), s, e)})
     return out
 
 

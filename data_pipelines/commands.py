@@ -16,7 +16,7 @@ from .config import LAST_FULL_YEAR, NOW
 from .regions import REGIONS
 
 # Seiron'un dokunabileceği arayüz durumları (başka hiçbir şey).
-ALLOWED_ACTIONS = ("year", "month", "lang", "panel", "chart", "reset_view")
+ALLOWED_ACTIONS = ("year", "month", "lang", "panel", "chart", "reset_view", "range")
 DEFAULT_YEARS = tuple(range(LAST_FULL_YEAR, LAST_FULL_YEAR - 20, -1))   # app.py YEAR_OPTIONS ile aynı (0 hariç)
 
 MONTHS_TR = ("ocak", "şubat", "mart", "nisan", "mayıs", "haziran", "temmuz", "ağustos", "eylül", "ekim", "kasım",
@@ -55,6 +55,12 @@ CLOSE_WORDS = ("kapat", "gizle", "close", "hide", "dismiss")
 OPEN_WORDS = ("aç", "göster", "getir", "open", "show", "display")
 RESET_WORDS = ("görünümü sıfırla", "kamerayı sıfırla", "haritayı sıfırla", "başa dön", "ilk görünüm",
                "reset view", "reset camera", "reset the view", "reset map")
+
+# Yıl aralığı karşılaştırması ("2015 ile 2024 arasındaki fark", "compare 2015 and 2024", "2015–2024")
+RANGE_WORDS = ("arası", "arasında", "arasındaki", "fark", "karşılaştır", "kıyasla", "kıyas", "değişim", "between",
+               "compare", "comparison", "difference", "versus", "vs", "change")
+RANGE_OFF_WORDS = ("aralığı kapat", "karşılaştırmayı kapat", "karşılaştırmadan çık", "farkı kapat", "tek yıl",
+                   "stop comparing", "exit comparison", "close comparison", "single year")
 
 # Sağ paneldeki değerler → metric_chart() anahtarı
 CHART_WORDS = {
@@ -109,7 +115,7 @@ def _note(tr: str, en: str, lang: str) -> str:
 
 
 def parse_ui_command(text: str, year: int = 0, month: int = 0, lang: str = "tr",
-                     years: tuple[int, ...] | list[int] | None = None) -> dict:
+                     years: tuple[int, ...] | list[int] | None = None, ranges: bool = False) -> dict:
     """Sohbet metnindeki arayüz komutlarını çözer.
 
     Giriş: kullanıcı metni ve arayüzün o anki durumu (year: 0 = canlı, month: 0 = sene ortalaması, lang "tr"/"en").
@@ -121,19 +127,23 @@ def parse_ui_command(text: str, year: int = 0, month: int = 0, lang: str = "tr",
        "day": int|None (bilgi: metinde gün geçtiyse; arayüz ayın 15'ini kullanır),
        "lang": "tr"|"en"|None, "panel": "credits_open"|"credits_close"|None,
        "chart": "tau"|"p"|"slope"|"power_t"|None, "reset_view": bool,
+       "range": [başlangıç, bitiş]|None (iki yıl karşılaştırması; varsa "year"/"month" doldurulmaz). Yalnızca
+                `ranges=True` verilirse çözülür (geriye uyum: arayüz aralığı desteklemeden önce eski davranış sürer),
+       "range_off": bool (karşılaştırmadan çık),
        "notes": [str] (seçili dilde kısa açıklamalar: ne yapıldı / neden yapılamadı)}
     İstisna fırlatmaz.
     """
     out = {"matched": False, "denied": False, "year": None, "month": None, "day": None, "lang": None,
-           "panel": None, "chart": None, "reset_view": False, "notes": []}
+           "panel": None, "chart": None, "reset_view": False, "range": None, "range_off": False, "notes": []}
     try:
         return _parse(text, int(year or 0), int(month or 0), "en" if lang == "en" else "tr",
-                      tuple(years) if years else DEFAULT_YEARS, out)
+                      tuple(years) if years else DEFAULT_YEARS, out, bool(ranges))
     except Exception:
         return out
 
 
-def _parse(text: str, year: int, month: int, lang: str, years: tuple[int, ...], out: dict) -> dict:
+def _parse(text: str, year: int, month: int, lang: str, years: tuple[int, ...], out: dict,
+           ranges: bool = False) -> dict:
     q = _lower(text)
     if not q.strip():
         return out
@@ -177,6 +187,25 @@ def _parse(text: str, year: int, month: int, lang: str, years: tuple[int, ...], 
     # ── Zaman
     new_year, new_month = None, None
     yrs = [int(m) for m in re.findall(_B + r"((?:19|20)\d{2})" + _E, q)]
+
+    # ── Yıl aralığı (iki farklı yıl + karşılaştırma sözcüğü, "2015–2024" ya da "2015'ten 2024'e")
+    if ranges and any(w in q for w in RANGE_OFF_WORDS):
+        out["range_off"] = True
+    distinct = list(dict.fromkeys(yrs))
+    dash = re.search(_B + r"(?:19|20)\d{2}\s*[-–—]\s*(?:19|20)\d{2}" + _E, q)
+    from_to = re.search(r"(?:19|20)\d{2}['’]?\s*(?:den|dan|ten|tan)\s+(?:19|20)\d{2}", q) or         re.search(_B + r"from\s+(?:19|20)\d{2}\s+to\s+(?:19|20)\d{2}", q)
+    if ranges and len(distinct) >= 2 and (_has(q, RANGE_WORDS) or dash or from_to):
+        a, b = sorted(distinct[:2])
+        ca, cb = min(max(a, lo), hi), min(max(b, lo), hi)
+        if ca < cb:
+            out["range"] = [ca, cb]
+            if (ca, cb) != (a, b):
+                notes.append(_note(f"Arşiv {lo}–{hi} yıllarını kapsıyor; karşılaştırma {ca}–{cb} olarak yapıldı.",
+                                   f"The archive covers {lo}–{hi}; the comparison uses {ca}–{cb}.", lang))
+        else:
+            notes.append(_note(f"Karşılaştırma için {lo}–{hi} arşivinden iki farklı yıl gerekiyor.",
+                               f"A comparison needs two different years within the {lo}–{hi} archive.", lang))
+        return _done(out)
     mon = _month_in(q)
     if any(re.search(_B + re.escape(w), q) for w in LIVE_WORDS) or (verb and _has(q, LIVE_SOFT) and not yrs):
         new_year, new_month = 0, 0
@@ -261,7 +290,7 @@ def _parse(text: str, year: int, month: int, lang: str, years: tuple[int, ...], 
 
 def _done(out: dict) -> dict:
     # Not varsa da eşleşmiş say: ör. "2099'a git" hiçbir şeyi değiştirmez ama kullanıcıya nedenini söylemek gerekir.
-    out["matched"] = bool(out["denied"] or out["reset_view"] or out["notes"]
+    out["matched"] = bool(out["denied"] or out["reset_view"] or out.get("range_off") or out["notes"]
                           or any(out[k] is not None for k in ALLOWED_ACTIONS if k != "reset_view"))
     return out
 

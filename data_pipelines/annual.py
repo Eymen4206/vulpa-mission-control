@@ -188,3 +188,57 @@ def fetch_with_retry(lat: float, lon: float, tries: int = 6) -> dict | None:
         except Exception:
             time.sleep(3)
     return None
+
+
+# ── Yıl aralığı: iki yılın SENE ORTALAMASI farkı (15.11.2026) ─────────────────────────────────────────────────────
+# "2015 ile 2024 arasındaki fark" sorusu tek bir günün (12:00 UTC) havasıyla yanıtlanırsa günlük hava gürültüsü baskın
+# olur. Sene ortalamaları annual.json'da hazır: ağ isteği yok, kota yok, anında döner. Şema `_fetch_weather_range` ile
+# aynıdır (`*_start`, `*_delta`, `delta_summary`, `range`, `delta_live`); ek alan: "annual": True.
+def _fetch_weather_annual_range(start_year: int, end_year: int) -> dict:
+    from .weather import DELTA_FIELDS, _delta
+    sy, ey = sorted((int(start_year), int(end_year)))
+    s, e = _fetch_weather_annual(sy), _fetch_weather_annual(ey)
+    data, deltas = {}, {f: {} for f in DELTA_FIELDS}
+    for name, w_end in e["data"].items():
+        w = dict(w_end)
+        w_start = s["data"].get(name, {})
+        for f in DELTA_FIELDS:
+            w[f"{f}_start"] = w_start.get(f)
+            w[f"{f}_delta"] = _delta(w_start.get(f), w_end.get(f))
+            if w[f"{f}_delta"] is not None:
+                deltas[f][name] = w[f"{f}_delta"]
+        data[name] = w
+    summary = {}
+    for f, vals in deltas.items():
+        if vals:
+            summary[f] = {"mean": round(float(np.mean(list(vals.values()))), 2),
+                          "max_region": max(vals, key=vals.get), "max": max(vals.values()),
+                          "min_region": min(vals, key=vals.get), "min": min(vals.values()),
+                          "up": sum(1 for v in vals.values() if v > 0), "n": len(vals)}
+    both = bool(s["live"] and e["live"])
+    est = "" if both else " · bir uç iklim normali (tahmini)"
+    est_en = "" if both else " · one end is the climate normal (estimated)"
+    return {**e, "data": data, "range": True, "annual": True, "year": ey, "start_year": sy, "end_year": ey,
+            "start_time": str(sy), "end_time": str(ey), "start_live": s["live"], "end_live": e["live"],
+            "delta_live": both, "delta_summary": summary, "date": f"{sy}–{ey}",
+            "source": f"NASA POWER (MERRA-2) · {sy} → {ey} sene ortalaması farkı{est}",
+            "source_en": f"NASA POWER (MERRA-2) · {sy} → {ey} year-average difference{est_en}"}
+
+
+def _fetch_grid_annual_range(start_year: int, end_year: int) -> dict:
+    """15° ızgarada iki yılın sene ortalaması farkı: `temp_delta`, `pressure_delta`, `wind_delta` (numpy 11 × 24) ve
+    `*_start`. Şema `grid._fetch_grid_range` ile aynı; ağ isteği yok."""
+    sy, ey = sorted((int(start_year), int(end_year)))
+    s, e = _fetch_grid_annual(sy), _fetch_grid_annual(ey)
+    out = dict(e)
+    for f in ("temp", "pressure", "wind"):
+        out[f"{f}_start"] = s[f]
+        out[f"{f}_delta"] = np.round(np.asarray(e[f], dtype=float) - np.asarray(s[f], dtype=float), 2)
+    both = bool(s["live"] and e["live"])
+    out.update({"range": True, "annual": True, "start_year": sy, "end_year": ey, "start_time": str(sy),
+                "end_time": str(ey), "start_live": s["live"], "end_live": e["live"], "delta_live": both,
+                "date": f"{sy}–{ey}",
+                "source": f"NASA POWER (MERRA-2) · {sy} → {ey} sene ortalaması farkı" + ("" if both else " · tahmini"),
+                "source_en": f"NASA POWER (MERRA-2) · {sy} → {ey} year-average difference" + ("" if both else
+                                                                                            " · estimated")})
+    return out

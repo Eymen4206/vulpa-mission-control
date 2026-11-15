@@ -114,6 +114,22 @@ TOPICS = {
 }
 PERIODS = {"10": (10, ("Son 10 yıl", "Last 10 years")), "25": (25, ("Son 25 yıl", "Last 25 years"))}
 
+# Bölge türüne göre gerekçe (değişkenin genel gerekçesi her yere uymuyor: tropik denize "buz eriyor" yazılmamalı)
+WHY_BY_TYPE: dict[tuple[str, str], tuple[str, str]] = {
+    ("TS", "ocean"): ("Deniz yüzeyi ısındıkça mercanlar ve deniz yaşamı strese girer, fırtınalar daha çok enerji alır.",
+                      "A warmer sea surface stresses corals and marine life and gives storms more energy."),
+    ("TS", "desert"): ("Çıplak çöl yüzeyi gündüz çok hızlı ısınır; yüzey sıcaklığı aşırı sıcakların erken göstergesidir.",
+                       "Bare desert ground heats very fast by day; skin temperature is an early sign of extreme heat."),
+    ("TS", "city"): ("Asfalt ve beton yüzeyi havadan sıcak tutar; kentsel ısı adasını en iyi yüzey sıcaklığı gösterir.",
+                     "Asphalt and concrete keep the surface hotter than the air; skin temperature shows the urban heat "
+                     "island best."),
+    ("T2M", "ocean"): ("Okyanus üstündeki hava ısındıkça daha çok nem taşır; fırtınaların yakıtı artar.",
+                       "Warmer air over the ocean carries more moisture, adding fuel to storms."),
+    ("T2M", "city"): ("Kentlerde ısı adası etkisi küresel ısınmaya eklenir; ısınma daha hızlı olabilir.",
+                      "In cities the heat-island effect adds to global warming, so warming can be faster."),
+}
+SNOW_MIN_CM = 1.0   # "Buz ve kar" önerilerinde: yıllık ortalama kar derinliği hiç bunu aşmayan bölge kar bölgesi sayılmaz
+
 
 def detective_questions(lang: str = "tr") -> list[dict]:
     """Sihirbazın 3 sorusu: [{"id", "question", "options": [{"value", "label"}]}]."""
@@ -170,6 +186,13 @@ def detective_suggest(answers: dict, lang: str = "tr", k: int = 4) -> list[dict]
         return []
     keys = TOPICS.get(topic, TOPICS["unsure"])[1]
     regions = [r.name for r in REGION_LIST if place in ("any", None) or place in REGION_TYPES.get(r.name, ())]
+    if topic == "ice":   # kar almayan bölgeler (ör. Madagaskar Yaylası) buz/kar konusunda önerilmez; kutup bölgeleri kalır
+        snap = (load_regionvars().get("regions") or {})
+
+        def snowy(reg):
+            vals = [x for x in (snap.get(reg) or {}).get("SNODP") or [] if x is not None]
+            return (max(vals) if vals else 0.0) >= SNOW_MIN_CM or "polar" in REGION_TYPES.get(reg, ())
+        regions = [r for r in regions if snowy(r)]
     cands = []
     for reg in regions:
         types = REGION_TYPES.get(reg, ())
@@ -180,6 +203,8 @@ def detective_suggest(answers: dict, lang: str = "tr", k: int = 4) -> list[dict]
             if pv is None:
                 continue
             score = (2 if pv["significant"] else 0) + abs(pv["tau"]) + (0.5 if fit else 0)
+            if topic == "ice" and key == "SNODP":
+                score += 0.7   # buz/kar konusunda kar derinliği (varsa) sıcaklıktan önce gelir
             cands.append((score, reg, key, pv, fit))
     cands.sort(key=lambda c: c[0], reverse=True)
     out, used = [], set()
@@ -199,7 +224,12 @@ def detective_suggest(answers: dict, lang: str = "tr", k: int = 4) -> list[dict]
                ("significant" if pv["significant"] else "not yet significant"))[i]
         name = (v[5], v[6])[i]
         rname = spec.name if i == 0 else (spec.en[0] or spec.name)
-        why = (v[9], v[10])[i]
+        rtypes = REGION_TYPES.get(reg, ())
+        if place in rtypes:   # kullanıcı yer türü seçtiyse yalnızca o türün gerekçesi (yoksa genel gerekçe)
+            ptype = place if (key, place) in WHY_BY_TYPE else None
+        else:                 # "fark etmez": bölgenin türlerinden uygun olan
+            ptype = next((t for t in rtypes if (key, t) in WHY_BY_TYPE), None)
+        why = WHY_BY_TYPE[(key, ptype)][i] if ptype else (v[9], v[10])[i]
         reason = (f"{rname} ({tname}): {why}" if i == 0 else f"{rname} ({tname}): {why}")
         sentence = (f"{rname} · {name}: on yılda {val.replace('.', ',')} {unit} ({pv['years'][0]}–{pv['years'][1]}, {sig})."
                     if i == 0 else

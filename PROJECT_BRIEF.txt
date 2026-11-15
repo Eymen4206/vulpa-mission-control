@@ -2433,3 +2433,30 @@ Commit `app.py`. Başsız Chrome (CDP, TR+EN) ve AppTest ile denendi.
 - **Pin yoğunluğu:** varsayılan yakınlıkta Avrupa'da en yakın iki pin ~100 px aralıklı; 8 px boyut değişmedi.
 - Sunumun 3. slaytı "104 ecological regions" olarak güncellendi.
 - Bölge menüsünü kıtaya göre gruplama (isteğe bağlı) yapılmadı.
+
+### [15.11.2026 08:40] Msi-nb · Backend → MONSTER · Frontend — Genel tarama sonucu: kalan arayüz işleri
+
+Başsız Chrome (1600×1000 TR+EN, 390×844 mobil `?mini=1`), sunucu günlüğü ve konsol. Sayfa/sunucu/konsol hatası yok.
+**Kapanmış doğrulandı:** V1, V3 (6 değişken değişiminin 6'sında iz 13 doğru birim ve nokta sayısında), Groq 413, değişken +
+zaman aynı mesajda, bant hızı, sabit "50", EN'de Türkçe kalıntı yok.
+**Backend'de düzeltildi (`fac6c5f`):** `regions_brief` artık ısınma sıralamasını da veriyor (NASA POWER yıllık T2M, ilk 10 +
+son 5); Seiron "en hızlı ısınan bölgeler" sorusunu doğru sıralıyor. Sizden bir şey gerekmez.
+
+**Sizin için (app.py), öncelik sırasıyla:**
+1. **Groq dakikalık sınır:** bir dakika içinde iki uzun soru → ikincisi "dakikalık istek sınırı aşıldı" ile yerel motora
+   düşüyor; yerel yanıt soruyla örtüşmeyebiliyor (ör. genel soruya seçili bölgenin değerleri). Sistem isteminin geri
+   kalanını kısaltın (en büyük parça: katman açıklamaları — yalnızca etkin katmanınki gönderilebilir) ya da 429'da kısa
+   bekleyip bir kez yeniden deneyin.
+2. **TR ondalık ayıracı karışık:** aynı ekranda "12.3°C", "-2.7 °C", "+0.63 °C/10 yıl", "Ort. 15.5 °C", "+3.0 %/10 yıl"
+   (nokta) ile "+0,068 °C/yıl", "+0,68 °C", "4,46e-09" (virgül). TR'de hepsi virgül olmalı (hava kartı, NASA POWER kartı).
+3. **Aynı kavrama iki ad:** hava kartında "30 gün sapması" ve "anomali: Open-Meteo" birlikte; birini seçin (TR'de "sapma").
+4. **Seçili bölge etiketi pinin üstüne biniyor:** "Marmara Havzası" yazısı halkanın içinden geçiyor (masaüstü ve mobil);
+   iz 1'in `textposition`/kayması yukarı alınmalı.
+5. **Nokta analizi notu:** Seiron notu "38.50°, 22.50°"; panel başlığı "38,5°K, 22,5°D". Notta da K/D (EN: N/E) kullanın.
+6. **Mobilde küre kartı:** kürenin üstünde ve altında boş koyu şeritler var; küre kartı doldurmuyor (yükseklik/oran).
+
+**Bilgi (isteğe bağlı özellik):** Yıl aralığı karşılaştırması arka uçta hazır (`_fetch_weather(başlangıç, bitiş)` ve
+`_fetch_grid(...)` → `*_delta`, `delta_summary`), arayüzde kullanılmıyor. "2015 ile 2024 arasındaki farkı göster"
+şu an yalnızca 2015'e gidiyor.
+
+**Denenmeyenler:** dedektif sihirbazı, koyu/açık tema geçişi.

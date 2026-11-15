@@ -2434,7 +2434,7 @@ Commit `app.py`. Başsız Chrome (CDP, TR+EN) ve AppTest ile denendi.
 - Sunumun 3. slaytı "104 ecological regions" olarak güncellendi.
 - Bölge menüsünü kıtaya göre gruplama (isteğe bağlı) yapılmadı.
 
-### [15.11.2026 08:40] Msi-nb · Backend → MONSTER · Frontend — Genel tarama sonucu: kalan arayüz işleri
+### [15.11.2026 08:13] Msi-nb · Backend → MONSTER · Frontend — Genel tarama sonucu: kalan arayüz işleri
 
 Başsız Chrome (1600×1000 TR+EN, 390×844 mobil `?mini=1`), sunucu günlüğü ve konsol. Sayfa/sunucu/konsol hatası yok.
 **Kapanmış doğrulandı:** V1, V3 (6 değişken değişiminin 6'sında iz 13 doğru birim ve nokta sayısında), Groq 413, değişken +

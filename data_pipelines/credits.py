@@ -329,9 +329,31 @@ LICENSE_EN = {
     "ref-santer": "Scientific reference", "ref-weatherhead": "Scientific reference",
     "ref-challenge": "Challenge statement",
 }
+# Kayıt adlarının İngilizcesi (EN arayüzde Türkçe ad kalıyordu; jüri videosu kaydında görüldü). "name" Türkçe kalır.
+NAME_EN = {
+    "ersst": "NOAA ERSST v5 (via ERDDAP)",
+    "noaa-gml-co2": "Mauna Loa CO₂ (monthly mean)",
+    "natural-earth": "Natural Earth (Plotly base map)",
+    "libraries": "Open-source libraries",
+    "warming-stripes": "Warming Stripes — visualisation concept",
+    "nasa-power-monthly": "NASA POWER — monthly endpoint (15 variables)",
+    "ref-mann-kendall": "Seasonal Mann-Kendall test and Sen slope",
+    "ref-gilbert": "95% confidence interval for the Sen slope",
+    "ref-santer": "Autocorrelation-corrected t-test",
+    "ref-weatherhead": "Years needed for significance",
+    "psmsl": "PSMSL — Permanent Service for Mean Sea Level (RLR monthly)",
+    "gpm-imerg": "GPM IMERG V07 (monthly)",
+    "gldas": "GLDAS-2.1 Noah (monthly)",
+    "airs": "AIRS v7 L3 monthly (Aqua)",
+    "omi-no2": "OMI/Aura OMNO2d (daily L3)",
+    "modis-ndvi": "MODIS Terra MOD13C2 v061 (monthly NDVI)",
+}
+PROVIDER_EN = {"libraries": "Community"}
 for _c in CREDITS:
     _c["license_tr"] = _c["license"]
     _c["license_en"] = LICENSE_EN.get(_c["id"], _c["license"])
+    _c["name_tr"], _c["name_en"] = _c["name"], NAME_EN.get(_c["id"], _c["name"])
+    _c["provider_en"] = PROVIDER_EN.get(_c["id"], _c["provider"])
 
 DISCLAIMER_TR = ("{n} bölgenin {real}'ü gerçek ölçüm/yeniden analiz verisine dayanır. Kalan {synthetic} bölgenin tema "
                  "serisi (yangın hava indeksi, NDVI, deniz seviyesi, PM2.5, buzul alanı, yeraltı suyu, kar örtüsü) anahtarsız "

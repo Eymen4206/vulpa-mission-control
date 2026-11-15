@@ -4659,7 +4659,8 @@ def render_credits() -> None:
                 extra += f"<div class='c'>{esc(it['citation'])}</div>"
             items.append(
                 f"<div class='vp-src'><a class='n' href='{esc(it['url'], quote=True)}' target='_blank' "
-                f"rel='noopener noreferrer'>{esc(it['name'])} ↗</a><div class='p'>{esc(it['provider'])}</div>"
+                f"rel='noopener noreferrer'>{esc(it.get('name_en') if en and it.get('name_en') else it['name'])} ↗</a>"
+                f"<div class='p'>{esc(it.get('provider_en') if en and it.get('provider_en') else it['provider'])}</div>"
                 f"<div class='u'>{esc(it['used_for_en'] if en else it['used_for_tr'])}</div>"
                 f"<div class='l'>{L('Lisans / koşul', 'License / terms')}: "
                 f"{esc(it.get('license_en' if en else 'license_tr') or it.get('license', ''))}</div>{extra}</div>")

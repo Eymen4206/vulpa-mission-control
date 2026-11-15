@@ -2749,7 +2749,9 @@ html.vp-credits-open .vp-credits { transform: translateY(0); visibility: visible
 .vp-credits-foot { margin-top: 8px; padding: 12px 14px; border-radius: 12px; font-size: .74rem; line-height: 1.6;
   color: #d6d3d1; background: rgba(249,115,22,.07); border: 1px solid var(--line); }
 .m-right { display: inline-flex; align-items: center; gap: .45rem; }
-@media (max-width: 640px) { .vp-credits-panel { padding: 18px 16px 32px; } .vp-credits-title { font-size: 1.35rem; } }
+@media (max-width: 640px) { .vp-credits-panel { padding: 18px 16px 32px; } .vp-credits-title { font-size: 1.35rem; }
+  .vp-credits-head { align-items: flex-start; } .vp-credits-head > div { flex: 1 1 auto; min-width: 0; }
+  .vp-credits-close { flex: none; padding: .35rem .6rem; } .vp-credits-close kbd { display: none; } }
 /* ── Ayarlar: dişli düğmesi ve modal bölümleri ─────────────────────────────── */
 .st-key-gear button { width: 34px; height: 34px; min-height: 34px !important; padding: 0 !important; border-radius: 50% !important;
   background: rgba(28,25,23,.62) !important; border: 1px solid var(--line-strong) !important; backdrop-filter: blur(14px);
@@ -3084,7 +3086,7 @@ MOBILE_CSS = """
 /* Küre sekmesi */
 .st-key-globe_panel { position: relative; background: var(--glass); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
 /* Küre yüksekliği ekrana göre: telefonda ~ekran genişliği, uzun ekranlarda en fazla görünür yüksekliğin %62'si */
-div:has(> .st-key-globe_panel), .st-key-globe_panel { height: clamp(300px, min(calc(100vw - 26px), 62vh), 640px) !important; flex: none !important; }
+div:has(> .st-key-globe_panel), .st-key-globe_panel { height: clamp(240px, min(calc(100vw - 26px), 62vh, calc(100dvh - 400px)), 640px) !important; flex: none !important; }
 .st-key-globe_panel [data-testid="stElementContainer"]:has(> .stPlotlyChart), .st-key-globe_panel .stPlotlyChart,
 .st-key-globe_panel [data-testid="stPlotlyChart"] { height: 100% !important; width: 100% !important; }
 div:has(> .stHtml .globe-ctl), .stHtml:has(.globe-ctl) { position: static !important; }
@@ -3113,6 +3115,15 @@ div:has(> .stHtml .globe-ctl), .stHtml:has(.globe-ctl) { position: static !impor
   background: rgba(249,115,22,.06) !important; color: #fed7aa !important; min-height: 1.7rem !important; }
 .st-key-suggestions button p { font-size: .72rem !important; }
 .facts { grid-template-columns: repeat(2, minmax(0,1fr)); }
+/* Seiron mobil: mesaj kutusu ekran boyuna göre (yazı alanı ilk ekranda görünsün); öneriler tek satırda yana kayar */
+.st-key-mobile_seiron div:has(> .st-key-seiron_msgs), .st-key-mobile_seiron .st-key-seiron_msgs {
+  height: clamp(170px, calc(100dvh - 510px), 640px) !important; max-height: none !important; flex: none !important;
+  -webkit-mask-image: linear-gradient(transparent, #000 14px); mask-image: linear-gradient(transparent, #000 14px); }
+.st-key-suggestions { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px;
+  -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); }
+.st-key-suggestions::-webkit-scrollbar { display: none; }
+.st-key-suggestions > div { flex: none !important; width: auto !important; }
+.st-key-suggestions button { white-space: nowrap !important; }
 </style>
 """
 
@@ -6729,6 +6740,10 @@ def is_mobile() -> bool:
     return bool(MOBILE_UA.search(user_agent))
 
 
+def _noop() -> None:
+    """Durum izlemesi için boş geri çağırma (st.tabs on_change)."""
+
+
 def render_mobile() -> None:
     """Mini VULPA — telefonlar için sekmeli görünüm: 3D Küre · Seiron AI · Telemetri & QR."""
     st.markdown(MOBILE_CSS, unsafe_allow_html=True)
@@ -6749,8 +6764,10 @@ def render_mobile() -> None:
     with st.container(key="m_controls", horizontal=True, gap="small", vertical_alignment="center"):
         render_year_control()
         render_gear()
+    # Sekme durumu izlenir (key + geri çağırma): Seiron yanıtı ya da bir grafik penceresi uygulamayı yeniden
+    # çalıştırınca kullanıcı bulunduğu sekmede kalır (önceden 3D Küre'ye dönüyordu).
     tab_globe, tab_ai, tab_data = st.tabs([L("3D Küre", "3D Globe"), "Seiron AI",
-                                           L("Telemetri", "Telemetry")])
+                                           L("Telemetri", "Telemetry")], key=f"m_tabs_{lang()}", on_change=_noop)
     with tab_globe:
         # Mobil: küre yüksekliği ekran boyuna göre CSS'te belirlenir (clamp), grafik kabı doldurur.
         # Katman seçici kürenin altına, sabit yükseklikli kutunun dışına konur (kesilmesin).

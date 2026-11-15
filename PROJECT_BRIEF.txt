@@ -2790,3 +2790,16 @@ Jüri videosu kaydında gpt-oss-120b ve qwen'in günlük token kotası doldu, Se
   değerleri ipucunun üstüne çiziliyordu (her kart kendi yığın bağlamında; ipucu z-index'i kart dışına taşamıyordu).
 - `app.py` CSS: ipucu açıkken kart öne alınır (`.fact:has(.gl:hover/.gl:focus)`, `.pw-main` aynı; `z-index: 60`);
   `.gl-tip` arka planı tam opak (#14110f). Denendi: tarayıcıda p-değeri ipucu temiz okunuyor; AppTest hatasız.
+
+### [15.11.2026 15:15] MONSTER · Backend + Frontend — Mobil optimizasyon (Mini VULPA)
+
+Telefon boyutlarında (375×812 ve 360×640) tüm ekranlar tarandı: küre, Seiron, Telemetri, ipuçları, grafik
+penceresi, Ayarlar, Credits. Bulunan ve düzeltilen sorunlar (`app.py`, yalnızca mobil görünüm / dar ekran):
+- HATA: Seiron'a soru sorulunca yanıt gelince sekme 3D Küre'ye dönüyordu (yanıt görünmüyordu). `st.tabs` artık
+  durum izliyor (`key=m_tabs_<dil>`, `on_change=_noop`); kullanıcı bulunduğu sekmede kalır.
+- Seiron sekmesi: mesaj kutusu sabit 430 px idi, yazı alanı ilk ekranın dışındaydı. Yükseklik ekran boyuna göre
+  (`clamp(170px, 100dvh − 510px, 640px)`, dış kap dahil); öneri düğmeleri tek satırda yana kayar; üstte yumuşak geçiş.
+- Küre sekmesi: kısa ekranlarda (640 px) katman düğmeleri ekran dışındaydı; küre yüksekliğine `100dvh − 400px` sınırı.
+- Credits başlığı (≤640 px): Kapat düğmesi küçüldü, Esc ipucu gizlendi, başlık sıkışmıyor.
+Denendi: tarayıcıda 360×640'ta katman düğmeleri ve Seiron yazı alanı ilk ekranda; Seiron yanıtı sonrası sekme
+korunuyor; masaüstü görünümü değişmedi; AppTest (masaüstü + ?mini=1) hatasız.

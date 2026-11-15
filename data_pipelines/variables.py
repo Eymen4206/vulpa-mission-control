@@ -436,7 +436,8 @@ def build_analysis(head: dict, s: dict) -> dict:
     dec, p = a["sen"]["per_decade"], a["mk"]["p"]
     fmt = (lambda x: f"{x:+.2g}") if abs(dec) < 0.01 else ((lambda x: f"{x:+.3f}") if abs(dec) < 0.1 else (lambda x: f"{x:+.2f}"))
     unit_tr = "birim (0–1 ölçeği)" if unit == "0–1" else unit
-    unit_en = "units (0–1 scale)" if unit == "0–1" else unit.replace("mm/ay", "mm/month").replace("gün", "day")
+    unit_en = head.get("unit_en") or ("units (0–1 scale)" if unit == "0–1" else
+                                      unit.replace("mm/ay", "mm/month").replace("gün", "day").replace("cm su", "cm water"))
     sig_tr = "anlamlı" if a["mk"]["significant"] else "anlamlı değil"
     sig_en = "significant" if a["mk"]["significant"] else "not significant"
     p_s = "p < 0,001" if p < 0.001 else f"p = {p:.3f}".replace(".", ",")

@@ -2783,3 +2783,10 @@ Jüri videosu kaydında gpt-oss-120b ve qwen'in günlük token kotası doldu, Se
 
 - `app.py` `set_page_config`: `page_icon` 🐺 emojisi yerine VULPA kurt logosu (`logo(64, "fav")` SVG; Streamlit
   SVG metnini data URL favicon'a çevirir). Denendi: tarayıcıda favicon SVG data URL, 64×64 görüntüleniyor; AppTest hatasız.
+
+### [15.11.2026 14:55] MONSTER · Backend + Frontend — Bilgi ipuçlarının üstüne kart binmesi düzeltildi
+
+- Sorun: sağ paneldeki istatistik kartlarında (p-değeri, Kendall τ, Sen eğimi…) ⓘ ipucu açılınca sonraki kartların
+  değerleri ipucunun üstüne çiziliyordu (her kart kendi yığın bağlamında; ipucu z-index'i kart dışına taşamıyordu).
+- `app.py` CSS: ipucu açıkken kart öne alınır (`.fact:has(.gl:hover/.gl:focus)`, `.pw-main` aynı; `z-index: 60`);
+  `.gl-tip` arka planı tam opak (#14110f). Denendi: tarayıcıda p-değeri ipucu temiz okunuyor; AppTest hatasız.

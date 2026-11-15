@@ -2815,10 +2815,12 @@ html.vp-picking .st-key-globe_panel .js-plotly-plot, html.vp-picking .st-key-glo
 .gl { position: relative; display: inline-flex; margin-left: .25rem; color: var(--muted); vertical-align: -.1em; cursor: help; outline: none; }
 .gl:hover, .gl:focus-visible { color: var(--orange); }
 .gl-tip { display: none; position: absolute; top: calc(100% + 6px); left: -8px; z-index: 40; width: 230px;
-  max-width: calc(100vw - 32px); padding: .5rem .6rem; border-radius: 10px; background: rgba(20,17,15,.96);
+  max-width: calc(100vw - 32px); padding: .5rem .6rem; border-radius: 10px; background: #14110f;
   backdrop-filter: blur(14px); border: 1px solid var(--line-strong); color: #e7e5e4; font: 400 .7rem/1.45 'Inter', sans-serif;
   text-transform: none; letter-spacing: 0; white-space: normal; box-shadow: 0 10px 26px rgba(0,0,0,.45); }
 .gl:hover .gl-tip, .gl:focus .gl-tip { display: block; }
+/* İpucu açıkken kartı öne al: sonraki kartlar (kendi yığın bağlamlarıyla) ipucunun üstüne çizilmesin */
+.fact:has(.gl:hover), .fact:has(.gl:focus), .pw-main:has(.gl:hover), .pw-main:has(.gl:focus) { position: relative; z-index: 60; }
 .facts .fact:nth-child(3n) .gl-tip { left: auto; right: -8px; }
 .facts .fact:nth-child(3n+2) .gl-tip { left: 50%; transform: translateX(-50%); }
 .pw-src .gl-tip { top: auto; bottom: calc(100% + 6px); }
